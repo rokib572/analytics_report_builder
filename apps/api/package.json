@@ -1,0 +1,30 @@
+{
+  "name": "@analytics/api",
+  "private": true,
+  "main": "src/api-client.ts",
+  "types": "src/api-client.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0"
+  },
+  "dependencies": {
+    "hono": "latest",
+    "@hono/node-server": "latest",
+    "@hono/zod-validator": "latest",
+    "node-cron": "latest",
+    "better-auth": "latest",
+    "@analytics/database": "workspace:*",
+    "@analytics/square": "workspace:*",
+    "@analytics/data-sync": "workspace:*",
+    "@analytics/validators": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "typescript": "^5",
+    "@types/node": "latest",
+    "@types/node-cron": "latest"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@analytics/data-sync",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@analytics/database": "workspace:*",
+    "@analytics/square": "workspace:*"
+  },
+  "devDependencies": {
+    "square": "^44.0.0",
+    "typescript": "^5"
+  }
+}

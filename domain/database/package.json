@@ -1,0 +1,22 @@
+{
+  "name": "@analytics/database",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "drizzle-orm": "latest",
+    "postgres": "latest",
+    "ulidx": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^25.4.0",
+    "drizzle-kit": "latest",
+    "typescript": "^5"
+  }
+}

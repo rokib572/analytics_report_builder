@@ -1,0 +1,41 @@
+{
+  "name": "@analytics/ui",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0"
+  },
+  "dependencies": {
+    "@analytics/ui-shared": "workspace:*",
+    "@analytics/validators": "workspace:*",
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
+    "@hookform/resolvers": "latest",
+    "@tanstack/react-query": "^5",
+    "better-auth": "latest",
+    "hono": "latest",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-hook-form": "latest",
+    "recharts": "latest",
+    "wouter": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@analytics/api": "workspace:^",
+    "@types/node": "^25.4.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "latest",
+    "autoprefixer": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "typescript": "^5",
+    "vite": "latest"
+  }
+}

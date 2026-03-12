@@ -1,0 +1,13 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "daemon": false,
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "dev": { "cache": false, "persistent": true, "interactive": true },
+    "lint": { "dependsOn": ["^build"] },
+    "lint:fix": { "dependsOn": ["^build"] },
+    "db:generate": { "cache": false },
+    "db:migrate": { "cache": false }
+  }
+}
