@@ -21,8 +21,14 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
+  trustedOrigins: ["http://localhost:5173"],
   emailAndPassword: {
     enabled: true,
+  },
+  account: {
+    accountLinking: {
+      enabled: false,
+    },
   },
   databaseHooks: {
     user: {

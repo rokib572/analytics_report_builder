@@ -8,7 +8,7 @@ const app = new Hono()
   .use(
     "*",
     cors({
-      origin: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
+      origin: "http://localhost:5173",
       allowHeaders: ["Content-Type", "Authorization"],
       allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
       credentials: true,
