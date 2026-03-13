@@ -78,9 +78,10 @@ export const SignupRoute = () => {
 
     if (!onboardingRes.ok) {
       setError("Account created but failed to save business details")
+      return
     }
 
-    Router.push("Home")
+    Router.push("Login")
   }
 
   return (
