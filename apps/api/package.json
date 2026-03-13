@@ -11,20 +11,21 @@
     "lint:fix": "eslint . --fix --max-warnings 0"
   },
   "dependencies": {
-    "hono": "latest",
-    "@hono/node-server": "latest",
-    "@hono/zod-validator": "latest",
-    "node-cron": "latest",
-    "better-auth": "latest",
+    "@analytics/data-sync": "workspace:*",
     "@analytics/database": "workspace:*",
     "@analytics/square": "workspace:*",
-    "@analytics/data-sync": "workspace:*",
-    "@analytics/validators": "workspace:*"
+    "@analytics/validators": "workspace:*",
+    "@hono/node-server": "latest",
+    "@hono/zod-validator": "latest",
+    "better-auth": "latest",
+    "hono": "latest",
+    "node-cron": "latest",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "tsx": "latest",
-    "typescript": "^5",
     "@types/node": "latest",
-    "@types/node-cron": "latest"
+    "@types/node-cron": "latest",
+    "tsx": "latest",
+    "typescript": "^5"
   }
 }
