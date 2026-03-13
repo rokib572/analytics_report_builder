@@ -1,5 +1,17 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import { and, eq } from "drizzle-orm"
+import type { DbClient } from "../../../db/client"
+import { users } from "../schema"
 
-export async function updateUser(_db: PostgresJsDatabase, _id: string, _data: unknown) {
-  // TODO: implement
+export const updateUser = async (
+  db: DbClient,
+  customerId: string,
+  id: string,
+  data: { name?: string; role?: string; isActive?: boolean },
+) => {
+  const [user] = await db
+    .update(users)
+    .set({ ...data, updatedAt: new Date() })
+    .where(and(eq(users.customerId, customerId), eq(users.id, id)))
+    .returning()
+  return user ?? null
 }

@@ -1,5 +1,9 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-export async function findWebhookLogByEventId(_db: PostgresJsDatabase, _eventId: string) {
-  // TODO: implement — used for idempotency check
+export const findWebhookLogByEventId = async (
+  _db: PostgresJsDatabase,
+  _customerId: string,
+  _eventId: string,
+) => {
+  // TODO: implement — used for idempotency check, filter by customerId
 }

@@ -1,5 +1,6 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../db/client"
+import { customers } from "../schema"
 
-export async function listCustomers(_db: PostgresJsDatabase) {
-  // TODO: implement
+export const listCustomers = async (db: DbClient) => {
+  return db.select().from(customers)
 }

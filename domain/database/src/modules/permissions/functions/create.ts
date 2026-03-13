@@ -1,5 +1,9 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-export const upsertPermission = async (_db: PostgresJsDatabase, _data: unknown) => {
-  // TODO: implement
+export const upsertPermission = async (
+  _db: PostgresJsDatabase,
+  _customerId: string,
+  _data: unknown,
+) => {
+  // TODO: implement — set customerId on insert/update
 }

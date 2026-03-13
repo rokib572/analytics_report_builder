@@ -1,5 +1,7 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../db/client"
+import { customers } from "../schema"
 
-export async function createCustomer(_db: PostgresJsDatabase, _data: unknown) {
-  // TODO: implement
+export const createCustomer = async (db: DbClient, data: { name: string; slug: string }) => {
+  const [customer] = await db.insert(customers).values(data).returning()
+  return customer
 }
