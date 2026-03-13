@@ -1,5 +1,5 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-export async function createOrder(_db: PostgresJsDatabase, _data: unknown) {
-  // TODO: implement
+export const createOrder = async (_db: PostgresJsDatabase, _customerId: string, _data: unknown) => {
+  // TODO: implement — verify locationId belongs to customerId before insert
 }

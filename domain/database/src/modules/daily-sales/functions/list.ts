@@ -1,5 +1,9 @@
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
 
-export async function listDailySales(_db: PostgresJsDatabase, _locationId: string) {
-  // TODO: implement
+export const listDailySales = async (
+  _db: PostgresJsDatabase,
+  _customerId: string,
+  _locationId: string,
+) => {
+  // TODO: implement — join locations to verify customerId ownership
 }

@@ -13,6 +13,7 @@ export const users = authSchema.table(
     name: varchar("name", { length: 255 }).notNull(),
     role: varchar("role", { length: 50 }).notNull().default("member"),
     isActive: boolean("is_active").notNull().default(true),
+    betterAuthUserId: varchar("better_auth_user_id", { length: 255 }).unique(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
