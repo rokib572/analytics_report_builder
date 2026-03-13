@@ -1,7 +1,20 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
+import { auth } from "./lib/auth"
+import { authMiddleware } from "./middleware/auth"
 
-const app = new Hono().use("*", cors({ origin: process.env.API_URL! }))
+const app = new Hono()
+  .use(
+    "*",
+    cors({
+      origin: process.env.BETTER_AUTH_URL ?? "http://localhost:5173",
+      allowHeaders: ["Content-Type", "Authorization"],
+      allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
+      credentials: true,
+    }),
+  )
+  .on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw))
+  .use("/api/*", authMiddleware)
 // .route("/api/locations", locationsRouter)
 // .route("/api/sales", salesRouter)
 // .route("/api/sync", syncRouter)
