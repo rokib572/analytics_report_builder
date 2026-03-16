@@ -3,11 +3,11 @@ import { squareClient } from "../client"
 
 const BATCH_SIZE = 10 // Square max locationIds per search call
 
-export async function batchSearchOrders(
+export const batchSearchOrders = async (
   locationIds: string[],
   startAt: string,
   endAt: string,
-): Promise<Square.Order[]> {
+): Promise<Square.Order[]> => {
   const chunks: string[][] = []
   for (let i = 0; i < locationIds.length; i += BATCH_SIZE) {
     chunks.push(locationIds.slice(i, i + BATCH_SIZE))

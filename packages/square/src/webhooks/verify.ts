@@ -1,10 +1,10 @@
 import { WebhooksHelper } from "square"
 
-export async function verifySquareWebhook(params: {
+export const verifySquareWebhook = async (params: {
   requestBody: string
   signatureHeader: string
   notificationUrl: string
-}): Promise<boolean> {
+}): Promise<boolean> => {
   return WebhooksHelper.verifySignature({
     requestBody: params.requestBody,
     signatureHeader: params.signatureHeader,
