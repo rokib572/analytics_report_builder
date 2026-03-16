@@ -8,7 +8,8 @@ export const createAppIntegration = async (
   customerId: string,
   data: {
     appName: string
-    appKey: string
+    appKey?: string
+    appSecret: string
     environment: string
     label?: string
   },
@@ -23,6 +24,7 @@ export const createAppIntegration = async (
     const updated = await updateAppIntegration(db, existing.id, {
       appName: data.appName,
       appKey: data.appKey,
+      appSecret: data.appSecret,
       environment: data.environment,
       label: data.label,
     })

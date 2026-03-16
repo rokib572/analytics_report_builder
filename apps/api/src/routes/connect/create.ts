@@ -11,7 +11,9 @@ const createRouter = new Hono<AuthEnv>().post(
   "/square",
   zValidator("json", ConnectSquareSchema),
   async (context) => {
-    const { accessToken, environment } = context.req.valid("json")
+    // accessKye is optional and to be used only for apps requiring both appId and secretKey (like Facebook Conversions API).
+    // For Square, we can ignore it but still keep it optional in case we want to use it in the future for other integrations.
+    const { accessToken, environment, accessKey } = context.req.valid("json")
     const customerId = context.get("customerId")
 
     // Verify the token works by fetching locations from Square
@@ -28,7 +30,8 @@ const createRouter = new Hono<AuthEnv>().post(
     // Store (or update existing) integration
     const integration = await createAppIntegration(db, customerId, {
       appName: SQUARE_APP_NAME,
-      appKey: accessToken,
+      appKey: accessKey,
+      appSecret: accessToken,
       environment,
       label: "Square POS",
     })
