@@ -29,6 +29,13 @@
       "when": 1773637301897,
       "tag": "0003_mysterious_fat_cobra",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773656788900,
+      "tag": "0004_brainy_namor",
+      "breakpoints": true
     }
   ]
 }

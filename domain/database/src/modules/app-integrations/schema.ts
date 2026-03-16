@@ -10,7 +10,8 @@ export const appIntegrations = authSchema.table(
       .notNull()
       .references(() => customers.id),
     appName: varchar("app_name", { length: 100 }).notNull(),
-    appKey: text("app_key").notNull(),
+    appKey: text("app_key"),
+    appSecret: text("app_secret").notNull(),
     environment: varchar("environment", { length: 20 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
     label: varchar("label", { length: 255 }),

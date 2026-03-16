@@ -16,6 +16,7 @@ export const AppIntegrationSchema = z.object({
 
 export const ConnectSquareSchema = z.object({
   accessToken: z.string().min(1, "Access token is required"),
+  accessKey: z.string().optional(),
   environment: AppIntegrationEnvironmentSchema.default("sandbox"),
 })
 

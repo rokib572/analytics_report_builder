@@ -5,13 +5,20 @@ import { appIntegrations } from "../schema"
 export const updateAppIntegration = async (
   db: DbClient,
   appIntegrationId: string,
-  data: { appName: string; appKey: string; environment: string; label?: string },
+  data: {
+    appName: string
+    appKey?: string
+    appSecret: string
+    environment: string
+    label?: string
+  },
 ) => {
-  const { appKey, environment, label } = data
+  const { appKey, appSecret, environment, label } = data
   const [updated] = await db
     .update(appIntegrations)
     .set({
       appKey,
+      appSecret,
       environment,
       label,
       isActive: true,
