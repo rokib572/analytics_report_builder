@@ -1,4 +1,4 @@
-export { squareClient } from "./client"
+export { createSquareClient } from "./client"
 export { fetchAllLocations } from "./locations/list"
 export { batchSearchOrders } from "./orders/search"
 export { verifySquareWebhook } from "./webhooks/verify"

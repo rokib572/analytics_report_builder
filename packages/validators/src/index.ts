@@ -1,6 +1,6 @@
 export * from "./customer"
 export * from "./user"
-export * from "./api-key"
+export * from "./app-integration"
 export * from "./permission"
 export * from "./location"
 export * from "./sales"
