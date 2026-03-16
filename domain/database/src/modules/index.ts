@@ -1,6 +1,6 @@
 export * from "./auth-sessions"
 export * from "./customers"
-export * from "./api-keys"
+export * from "./app-integrations"
 export * from "./permissions"
 export * from "./saved-reports"
 export * from "./users"

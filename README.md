@@ -48,9 +48,10 @@ Copy `.env.example` to `.env` at the project root and fill in the values.
 
 ### `domain/database`
 
-| Variable       | Required | Description                                                       |
-| -------------- | -------- | ----------------------------------------------------------------- |
-| `DATABASE_URL` | Yes      | PostgreSQL connection string (used by Drizzle Kit for migrations) |
+| Variable       | Required | Description                                                                        |
+| -------------- | -------- | ---------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Yes      | PostgreSQL connection string (used by Drizzle Kit for migrations)                  |
+| `DATABASE_SSL` | No       | SSL mode override: `false`, `true`, `prefer`, `require`, `allow`, or `verify-full` |
 
 ### `packages/square`
 
