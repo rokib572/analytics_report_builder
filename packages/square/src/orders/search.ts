@@ -1,9 +1,9 @@
-import type { Square } from "square"
-import { squareClient } from "../client"
+import type { Square, SquareClient } from "square"
 
 const BATCH_SIZE = 10 // Square max locationIds per search call
 
 export const batchSearchOrders = async (
+  client: SquareClient,
   locationIds: string[],
   startAt: string,
   endAt: string,
@@ -16,7 +16,7 @@ export const batchSearchOrders = async (
   const results = await Promise.all(
     chunks.map(async (chunk) => {
       const orders: Square.Order[] = []
-      const response = await squareClient.orders.search({
+      const response = await client.orders.search({
         locationIds: chunk,
         query: {
           filter: {

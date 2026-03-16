@@ -3,6 +3,7 @@ import { cors } from "hono/cors"
 import { auth } from "./lib/auth"
 import { authMiddleware } from "./middleware/auth"
 import onboardingRouter from "./routes/onboarding"
+import connectRouter from "./routes/connect"
 
 const app = new Hono()
   .use(
@@ -17,6 +18,7 @@ const app = new Hono()
   .on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw))
   .use("/api/*", authMiddleware)
   .route("/api/onboarding", onboardingRouter)
+  .route("/api/connect", connectRouter)
 // .route("/api/locations", locationsRouter)
 // .route("/api/sales", salesRouter)
 // .route("/api/sync", syncRouter)

@@ -1,7 +1,6 @@
-import type { Square } from "square"
-import { squareClient } from "../client"
+import type { Square, SquareClient } from "square"
 
-export const fetchAllLocations = async (): Promise<Square.Location[]> => {
-  const response = await squareClient.locations.list()
+export const fetchAllLocations = async (client: SquareClient): Promise<Square.Location[]> => {
+  const response = await client.locations.list()
   return response.locations ?? []
 }
