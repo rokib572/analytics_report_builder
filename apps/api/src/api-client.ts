@@ -3,7 +3,7 @@ import { cors } from "hono/cors"
 import { auth } from "./lib/auth"
 import { authMiddleware } from "./middleware/auth"
 import onboardingRouter from "./routes/onboarding"
-import connectRouter from "./routes/connect"
+import connectRouter from "./routes/square/connect"
 
 const app = new Hono()
   .use(

@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { getAppIntegrationByAppName } from "@analytics/database"
-import { db } from "../../lib/db"
-import type { AuthEnv } from "../../middleware/auth"
+import { db } from "../../../lib/db"
+import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
 
 const getRouter = new Hono<AuthEnv>().get("/square", async (context) => {

@@ -3,8 +3,8 @@ import { zValidator } from "@hono/zod-validator"
 import { ConnectSquareSchema } from "@analytics/validators"
 import { createAppIntegration } from "@analytics/database"
 import { createSquareClient, fetchAllLocations } from "@analytics/square"
-import { db } from "../../lib/db"
-import type { AuthEnv } from "../../middleware/auth"
+import { db } from "../../../lib/db"
+import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
 
 const createRouter = new Hono<AuthEnv>().post(

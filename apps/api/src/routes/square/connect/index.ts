@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import type { AuthEnv } from "../../middleware/auth"
+import type { AuthEnv } from "../../../middleware/auth"
 import createRouter from "./create"
 import getRouter from "./get"
 import deleteRouter from "./delete"
