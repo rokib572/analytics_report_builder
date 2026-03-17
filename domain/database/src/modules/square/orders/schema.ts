@@ -1,5 +1,5 @@
 import { varchar, bigint, jsonb, timestamp, date, index } from "drizzle-orm/pg-core"
-import { coreSchema, foreignKey, primaryKey } from "../../db/base"
+import { coreSchema, foreignKey, primaryKey } from "../../../db/base"
 import { locations } from "../locations/schema"
 
 export const orders = coreSchema.table(

@@ -1,5 +1,5 @@
 import { varchar, bigint, date, index } from "drizzle-orm/pg-core"
-import { coreSchema, primaryKey, foreignKey } from "../../db/base"
+import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { orders } from "../orders/schema"
 import { locations } from "../locations/schema"
 

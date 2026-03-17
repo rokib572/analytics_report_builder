@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm"
 import { varchar, bigint, integer, timestamp, date, unique, index } from "drizzle-orm/pg-core"
-import { coreSchema, primaryKey, foreignKey } from "../../db/base"
+import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { locations } from "../locations/schema"
 
 export const dailySales = coreSchema.table(

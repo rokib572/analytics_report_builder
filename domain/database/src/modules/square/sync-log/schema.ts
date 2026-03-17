@@ -1,5 +1,5 @@
 import { varchar, integer, timestamp, date } from "drizzle-orm/pg-core"
-import { auditSchema, foreignKey, primaryKey } from "../../db/base"
+import { auditSchema, foreignKey, primaryKey } from "../../../db/base"
 import { locations } from "../locations/schema"
 
 export const syncLog = auditSchema.table("sync_log", {
