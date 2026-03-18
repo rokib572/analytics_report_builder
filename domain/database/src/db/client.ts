@@ -6,7 +6,7 @@ export const getDbClient = (
   connectionString: string,
   options: {
     logQueries?: boolean
-    ssl?: boolean
+    ssl?: boolean | "require" | "allow" | "prefer" | "verify-full"
     maxConnections?: number
     connectionTimeout?: number
     idleTimeout?: number
