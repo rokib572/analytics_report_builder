@@ -12,15 +12,15 @@ export const getAppIntegrationByAppName = async (
 ) => {
   const { customerId, appName, includeDisabled = false } = query
 
-  const [integration] = await db
-    .select()
-    .from(appIntegrations)
-    .where(
-      and(
-        eq(appIntegrations.customerId, customerId),
-        eq(appIntegrations.appName, appName),
-        eq(appIntegrations.isActive, !includeDisabled),
-      ),
-    )
+  let conditions = and(
+    eq(appIntegrations.customerId, customerId),
+    eq(appIntegrations.appName, appName),
+  )
+
+  if (!includeDisabled) {
+    conditions = and(conditions, eq(appIntegrations.isActive, true))
+  }
+
+  const [integration] = await db.select().from(appIntegrations).where(conditions)
   return integration ?? null
 }

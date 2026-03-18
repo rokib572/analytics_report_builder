@@ -1,25 +1,25 @@
 import { Hono } from "hono"
-import { updateCustomer } from "@analytics/database"
+import { createAppIntegration } from "@analytics/database"
 import { db } from "../../lib/db"
 import type { AuthEnv } from "../../middleware/auth"
 import { schema } from "./input.schema"
 import { schemaValidator } from "../../middleware/schema-validator"
 
-const onboardingRouter = new Hono<AuthEnv>().post(
+const createRouter = new Hono<AuthEnv>().post(
   "/",
   schemaValidator("json", schema),
   async (context) => {
     const data = context.req.valid("json")
     const customerId = context.get("customerId")
 
-    const customer = await updateCustomer(db, customerId, data)
+    const appIntegrationData = await createAppIntegration(db, customerId, data)
 
-    if (!customer) {
-      return context.json({ error: "Customer not found" }, 404)
+    if (!appIntegrationData) {
+      return context.json({ error: "Something went wrong" }, 404)
     }
 
-    return context.json({ success: true })
+    return context.json({ success: true, data: appIntegrationData })
   },
 )
 
-export default onboardingRouter
+export default createRouter

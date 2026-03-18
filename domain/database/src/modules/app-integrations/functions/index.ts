@@ -1,4 +1,5 @@
 export * from "./create"
-export * from "./deactivate"
+export * from "./toggle-status"
 export * from "./get.by-app-name"
 export * from "./list"
+export * from "./get.by-id"

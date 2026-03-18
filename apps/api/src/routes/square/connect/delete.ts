@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { deactivateAppIntegration, getAppIntegrationByAppName } from "@analytics/database"
+import { toggleAppIntegrationStatus, getAppIntegrationByAppName } from "@analytics/database"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
@@ -13,7 +13,7 @@ const deleteRouter = new Hono<AuthEnv>().delete("/square", async (context) => {
     return context.json({ error: "No Square integration found" }, 404)
   }
 
-  await deactivateAppIntegration(db, { customerId, appIntegrationId: integration.id })
+  await toggleAppIntegrationStatus(db, { customerId, appIntegrationId: integration.id })
 
   return context.json({ success: true })
 })
