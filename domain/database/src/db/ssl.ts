@@ -34,6 +34,5 @@ export const resolvePostgresClientSsl = (
   connectionString: string,
   override = process.env.DATABASE_SSL,
 ) => {
-  const sslMode = resolveDrizzleSslMode(connectionString, override)
-  return sslMode === false ? false : true
+  return resolveDrizzleSslMode(connectionString, override)
 }
