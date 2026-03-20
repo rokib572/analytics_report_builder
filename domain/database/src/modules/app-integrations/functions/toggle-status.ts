@@ -13,6 +13,6 @@ export const toggleAppIntegrationStatus = async (
     .where(
       and(eq(appIntegrations.customerId, customerId), eq(appIntegrations.id, appIntegrationId)),
     )
-    .returning({ id: appIntegrations.id })
+    .returning({ id: appIntegrations.id, isActive: appIntegrations.isActive })
   return integration ?? null
 }
