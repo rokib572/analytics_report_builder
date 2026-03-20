@@ -22,5 +22,5 @@ export const getAppIntegrationByAppName = async (
   }
 
   const [integration] = await db.select().from(appIntegrations).where(conditions)
-  return integration ?? null
+  return [integration]
 }

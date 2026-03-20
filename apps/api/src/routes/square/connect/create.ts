@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { schemaValidator } from "../../../middleware/schema-validator"
 import { ConnectSquareSchema } from "@analytics/validators"
 import { createAppIntegration } from "@analytics/database"
-import { createSquareClient, retrieveAccessTokenStatus } from "@analytics/square"
+import { createSquareClient } from "@analytics/square"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
@@ -19,7 +19,7 @@ const createSquareConnectionRouter = new Hono<AuthEnv>().post(
     // Verify the token works by fetching locations from Square
     const squareClient = createSquareClient(accessToken, environment)
     try {
-      const accessTokenStatus = await retrieveAccessTokenStatus(squareClient)
+      const accessTokenStatus = await squareClient.oAuth.retrieveTokenStatus()
       if (!accessTokenStatus || !accessTokenStatus.clientId) {
         return context.json(
           { error: "Invalid Square access token. Could not connect to Square API." },

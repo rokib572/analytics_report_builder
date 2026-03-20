@@ -4,27 +4,30 @@ import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
 
-const getRouter = new Hono<AuthEnv>().get("/square", async (context) => {
+const getSquareConnectionRouter = new Hono<AuthEnv>().get("/", async (context) => {
   const customerId = context.get("customerId")
 
-  const integration = await getAppIntegrationByAppName(db, { customerId, appName: SQUARE_APP_NAME })
+  const integrationList = await getAppIntegrationByAppName(db, {
+    customerId,
+    appName: SQUARE_APP_NAME,
+  })
 
-  if (!integration) {
-    return context.json({ connected: false })
+  if (!integrationList) {
+    return context.json({ success: false })
   }
 
   return context.json({
-    connected: true,
-    integration: {
-      id: integration.id,
-      appName: integration.appName,
-      environment: integration.environment,
-      isActive: integration.isActive,
-      label: integration.label,
-      createdAt: integration.createdAt,
-      updatedAt: integration.updatedAt,
-    },
+    success: true,
+    integration: integrationList.map((i) => ({
+      id: i.id,
+      appName: i.appName,
+      environment: i.environment,
+      isActive: i.isActive,
+      label: i.label,
+      createdAt: i.createdAt,
+      updatedAt: i.updatedAt,
+    })),
   })
 })
 
-export default getRouter
+export default getSquareConnectionRouter
