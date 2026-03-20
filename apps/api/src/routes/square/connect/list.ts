@@ -4,7 +4,7 @@ import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
 
-const getSquareConnectionRouter = new Hono<AuthEnv>().get("/", async (context) => {
+const listSquareConnectionRouter = new Hono<AuthEnv>().get("/", async (context) => {
   const customerId = context.get("customerId")
 
   const integrationList = await getAppIntegrationByAppName(db, {
@@ -30,4 +30,4 @@ const getSquareConnectionRouter = new Hono<AuthEnv>().get("/", async (context) =
   })
 })
 
-export default getSquareConnectionRouter
+export default listSquareConnectionRouter
