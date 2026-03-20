@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm"
+import { eq, and, not } from "drizzle-orm"
 import type { DbClient } from "../../../db/client"
 import { appIntegrations } from "../schema"
 
@@ -9,7 +9,7 @@ export const toggleAppIntegrationStatus = async (
   const { customerId, appIntegrationId } = query
   const [integration] = await db
     .update(appIntegrations)
-    .set({ isActive: !appIntegrations.isActive, updatedAt: new Date() })
+    .set({ isActive: not(appIntegrations.isActive), updatedAt: new Date() })
     .where(
       and(eq(appIntegrations.customerId, customerId), eq(appIntegrations.id, appIntegrationId)),
     )
