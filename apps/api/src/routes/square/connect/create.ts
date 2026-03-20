@@ -1,15 +1,15 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
+import { schemaValidator } from "../../../middleware/schema-validator"
 import { ConnectSquareSchema } from "@analytics/validators"
 import { createAppIntegration } from "@analytics/database"
-import { createSquareClient, fetchAllLocations } from "@analytics/square"
+import { createSquareClient, retrieveAccessTokenStatus } from "@analytics/square"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 const SQUARE_APP_NAME = "square"
 
-const createRouter = new Hono<AuthEnv>().post(
-  "/square",
-  zValidator("json", ConnectSquareSchema),
+const createSquareConnectionRouter = new Hono<AuthEnv>().post(
+  "/",
+  schemaValidator("json", ConnectSquareSchema),
   async (context) => {
     // accessKye is optional and to be used only for apps requiring both appId and secretKey (like Facebook Conversions API).
     // For Square, we can ignore it but still keep it optional in case we want to use it in the future for other integrations.
@@ -17,9 +17,30 @@ const createRouter = new Hono<AuthEnv>().post(
     const customerId = context.get("customerId")
 
     // Verify the token works by fetching locations from Square
-    const client = createSquareClient(accessToken, environment)
+    const squareClient = createSquareClient(accessToken, environment)
     try {
-      await fetchAllLocations(client)
+      const accessTokenStatus = await retrieveAccessTokenStatus(squareClient)
+      if (!accessTokenStatus || !accessTokenStatus.clientId) {
+        return context.json(
+          { error: "Invalid Square access token. Could not connect to Square API." },
+          400,
+        )
+      }
+
+      const scopes = accessTokenStatus.scopes || []
+      if (
+        !scopes.includes("MERCHANT_PROFILE_READ") &&
+        !scopes.includes("ORDERS_READ") &&
+        !scopes.includes("PAYMENTS_READ")
+      ) {
+        return context.json(
+          {
+            error:
+              "Insufficient permissions for the provided Square access token. Please ensure it has the MERCHANT_PROFILE_READ, ORDERS_READ and PAYMENTS_READ scope.",
+          },
+          400,
+        )
+      }
     } catch {
       return context.json(
         { error: "Invalid Square access token. Could not connect to Square API." },
@@ -54,4 +75,4 @@ const createRouter = new Hono<AuthEnv>().post(
   },
 )
 
-export default createRouter
+export default createSquareConnectionRouter
