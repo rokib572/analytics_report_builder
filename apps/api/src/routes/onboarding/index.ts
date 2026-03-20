@@ -1,13 +1,13 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
 import { updateCustomer } from "@analytics/database"
 import { db } from "../../lib/db"
 import type { AuthEnv } from "../../middleware/auth"
 import { schema } from "./input.schema"
+import { schemaValidator } from "../../middleware/schema-validator"
 
 const onboardingRouter = new Hono<AuthEnv>().post(
   "/",
-  zValidator("json", schema),
+  schemaValidator("json", schema),
   async (context) => {
     const data = context.req.valid("json")
     const customerId = context.get("customerId")

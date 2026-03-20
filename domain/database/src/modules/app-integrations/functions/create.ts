@@ -1,33 +1,31 @@
 import type { DbClient } from "../../../db/client"
 import { appIntegrations } from "../schema"
 import { getAppIntegrationByAppName } from "./get.by-app-name"
+import type { CreateAppIntegrationInput } from "./types"
 import { updateAppIntegration } from "./update"
 
 export const createAppIntegration = async (
   db: DbClient,
   customerId: string,
-  data: {
-    appName: string
-    appKey?: string
-    appSecret: string
-    environment: string
-    label?: string
-  },
+  data: CreateAppIntegrationInput,
 ) => {
+  const { appName, appKey, appSecret, environment, label } = data
+
   const existing = await getAppIntegrationByAppName(db, {
     customerId,
-    appName: data.appName,
+    appName,
     includeDisabled: true,
   })
 
   if (existing) {
     const updated = await updateAppIntegration(db, existing.id, {
-      appName: data.appName,
-      appKey: data.appKey,
-      appSecret: data.appSecret,
-      environment: data.environment,
-      label: data.label,
+      appName,
+      appKey,
+      appSecret,
+      environment,
+      label,
     })
+
     return updated ?? null
   }
 
