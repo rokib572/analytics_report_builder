@@ -1,17 +1,9 @@
 import { DomainError } from "@analytics/shared-libs"
 import { createSquareClient } from "@analytics/square"
 
-export const validateTokenStatus = async ({
-  accessToken,
-  environment,
-  customerId,
-}: {
-  accessToken: string
-  environment: string
-  customerId: string
-}) => {
+export const validateTokenStatus = async ({ customerId }: { customerId: string }) => {
   // Verify the token works by fetching locations from Square
-  const squareClient = createSquareClient(accessToken, environment)
+  const squareClient = await createSquareClient(customerId)
   try {
     const accessTokenStatus = await squareClient.oAuth.retrieveTokenStatus()
     if (!accessTokenStatus || !accessTokenStatus.clientId) {

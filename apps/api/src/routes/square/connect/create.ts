@@ -6,6 +6,7 @@ import { ConnectSquareSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 import { validateTokenStatus } from "./create.validate-token-status"
+
 const SQUARE_APP_NAME = "square"
 
 const createSquareConnectionRouter = new Hono<AuthEnv>().post(
@@ -18,7 +19,7 @@ const createSquareConnectionRouter = new Hono<AuthEnv>().post(
     const customerId = context.get("customerId")
 
     // Verify the token has required permissions and can connect to Square API
-    await validateTokenStatus({ accessToken, environment, customerId })
+    await validateTokenStatus({ customerId })
 
     // Store integration
     const integration = await createAppIntegration(db, customerId, {
