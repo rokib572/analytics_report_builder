@@ -177,15 +177,24 @@ importers:
 
   domain/database:
     dependencies:
+      "@analytics/shared-libs":
+        specifier: workspace:*
+        version: link:../../packages/shared-libs
       drizzle-orm:
         specifier: latest
         version: 0.45.1(kysely@0.28.11)(postgres@3.4.8)
+      drizzle-zod:
+        specifier: latest
+        version: 0.8.3(drizzle-orm@0.45.1(kysely@0.28.11)(postgres@3.4.8))(zod@4.3.6)
       postgres:
         specifier: latest
         version: 3.4.8
       ulidx:
         specifier: latest
         version: 2.4.1
+      zod:
+        specifier: latest
+        version: 4.3.6
     devDependencies:
       "@types/node":
         specifier: ^25.4.0
@@ -2814,6 +2823,15 @@ packages:
         optional: true
       sqlite3:
         optional: true
+
+  drizzle-zod@0.8.3:
+    resolution:
+      {
+        integrity: sha512-66yVOuvGhKJnTdiqj1/Xaaz9/qzOdRJADpDa68enqS6g3t0kpNkwNYjUuaeXgZfO/UWuIM9HIhSlJ6C5ZraMww==,
+      }
+    peerDependencies:
+      drizzle-orm: ">=0.36.0"
+      zod: ^3.25.0 || ^4.0.0
 
   dunder-proto@1.0.1:
     resolution:
@@ -5752,6 +5770,11 @@ snapshots:
     optionalDependencies:
       kysely: 0.28.11
       postgres: 3.4.8
+
+  drizzle-zod@0.8.3(drizzle-orm@0.45.1(kysely@0.28.11)(postgres@3.4.8))(zod@4.3.6):
+    dependencies:
+      drizzle-orm: 0.45.1(kysely@0.28.11)(postgres@3.4.8)
+      zod: 4.3.6
 
   dunder-proto@1.0.1:
     dependencies:

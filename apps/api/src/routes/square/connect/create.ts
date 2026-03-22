@@ -1,33 +1,26 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
-import { ConnectSquareSchema } from "@analytics/validators"
+import { validator } from "hono/validator"
 import { createAppIntegration } from "@analytics/database"
-import { createSquareClient, fetchAllLocations } from "@analytics/square"
+import { DomainError } from "@analytics/shared-libs"
+import { ConnectSquareSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
+import { validateTokenStatus } from "./create.validate-token-status"
 const SQUARE_APP_NAME = "square"
 
-const createRouter = new Hono<AuthEnv>().post(
-  "/square",
-  zValidator("json", ConnectSquareSchema),
+const createSquareConnectionRouter = new Hono<AuthEnv>().post(
+  "/",
+  validator("json", (input) => ConnectSquareSchema.parse(input)),
   async (context) => {
     // accessKye is optional and to be used only for apps requiring both appId and secretKey (like Facebook Conversions API).
     // For Square, we can ignore it but still keep it optional in case we want to use it in the future for other integrations.
     const { accessToken, environment, accessKey } = context.req.valid("json")
     const customerId = context.get("customerId")
 
-    // Verify the token works by fetching locations from Square
-    const client = createSquareClient(accessToken, environment)
-    try {
-      await fetchAllLocations(client)
-    } catch {
-      return context.json(
-        { error: "Invalid Square access token. Could not connect to Square API." },
-        400,
-      )
-    }
+    // Verify the token has required permissions and can connect to Square API
+    await validateTokenStatus({ accessToken, environment, customerId })
 
-    // Store (or update existing) integration
+    // Store integration
     const integration = await createAppIntegration(db, customerId, {
       appName: SQUARE_APP_NAME,
       appKey: accessKey,
@@ -37,21 +30,16 @@ const createRouter = new Hono<AuthEnv>().post(
     })
 
     if (!integration) {
-      return context.json({ error: "Failed to save integration" }, 500)
+      throw DomainError.makeError({
+        code: "INTERNAL_ERROR",
+        message: "Failed to save Square integration to the database.",
+        clientSafeMessage: "Failed to save integration. Please try again later.",
+        additionalContext: { customerId },
+      })
     }
 
-    return context.json({
-      success: true,
-      integration: {
-        id: integration.id,
-        appName: integration.appName,
-        environment: integration.environment,
-        isActive: integration.isActive,
-        label: integration.label,
-        createdAt: integration.createdAt,
-      },
-    })
+    return context.json({ success: true, integration })
   },
 )
 
-export default createRouter
+export default createSquareConnectionRouter

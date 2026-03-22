@@ -1,12 +1,10 @@
 import { Hono } from "hono"
 import type { AuthEnv } from "../../../middleware/auth"
-import createRouter from "./create"
-import getRouter from "./get"
-import deleteRouter from "./delete"
+import createSquareConnectionRouter from "./create"
+import listSquareConnectionRouter from "./list"
 
-const connectRouter = new Hono<AuthEnv>()
-  .route("/", createRouter)
-  .route("/", getRouter)
-  .route("/", deleteRouter)
+const squareConnectRouter = new Hono<AuthEnv>()
+  .route("/square/create", createSquareConnectionRouter)
+  .route("/square/list", listSquareConnectionRouter)
 
-export default connectRouter
+export default squareConnectRouter

@@ -1,4 +1,5 @@
 import { varchar, boolean, timestamp, index } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { authSchema, foreignKey, primaryKey } from "../../db/base"
 import { customers } from "../customers/schema"
 
@@ -19,3 +20,16 @@ export const users = authSchema.table(
   },
   (t) => [index("users_customer_id_idx").on(t.customerId)],
 )
+
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  customerId: true,
+})
+export const selectUserSchema = createSelectSchema(users).omit({
+  betterAuthUserId: true,
+})
+
+export type UserPayload = ReturnType<typeof insertUserSchema.parse>
+export type UserDto = ReturnType<typeof selectUserSchema.parse>

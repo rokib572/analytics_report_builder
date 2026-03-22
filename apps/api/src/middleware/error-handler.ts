@@ -1,5 +1,6 @@
 import type { ErrorHandler } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
+import { z } from "zod"
 import { DomainError, type DomainErrorCode } from "@analytics/shared-libs"
 
 const STATUS_MAP: Record<DomainErrorCode, ContentfulStatusCode> = {
@@ -12,7 +13,32 @@ const STATUS_MAP: Record<DomainErrorCode, ContentfulStatusCode> = {
   HTTP_ERROR: 500,
 }
 
+const formatZodFields = (error: z.ZodError): Record<string, string[]> =>
+  error.issues.reduce<Record<string, string[]>>((acc, issue) => {
+    const key = issue.path.length > 0 ? issue.path.join(".") : "form"
+    const existing = acc[key] ?? []
+    existing.push(issue.message)
+    acc[key] = existing
+    return acc
+  }, {})
+
 export const errorHandler: ErrorHandler = (error, context) => {
+  if (error instanceof z.ZodError) {
+    const fields = formatZodFields(error)
+
+    console.error("[ValidationError]", { fields })
+
+    return context.json(
+      {
+        message: "Validation failed",
+        errorCode: "BAD_REQUEST",
+        httpStatusCode: 400,
+        fields,
+      },
+      400,
+    )
+  }
+
   if (error instanceof DomainError) {
     const httpStatusCode = STATUS_MAP[error.code]
 

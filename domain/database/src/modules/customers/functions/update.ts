@@ -1,22 +1,17 @@
 import { eq } from "drizzle-orm"
 import type { DbClient } from "../../../db/client"
-import { customers } from "../schema"
+import { type CustomerDto, type UpdateCustomerPayload, customers } from "../schema"
 
 export const updateCustomer = async (
   db: DbClient,
-  id: string,
-  data: {
-    companyName?: string
-    businessType?: string
-    businessSize?: string
-    phone?: string
-    address?: string
-  },
-) => {
+  customerId: string,
+  data: UpdateCustomerPayload,
+): Promise<CustomerDto | null> => {
   const [customer] = await db
     .update(customers)
     .set({ ...data, updatedAt: new Date() })
-    .where(eq(customers.id, id))
+    .where(eq(customers.id, customerId))
     .returning()
-  return customer ?? null
+
+  return customer!
 }

@@ -2,6 +2,7 @@ import { createMiddleware } from "hono/factory"
 import { getUserByBetterAuthId } from "@analytics/database"
 import { auth } from "../lib/auth"
 import { db } from "../lib/db"
+import { DomainError } from "@analytics/shared-libs"
 
 type AuthEnv = {
   Variables: {
@@ -22,13 +23,21 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (context, next) =>
   })
 
   if (!session) {
-    return context.json({ error: "Unauthorized" }, 401)
+    throw DomainError.makeError({
+      code: "UNAUTHORISED",
+      message: "No valid session found.",
+      clientSafeMessage: "Unauthorized. Please log in.",
+    })
   }
 
-  const appUser = await getUserByBetterAuthId(db, session.user.id)
+  const appUser = await getUserByBetterAuthId(db, { betterAuthUserId: session.user.id })
 
   if (!appUser || !appUser.isActive) {
-    return context.json({ error: "Unauthorized" }, 401)
+    throw DomainError.makeError({
+      code: "UNAUTHORISED",
+      message: "User is not authorised.",
+      clientSafeMessage: "Unauthorized. Please log in.",
+    })
   }
 
   context.set("user", {

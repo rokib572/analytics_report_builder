@@ -4,7 +4,7 @@ import { auth } from "./lib/auth"
 import { authMiddleware } from "./middleware/auth"
 import { errorHandler } from "./middleware/error-handler"
 import onboardingRouter from "./routes/onboarding"
-import connectRouter from "./routes/square/connect"
+import squareConnectRouter from "./routes/square/connect"
 import appIntegrationRouter from "./routes/app-integration"
 
 const app = new Hono()
@@ -22,7 +22,7 @@ const app = new Hono()
   .use("/api/*", authMiddleware)
   .route("/api/onboarding", onboardingRouter)
   .route("/api/app-integrations", appIntegrationRouter)
-  .route("/api/connect", connectRouter)
+  .route("/api/connect", squareConnectRouter)
 // .route("/api/locations", locationsRouter)
 // .route("/api/sales", salesRouter)
 // .route("/api/sync", syncRouter)

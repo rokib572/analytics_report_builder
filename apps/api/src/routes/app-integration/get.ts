@@ -1,25 +1,26 @@
 import { Hono } from "hono"
-import z from "zod"
+import { validator } from "hono/validator"
 import { getAppIntegrationById as getAppIntegrationByIdDB } from "@analytics/database"
+import { IdParamSchema } from "@analytics/validators"
 import { db } from "../../lib/db"
 import type { AuthEnv } from "../../middleware/auth"
-import { schemaValidator } from "../../middleware/schema-validator"
-
-const idParamSchema = z.object({
-  id: z.string().length(26, { error: "Invalid ID: must be a 26-character ULID" }),
-})
+import { DomainError } from "@analytics/shared-libs"
 
 const getAppIntegrationById = new Hono<AuthEnv>().get(
   "/:id",
-  schemaValidator("param", idParamSchema),
+  validator("param", (input) => IdParamSchema.parse(input)),
   async (context) => {
     const customerId = context.get("customerId")
-    const id = context.req.valid("param").id
+    const appIntegrationId = context.req.valid("param").id
 
-    const appIntegrationData = await getAppIntegrationByIdDB(db, { customerId, id })
-
+    const appIntegrationData = await getAppIntegrationByIdDB(db, { customerId, appIntegrationId })
     if (!appIntegrationData) {
-      return context.json({ error: "App integration not found" }, 404)
+      throw DomainError.makeError({
+        code: "NOT_FOUND",
+        message: `App integration with ID ${appIntegrationId} not found for customer ${customerId}`,
+        clientSafeMessage: "App integration not found.",
+        additionalContext: { customerId, appIntegrationId },
+      })
     }
 
     return context.json({ success: true, data: appIntegrationData })

@@ -1,24 +1,42 @@
 import { and, eq } from "drizzle-orm"
 import type { DbClient } from "../../../db/client"
-import { users } from "../schema"
+import { type UserDto, users } from "../schema"
 
-export const getUser = async (db: DbClient, customerId: string, id: string) => {
+export const getUser = async (
+  db: DbClient,
+  query: { customerId: string; id: string },
+): Promise<UserDto | null> => {
   const [user] = await db
     .select()
     .from(users)
-    .where(and(eq(users.customerId, customerId), eq(users.id, id)))
+    .where(and(eq(users.customerId, query.customerId), eq(users.id, query.id)))
+    .limit(1)
+
   return user ?? null
 }
 
-export const getUserByBetterAuthId = async (db: DbClient, betterAuthUserId: string) => {
-  const [user] = await db.select().from(users).where(eq(users.betterAuthUserId, betterAuthUserId))
-  return user ?? null
-}
-
-export const getUserByEmail = async (db: DbClient, customerId: string, email: string) => {
+export const getUserByBetterAuthId = async (
+  db: DbClient,
+  query: { betterAuthUserId: string },
+): Promise<UserDto | null> => {
   const [user] = await db
     .select()
     .from(users)
-    .where(and(eq(users.customerId, customerId), eq(users.email, email)))
+    .where(and(eq(users.betterAuthUserId, query.betterAuthUserId)))
+    .limit(1)
+
+  return user ?? null
+}
+
+export const getUserByEmail = async (
+  db: DbClient,
+  query: { customerId: string; email: string },
+): Promise<UserDto | null> => {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.customerId, query.customerId), eq(users.email, query.email)))
+    .limit(1)
+
   return user ?? null
 }
