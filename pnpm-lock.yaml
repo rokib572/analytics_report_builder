@@ -236,6 +236,9 @@ importers:
 
   packages/square:
     dependencies:
+      "@analytics/database":
+        specifier: workspace:*
+        version: link:../../domain/database
       square:
         specifier: 44.0.0
         version: 44.0.0

@@ -1,25 +1,32 @@
 import { Hono } from "hono"
-import { getAppIntegrationByAppName } from "@analytics/database"
-import { createSquareClient } from "@analytics/square"
-import { db } from "../../../lib/db"
+import { fetchAllLocations } from "@analytics/square"
 import type { AuthEnv } from "../../../middleware/auth"
-const SQUARE_APP_NAME = "square"
+import { DomainError } from "@analytics/shared-libs"
 
-const listSquareLocationRouter = new Hono<AuthEnv>().get("/", async (context) => {
+const listSquareLocation = new Hono<AuthEnv>().get("/", async (context) => {
   const customerId = context.get("customerId")
+  const locationResponse = await fetchAllLocations(customerId)
 
-  const integration = await getAppIntegrationByAppName(db, { customerId, appName: SQUARE_APP_NAME })
-
-  if (!integration) {
-    return context.json({ success: false })
+  if (locationResponse.errors) {
+    throw DomainError.makeError({
+      code: "EXTERNAL_ERROR",
+      message: "Error fetching locations from Square API",
+      clientSafeMessage:
+        "There was an error fetching your Square locations. Please try again later.",
+      additionalContext: {
+        errors: JSON.stringify(locationResponse.errors),
+      },
+    })
   }
 
-  const squareClient = createSquareClient(integration.appSecret, integration.environment)
-  const locationResponse = await squareClient.locations.list()
-
-  if (!locationResponse || !locationResponse.locations) {
-    return context.json({ success: false })
+  if (!locationResponse.locations) {
+    throw DomainError.makeError({
+      code: "NOT_FOUND",
+      message: "No locations data returned from Square API",
+      clientSafeMessage: "Location data not found.",
+    })
   }
+
   return context.json({
     success: true,
     locations: locationResponse.locations.map((loc) => ({
@@ -36,4 +43,4 @@ const listSquareLocationRouter = new Hono<AuthEnv>().get("/", async (context) =>
   })
 })
 
-export default listSquareLocationRouter
+export default listSquareLocation

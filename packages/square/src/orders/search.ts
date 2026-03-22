@@ -1,13 +1,16 @@
-import type { Square, SquareClient } from "square"
+import type { Square } from "square"
+import { createSquareClient } from "../client"
 
 const BATCH_SIZE = 10 // Square max locationIds per search call
 
 export const batchSearchOrders = async (
-  client: SquareClient,
+  customerId: string,
   locationIds: string[],
   startAt: string,
   endAt: string,
 ): Promise<Square.Order[]> => {
+  const client = await createSquareClient(customerId)
+
   const chunks: string[][] = []
   for (let i = 0; i < locationIds.length; i += BATCH_SIZE) {
     chunks.push(locationIds.slice(i, i + BATCH_SIZE))
