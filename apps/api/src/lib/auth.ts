@@ -44,8 +44,7 @@ export const auth = betterAuth({
             slug: `${slug}-${Date.now()}`,
           })
 
-          await createUser(db, {
-            customerId: customer.id,
+          await createUser(db, customer.id, {
             email: user.email,
             name: user.name,
             role: "owner",

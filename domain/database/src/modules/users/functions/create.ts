@@ -1,16 +1,14 @@
 import type { DbClient } from "../../../db/client"
-import { users } from "../schema"
+import { type UserDto, type UserPayload, users } from "../schema"
 
 export const createUser = async (
   db: DbClient,
-  data: {
-    customerId: string
-    email: string
-    name: string
-    role?: string
-    betterAuthUserId?: string
-  },
-) => {
-  const [user] = await db.insert(users).values(data).returning()
-  return user
+  customerId: string,
+  data: UserPayload,
+): Promise<UserDto> => {
+  const [user] = await db
+    .insert(users)
+    .values({ ...data, customerId })
+    .returning()
+  return user!
 }

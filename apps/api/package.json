@@ -4,7 +4,7 @@
   "main": "src/api-client.ts",
   "types": "src/api-client.ts",
   "scripts": {
-    "dev": "dotenv -e ../../.env -- tsx watch --include '../../domain/**' --include '../../packages/**' src/index.ts",
+    "dev": "dotenv -e ../../.env -- tsx watch --include './src/**' --include '../../domain/**' --include '../../packages/**' src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "eslint . --max-warnings 0",
@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@analytics/data-sync": "workspace:*",
+    "@analytics/shared-libs": "workspace:*",
     "@analytics/database": "workspace:*",
     "@analytics/square": "workspace:*",
     "@analytics/validators": "workspace:*",
