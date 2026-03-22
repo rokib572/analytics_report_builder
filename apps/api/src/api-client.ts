@@ -2,11 +2,13 @@ import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { auth } from "./lib/auth"
 import { authMiddleware } from "./middleware/auth"
+import { errorHandler } from "./middleware/error-handler"
 import onboardingRouter from "./routes/onboarding"
 import connectRouter from "./routes/square/connect"
 import appIntegrationRouter from "./routes/app-integration"
 
 const app = new Hono()
+  .onError(errorHandler)
   .use(
     "*",
     cors({
