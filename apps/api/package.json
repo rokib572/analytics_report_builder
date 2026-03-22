@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@analytics/data-sync": "workspace:*",
+    "@analytics/shared-libs": "workspace:*",
     "@analytics/database": "workspace:*",
     "@analytics/square": "workspace:*",
     "@analytics/validators": "workspace:*",

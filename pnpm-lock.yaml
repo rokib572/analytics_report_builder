@@ -46,6 +46,9 @@ importers:
       "@analytics/database":
         specifier: workspace:*
         version: link:../../domain/database
+      "@analytics/shared-libs":
+        specifier: workspace:*
+        version: link:../../packages/shared-libs
       "@analytics/square":
         specifier: workspace:*
         version: link:../../packages/square
@@ -209,6 +212,15 @@ importers:
       square:
         specifier: ^44.0.0
         version: 44.0.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/shared-libs:
+    devDependencies:
+      "@types/node":
+        specifier: ^25.4.0
+        version: 25.5.0
       typescript:
         specifier: ^5
         version: 5.9.3
@@ -2048,6 +2060,12 @@ packages:
     resolution:
       {
         integrity: sha512-9wLpoeWuBlcbBpOY3XmzSTG3oscB6xjBEEtn+pYXTfhyXhIxC5FsBer2KTopBlvKEiW9l13po9fq+SJY/5lkhw==,
+      }
+
+  "@types/node@25.5.0":
+    resolution:
+      {
+        integrity: sha512-jp2P3tQMSxWugkCUKLRPVUpGaL5MVFwF8RDuSRztfwgN1wmqJeMSbKlnEtQqU8UrhTmzEmZdu2I6v2dpp7XIxw==,
       }
 
   "@types/react-dom@19.2.3":
@@ -5342,6 +5360,10 @@ snapshots:
   "@types/node@14.18.63": {}
 
   "@types/node@25.4.0":
+    dependencies:
+      undici-types: 7.18.2
+
+  "@types/node@25.5.0":
     dependencies:
       undici-types: 7.18.2
 
