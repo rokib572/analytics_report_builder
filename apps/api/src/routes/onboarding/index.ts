@@ -1,13 +1,14 @@
 import { Hono } from "hono"
+import { validator } from "hono/validator"
 import { updateCustomer } from "@analytics/database"
+import { OnboardingSchema } from "@analytics/validators"
 import { db } from "../../lib/db"
 import type { AuthEnv } from "../../middleware/auth"
-import { schema } from "./input.schema"
-import { schemaValidator } from "../../middleware/schema-validator"
+import { DomainError } from "@analytics/shared-libs"
 
 const onboardingRouter = new Hono<AuthEnv>().post(
   "/",
-  schemaValidator("json", schema),
+  validator("json", (input) => OnboardingSchema.parse(input)),
   async (context) => {
     const data = context.req.valid("json")
     const customerId = context.get("customerId")
@@ -15,7 +16,12 @@ const onboardingRouter = new Hono<AuthEnv>().post(
     const customer = await updateCustomer(db, customerId, data)
 
     if (!customer) {
-      return context.json({ error: "Customer not found" }, 404)
+      throw DomainError.makeError({
+        code: "NOT_FOUND",
+        message: `Customer with ID ${customerId} not found`,
+        clientSafeMessage: "Customer not found. Please check your details and try again.",
+        additionalContext: { customerId },
+      })
     }
 
     return context.json({ success: true })

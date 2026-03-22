@@ -12,21 +12,9 @@ const listSquareConnectionRouter = new Hono<AuthEnv>().get("/", async (context) 
     appName: SQUARE_APP_NAME,
   })
 
-  if (!integrationList) {
-    return context.json({ success: false })
-  }
-
   return context.json({
     success: true,
-    integration: integrationList.map((i) => ({
-      id: i.id,
-      appName: i.appName,
-      environment: i.environment,
-      isActive: i.isActive,
-      label: i.label,
-      createdAt: i.createdAt,
-      updatedAt: i.updatedAt,
-    })),
+    integration: integrationList,
   })
 })
 

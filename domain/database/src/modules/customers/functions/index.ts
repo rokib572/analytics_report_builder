@@ -1,4 +1,5 @@
 export * from "./create"
-export * from "./get"
+export * from "./get.by-id"
+export * from "./get.by-slug"
 export * from "./list"
 export * from "./update"

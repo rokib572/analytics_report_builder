@@ -1,6 +1,6 @@
 import type { DbClient } from "../../../db/client"
-import { customers } from "../schema"
+import { type CustomerDto, customers } from "../schema"
 
-export const listCustomers = async (db: DbClient) => {
+export const listCustomers = async (db: DbClient): Promise<CustomerDto[]> => {
   return db.select().from(customers)
 }

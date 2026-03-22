@@ -1,15 +1,24 @@
 import { eq, and } from "drizzle-orm"
 import type { DbClient } from "../../../db/client"
-import { appIntegrations } from "../schema"
+import { type AppIntegrationDto, appIntegrations } from "../schema"
 
 export const getAppIntegrationById = async (
   db: DbClient,
-  query: { customerId: string; id: string },
-) => {
-  const { customerId, id } = query
-  const [integration] = await db
-    .select()
-    .from(appIntegrations)
-    .where(and(eq(appIntegrations.customerId, customerId), eq(appIntegrations.id, id)))
+  query: { customerId: string; appIntegrationId: string },
+  opts?: { includeDisabled: boolean },
+): Promise<AppIntegrationDto | null> => {
+  const { customerId, appIntegrationId } = query
+  const { includeDisabled = false } = opts || {}
+
+  const customerClause = eq(appIntegrations.customerId, customerId)
+  const conditions = [eq(appIntegrations.id, appIntegrationId)]
+
+  if (!includeDisabled) {
+    conditions.push(eq(appIntegrations.isActive, true))
+  }
+
+  const whereClause = and(customerClause, ...conditions)
+
+  const [integration] = await db.select().from(appIntegrations).where(whereClause).limit(1)
   return integration ?? null
 }
