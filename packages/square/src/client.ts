@@ -25,3 +25,16 @@ export const createSquareClient = async (customerId: string) => {
         : SquareEnvironment.Sandbox,
   })
 }
+
+export const createSquareClientWithToken = ({
+  appSecret,
+  environment,
+}: {
+  appSecret: string
+  environment: string
+}) =>
+  new SquareClient({
+    token: appSecret,
+    environment:
+      environment === "production" ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+  })
