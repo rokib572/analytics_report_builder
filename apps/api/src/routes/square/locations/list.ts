@@ -1,10 +1,28 @@
 import { Hono } from "hono"
+import { fetchAllLocations } from "@analytics/square"
+import type { AuthEnv } from "../../../middleware/auth"
+import { validateListLocationsResponse } from "./list.validate-response"
 
-const router = new Hono()
+const listSquareLocation = new Hono<AuthEnv>().get("/", async (context) => {
+  const customerId = context.get("customerId")
+  const locationResponse = await fetchAllLocations(customerId)
 
-router.get("/", (c) => {
-  // TODO: JIT — check DB first, fetch from Square if empty, upsert, return
-  return c.json([])
+  const locations = validateListLocationsResponse(locationResponse)
+
+  return context.json({
+    success: true,
+    locations: locations.map((loc) => ({
+      id: loc.id,
+      name: loc.name,
+      address: loc.address,
+      timezone: loc.timezone,
+      status: loc.status,
+      country: loc.country,
+      currency: loc.currency,
+      business_name: loc.businessName,
+      type: loc.type,
+    })),
+  })
 })
 
-export default router
+export default listSquareLocation

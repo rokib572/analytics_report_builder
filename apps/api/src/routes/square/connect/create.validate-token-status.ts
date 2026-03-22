@@ -1,17 +1,10 @@
 import { DomainError } from "@analytics/shared-libs"
-import { createSquareClient } from "@analytics/square"
+import type { createSquareClientWithToken } from "@analytics/square/src/client"
 
-export const validateTokenStatus = async ({
-  accessToken,
-  environment,
-  customerId,
-}: {
-  accessToken: string
-  environment: string
-  customerId: string
-}) => {
+type SquareClient = ReturnType<typeof createSquareClientWithToken>
+
+export const validateTokenStatus = async ({ squareClient }: { squareClient: SquareClient }) => {
   // Verify the token works by fetching locations from Square
-  const squareClient = createSquareClient(accessToken, environment)
   try {
     const accessTokenStatus = await squareClient.oAuth.retrieveTokenStatus()
     if (!accessTokenStatus || !accessTokenStatus.clientId) {
@@ -19,7 +12,6 @@ export const validateTokenStatus = async ({
         code: "BAD_REQUEST",
         message: "Invalid Square access token. Could not connect to Square API.",
         clientSafeMessage: "Invalid Square access token. Please check your token and try again.",
-        additionalContext: { customerId },
       })
     }
 
@@ -35,7 +27,6 @@ export const validateTokenStatus = async ({
           "Insufficient permissions for the provided Square access token. Please ensure it has the MERCHANT_PROFILE_READ, ORDERS_READ and PAYMENTS_READ scope.",
         clientSafeMessage:
           "Insufficient permissions for the provided Square access token. Please ensure it has the correct scopes.",
-        additionalContext: { customerId },
       })
     }
   } catch {
@@ -43,7 +34,6 @@ export const validateTokenStatus = async ({
       code: "BAD_REQUEST",
       message: "Invalid Square access token. Could not connect to Square API.",
       clientSafeMessage: "Invalid Square access token. Please check your token and try again.",
-      additionalContext: { customerId },
     })
   }
 }
