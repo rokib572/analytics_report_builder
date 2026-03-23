@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react"
 import { authClient } from "../lib/auth-client"
-import { useCurrentUser } from "../lib/use-current-user"
+import { useCurrentUser } from "../data/auth/hooks"
 import { AuthProvider } from "../lib/auth-context"
 import { Router } from "../router"
 

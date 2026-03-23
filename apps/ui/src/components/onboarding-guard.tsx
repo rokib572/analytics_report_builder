@@ -1,6 +1,6 @@
 import { type ReactNode } from "react"
 import { useAuth } from "../lib/auth-context"
-import { useIntegrations } from "../lib/use-integrations"
+import { useIntegrations } from "../data/integrations/hooks"
 import { Router } from "../router"
 
 export const OnboardingGuard = ({ children }: { children: ReactNode }) => {

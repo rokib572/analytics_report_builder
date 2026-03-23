@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@analytics/ui-shared"
-import { useIntegrations, SUPPORTED_APPS } from "../../lib/use-integrations"
+import { useIntegrations, SUPPORTED_APPS } from "../../data/integrations/hooks"
 import { Router } from "../../router"
 
 export const IntegrationsRoute = () => {

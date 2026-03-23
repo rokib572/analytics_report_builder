@@ -11,7 +11,7 @@ export const getApiCustomerId = () => _selectedCustomerId
 
 export const apiClient = hc<AppType>(import.meta.env.VITE_API_URL, {
   init: { credentials: "include" },
-  fetch: (input, init) => {
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers)
     if (_selectedCustomerId) {
       headers.set("X-Customer-Id", _selectedCustomerId)

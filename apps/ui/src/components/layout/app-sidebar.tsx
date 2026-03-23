@@ -13,7 +13,7 @@ import {
   SidebarRail,
 } from "@analytics/ui-shared"
 import { useAuth } from "../../lib/auth-context"
-import { useIntegrations, SUPPORTED_APPS } from "../../lib/use-integrations"
+import { useIntegrations, SUPPORTED_APPS } from "../../data/integrations/hooks"
 import { Router } from "../../router"
 import { NavUser } from "./nav-user"
 
