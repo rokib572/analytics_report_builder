@@ -6,6 +6,8 @@ import { errorHandler } from "./middleware/error-handler"
 import onboardingRouter from "./routes/onboarding"
 import squareConnectRouter from "./routes/square/connect"
 import appIntegrationRouter from "./routes/app-integration"
+import meRouter from "./routes/me"
+import listCustomersRouter from "./routes/customers/list"
 import squareLocationRouter from "./routes/square/locations"
 
 const app = new Hono()
@@ -22,7 +24,9 @@ const app = new Hono()
   .on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw))
   .use("/api/*", authMiddleware)
   .route("/api/onboarding", onboardingRouter)
+  .route("/api/me", meRouter)
   .route("/api/app-integrations", appIntegrationRouter)
+  .route("/api/customers", listCustomersRouter)
   .route("/api/square/connect", squareConnectRouter)
   .route("/api/square/locations", squareLocationRouter)
 // .route("/api/sales", salesRouter)

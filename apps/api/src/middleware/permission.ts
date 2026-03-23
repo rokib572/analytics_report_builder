@@ -1,6 +1,6 @@
 import { createMiddleware } from "hono/factory"
 import { listPermissions } from "@analytics/database"
-import type { Resource, Action } from "@analytics/validators"
+import { type Resource, type Action, isAccountAdmin, isSystemAdmin } from "@analytics/validators"
 import type { AuthEnv } from "./auth"
 import { db } from "../lib/db"
 import { DomainError } from "@analytics/shared-libs"
@@ -10,8 +10,14 @@ export const requirePermission = (resource: Resource, action: Action) =>
     const user = context.get("user")
     const customerId = context.get("customerId")
 
-    const userPermissions = await listPermissions(db, customerId, user.id)
+    // System admins and account admins bypass permission checks
+    if (isSystemAdmin(user.role) || isAccountAdmin(user.role)) {
+      await next()
+      return
+    }
 
+    // Members must have explicit permission
+    const userPermissions = await listPermissions(db, customerId, user.id)
     const match = userPermissions.find((p) => p.resource === resource && p.action === action)
 
     if (!match || !match.allowed) {

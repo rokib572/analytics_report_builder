@@ -4,7 +4,7 @@ import createSquareConnectionRouter from "./create"
 import listSquareConnectionRouter from "./list"
 
 const squareConnectRouter = new Hono<AuthEnv>()
-  .route("/square/create", createSquareConnectionRouter)
-  .route("/square/list", listSquareConnectionRouter)
+  .route("/create", createSquareConnectionRouter)
+  .route("/list", listSquareConnectionRouter)
 
 export default squareConnectRouter

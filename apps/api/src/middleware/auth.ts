@@ -1,5 +1,6 @@
 import { createMiddleware } from "hono/factory"
 import { getUserByBetterAuthId } from "@analytics/database"
+import { isSystemAdmin } from "@analytics/validators"
 import { auth } from "../lib/auth"
 import { db } from "../lib/db"
 import { DomainError } from "@analytics/shared-libs"
@@ -47,7 +48,14 @@ export const authMiddleware = createMiddleware<AuthEnv>(async (context, next) =>
     name: appUser.name,
     role: appUser.role,
   })
-  context.set("customerId", appUser.customerId)
+
+  // System admins can switch customer context via header
+  if (isSystemAdmin(appUser.role)) {
+    const targetCustomerId = context.req.header("X-Customer-Id")
+    context.set("customerId", targetCustomerId ?? appUser.customerId)
+  } else {
+    context.set("customerId", appUser.customerId)
+  }
 
   await next()
 })

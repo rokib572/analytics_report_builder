@@ -45,7 +45,7 @@ export const LoginRoute = () => {
       return
     }
 
-    Router.push("Home")
+    Router.replace("Home")
   }
 
   return (

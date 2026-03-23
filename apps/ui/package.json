@@ -20,6 +20,7 @@
     "@tanstack/react-query": "^5",
     "better-auth": "latest",
     "hono": "latest",
+    "lucide-react": "^0.577.0",
     "react": "^19",
     "react-dom": "^19",
     "react-hook-form": "latest",
