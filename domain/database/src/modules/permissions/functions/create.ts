@@ -1,9 +1,18 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../db/client"
+import { type PermissionDto, type PermissionPayload, permissions } from "../schema"
+import { validatePermission } from "./create.validate-permission"
 
-export const upsertPermission = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _data: unknown,
-) => {
-  // TODO: implement — set customerId on insert/update
+export const createPermission = async (
+  db: DbClient,
+  customerId: string,
+  data: PermissionPayload,
+): Promise<PermissionDto> => {
+  await validatePermission(db, customerId, data)
+
+  const [permission] = await db
+    .insert(permissions)
+    .values({ customerId, ...data })
+    .returning()
+
+  return permission!
 }

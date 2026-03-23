@@ -1,9 +1,14 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import { eq, and } from "drizzle-orm"
+import type { DbClient } from "../../../db/client"
+import { type PermissionDto, permissions } from "../schema"
 
 export const listPermissions = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _userId: string,
-) => {
-  // TODO: implement — filter by customerId AND userId
+  db: DbClient,
+  customerId: string,
+  userId: string,
+): Promise<PermissionDto[]> => {
+  return db
+    .select()
+    .from(permissions)
+    .where(and(eq(permissions.customerId, customerId), eq(permissions.userId, userId)))
 }
