@@ -1,4 +1,4 @@
-import { BarChart3, Home, Link2, Plug, MapPin, RefreshCw, FileBarChart } from "lucide-react"
+import { BarChart3, Home, Link2, Plug, MapPin, RefreshCw, FileBarChart, Users } from "lucide-react"
 import type { UserRole } from "@analytics/validators"
 import {
   Sidebar,
@@ -24,6 +24,7 @@ type RouteName =
   | "Sync"
   | "Integrations"
   | "Connect"
+  | "Team"
   | "ReportBuilder"
 
 type NavItem = {
@@ -59,6 +60,12 @@ const navItems: NavItem[] = [
     permission: "sales:view",
   },
   {
+    label: "Team",
+    icon: Users,
+    route: "Team",
+    roles: ["owner", "admin", "system_admin"],
+  },
+  {
     label: "Sync",
     icon: RefreshCw,
     route: "Sync",
@@ -84,6 +91,7 @@ export const AppSidebar = () => {
     "Sync",
     "Integrations",
     "Connect",
+    "Team",
     "ReportBuilder",
     "ReportBuilderGet",
   ])

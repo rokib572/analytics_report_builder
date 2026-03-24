@@ -22,10 +22,17 @@ export const getUserByBetterAuthId = async (
   const [user] = await db
     .select()
     .from(users)
-    .where(and(eq(users.betterAuthUserId, query.betterAuthUserId)))
+    .where(eq(users.betterAuthUserId, query.betterAuthUserId))
     .limit(1)
 
   return user ?? null
+}
+
+export const getUsersByBetterAuthId = async (
+  db: DbClient,
+  query: { betterAuthUserId: string },
+): Promise<UserDto[]> => {
+  return db.select().from(users).where(eq(users.betterAuthUserId, query.betterAuthUserId))
 }
 
 export const getUserByEmail = async (

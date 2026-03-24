@@ -1,6 +1,6 @@
 import { createContext, useContext, useCallback, useState, type ReactNode } from "react"
 import { isAccountAdmin, isSystemAdmin } from "@analytics/validators"
-import { setApiCustomerId } from "./api-client"
+import { setApiCustomerId, setApiAccountId } from "./api-client"
 
 type AppUser = {
   id: string
@@ -19,13 +19,22 @@ type Permission = {
   allowed: boolean
 }
 
+type Account = {
+  id: string
+  customerId: string
+  role: string
+  customerName: string
+}
+
 type AuthContextValue = {
   user: AppUser
   permissions: Permission[]
+  accounts: Account[]
   isAccountAdmin: boolean
   isSystemAdmin: boolean
   selectedCustomerId: string | null
   setSelectedCustomerId: (id: string | null) => void
+  switchAccount: (customerId: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -41,10 +50,12 @@ export const useAuth = () => {
 export const AuthProvider = ({
   user,
   permissions,
+  accounts,
   children,
 }: {
   user: AppUser
   permissions: Permission[]
+  accounts: Account[]
   children: ReactNode
 }) => {
   const [selectedCustomerId, _setSelectedCustomerId] = useState<string | null>(null)
@@ -54,15 +65,22 @@ export const AuthProvider = ({
     setApiCustomerId(id)
   }, [])
 
+  const switchAccount = useCallback((customerId: string) => {
+    setApiAccountId(customerId)
+    window.location.reload()
+  }, [])
+
   return (
     <AuthContext.Provider
       value={{
         user,
         permissions,
+        accounts,
         isAccountAdmin: isAccountAdmin(user.role),
         isSystemAdmin: isSystemAdmin(user.role),
         selectedCustomerId,
         setSelectedCustomerId,
+        switchAccount,
       }}
     >
       {children}

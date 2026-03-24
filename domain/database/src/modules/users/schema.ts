@@ -1,4 +1,4 @@
-import { varchar, boolean, timestamp, index } from "drizzle-orm/pg-core"
+import { varchar, boolean, timestamp, index, uniqueIndex } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { authSchema, foreignKey, primaryKey } from "../../db/base"
 import { customers } from "../customers/schema"
@@ -10,15 +10,18 @@ export const users = authSchema.table(
     customerId: foreignKey("customer_id")
       .notNull()
       .references(() => customers.id),
-    email: varchar("email", { length: 255 }).notNull().unique(),
+    email: varchar("email", { length: 255 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     role: varchar("role", { length: 50 }).notNull().default("member"),
     isActive: boolean("is_active").notNull().default(true),
-    betterAuthUserId: varchar("better_auth_user_id", { length: 255 }).unique(),
+    betterAuthUserId: varchar("better_auth_user_id", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [index("users_customer_id_idx").on(t.customerId)],
+  (t) => [
+    index("users_customer_id_idx").on(t.customerId),
+    uniqueIndex("users_customer_email_idx").on(t.customerId, t.email),
+  ],
 )
 
 export const insertUserSchema = createInsertSchema(users).omit({

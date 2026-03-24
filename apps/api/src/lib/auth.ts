@@ -7,6 +7,8 @@ import {
   baVerification,
   createCustomer,
   createUser,
+  getPendingInvitationByEmail,
+  updateInvitationStatus,
 } from "@analytics/database"
 import { db } from "./db"
 
@@ -21,7 +23,7 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
-  trustedOrigins: ["http://localhost:5173"],
+  trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:5173"],
   emailAndPassword: {
     enabled: true,
   },
@@ -34,6 +36,28 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
+          // Check for a pending invitation for this email
+          const pendingInvitation = await getPendingInvitationByEmail(db, { email: user.email })
+
+          if (pendingInvitation) {
+            // Invited user: join the inviter's account with the assigned role
+            await createUser(db, pendingInvitation.customerId, {
+              email: user.email,
+              name: user.name,
+              role: pendingInvitation.role,
+              betterAuthUserId: user.id,
+            })
+
+            await updateInvitationStatus(db, {
+              id: pendingInvitation.id,
+              status: "accepted",
+              acceptedAt: new Date(),
+            })
+
+            return
+          }
+
+          // Default flow: create a new customer + owner user
           const slug = user.name
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, "-")

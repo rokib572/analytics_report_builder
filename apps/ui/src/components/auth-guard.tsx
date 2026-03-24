@@ -23,7 +23,11 @@ export const AuthGuard = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthProvider user={meData.user} permissions={meData.permissions}>
+    <AuthProvider
+      user={meData.user}
+      permissions={meData.permissions}
+      accounts={meData.accounts ?? []}
+    >
       {children}
     </AuthProvider>
   )

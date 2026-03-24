@@ -3,6 +3,7 @@ import { createRouter } from "@swan-io/chicane"
 export const Router = createRouter({
   Login: "/login",
   Signup: "/signup",
+  AcceptInvite: "/accept-invite",
   Home: "/",
   Locations: "/locations",
   LocationGet: "/locations/:id",
@@ -11,6 +12,7 @@ export const Router = createRouter({
   Sync: "/sync",
   Integrations: "/integrations",
   Connect: "/connect",
+  Team: "/team",
   ReportBuilder: "/report-builder",
   ReportBuilderGet: "/report-builder/:reportId",
 })
