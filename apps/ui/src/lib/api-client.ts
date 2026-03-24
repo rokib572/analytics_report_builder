@@ -2,7 +2,7 @@ import { hc } from "hono/client"
 import type { AppType } from "@analytics/api"
 
 let _selectedCustomerId: string | null = null
-let _selectedAccountId: string | null = null
+let _selectedAccountId: string | null = localStorage.getItem("selectedAccountId")
 
 export const setApiCustomerId = (id: string | null) => {
   _selectedCustomerId = id
@@ -12,6 +12,11 @@ export const getApiCustomerId = () => _selectedCustomerId
 
 export const setApiAccountId = (id: string | null) => {
   _selectedAccountId = id
+  if (id) {
+    localStorage.setItem("selectedAccountId", id)
+  } else {
+    localStorage.removeItem("selectedAccountId")
+  }
 }
 
 export const getApiAccountId = () => _selectedAccountId
