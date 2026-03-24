@@ -1,38 +1,31 @@
 import { Hono } from "hono"
-import { fetchAllSquareCustomers } from "@analytics/square"
+import { zValidator } from "@hono/zod-validator"
+import { z } from "zod"
+import { listSquareCustomers as listSquareCustomersDB } from "@analytics/database"
 import type { AuthEnv } from "../../../middleware/auth"
-import { DomainError } from "@analytics/shared-libs"
 import { requirePermission } from "../../../middleware/permission"
+import { db } from "../../../lib/db"
+
+const listSquareCustomersQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
 
 const listSquareCustomers = new Hono<AuthEnv>()
   .use(requirePermission("square-customers", "view"))
-  .get("/", async (context) => {
+  .get("/", zValidator("query", listSquareCustomersQuerySchema), async (context) => {
     const customerId = context.get("customerId")
+    const { page, limit } = context.req.valid("query")
+    const customers = await listSquareCustomersDB(db, customerId, { page, limit })
 
-    try {
-      const customerResponse = await fetchAllSquareCustomers(customerId)
-
-      return context.json({
-        success: true,
-        customers: customerResponse.map((customer) => ({
-          id: customer.id,
-          givenName: customer.givenName,
-          familyName: customer.familyName,
-          email: customer.emailAddress,
-          phone: customer.phoneNumber,
-          createdAt: customer.createdAt,
-        })),
-      })
-    } catch (error) {
-      throw DomainError.makeError({
-        code: "EXTERNAL_ERROR",
-        message:
-          error instanceof Error
-            ? error.message
-            : "Unknown error fetching customers from Square API",
-        clientSafeMessage: "Something went wrong while fetching customer data from Square API.",
-      })
-    }
+    return context.json({
+      success: true,
+      customers,
+      pagination: {
+        page,
+        limit,
+      },
+    })
   })
 
 export default listSquareCustomers

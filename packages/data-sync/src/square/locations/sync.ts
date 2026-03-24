@@ -1,6 +1,6 @@
 import { type DbClient, upsertLocation } from "@analytics/database"
 import { fetchAllLocations } from "@analytics/square"
-import { computeContentHash } from "../utils/content-hash"
+import { computeContentHash } from "../../utils/content-hash"
 
 export const syncLocations = async (
   db: DbClient,
