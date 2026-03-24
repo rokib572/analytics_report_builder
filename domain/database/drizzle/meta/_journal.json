@@ -36,6 +36,13 @@
       "when": 1773656788900,
       "tag": "0004_brainy_namor",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774247976297,
+      "tag": "0005_red_anita_blake",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,13 @@
 import { z } from "zod"
 
-export const ResourceSchema = z.enum(["sales", "locations", "sync", "api_keys", "users"])
+export const ResourceSchema = z.enum([
+  "sales",
+  "locations",
+  "sync",
+  "api_keys",
+  "users",
+  "square-customers",
+])
 export const ActionSchema = z.enum(["view", "create", "update", "delete"])
 
 export const PermissionSchema = z.object({

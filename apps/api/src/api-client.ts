@@ -9,6 +9,7 @@ import appIntegrationRouter from "./routes/app-integration"
 import meRouter from "./routes/me"
 import listCustomersRouter from "./routes/customers/list"
 import squareLocationRouter from "./routes/square/locations"
+import squareCustomerRouter from "./routes/square/customers"
 
 const app = new Hono()
   .onError(errorHandler)
@@ -29,6 +30,8 @@ const app = new Hono()
   .route("/api/customers", listCustomersRouter)
   .route("/api/square/connect", squareConnectRouter)
   .route("/api/square/locations", squareLocationRouter)
+  .route("/api/square/customers", squareCustomerRouter)
+
 // .route("/api/sales", salesRouter)
 // .route("/api/sync", syncRouter)
 // .route("/api/webhooks", webhooksRouter)
