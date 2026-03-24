@@ -221,6 +221,9 @@ importers:
         specifier: workspace:*
         version: link:../square
     devDependencies:
+      "@types/node":
+        specifier: ^25.5.0
+        version: 25.5.0
       square:
         specifier: ^44.0.0
         version: 44.0.0

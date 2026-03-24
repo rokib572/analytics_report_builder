@@ -12,6 +12,7 @@ import squareLocationRouter from "./routes/square/locations"
 import invitationRouter from "./routes/invitations"
 import validateInvitationRouter from "./routes/invitations/validate"
 import usersRouter from "./routes/users/list"
+import manualSyncRouter from "./routes/square/sync/manual"
 
 const app = new Hono()
   .onError(errorHandler)
@@ -35,8 +36,8 @@ const app = new Hono()
   .route("/api/square/locations", squareLocationRouter)
   .route("/api/invitations", invitationRouter)
   .route("/api/users", usersRouter)
+  .route("/api/sync/manual", manualSyncRouter)
 // .route("/api/sales", salesRouter)
-// .route("/api/sync", syncRouter)
 // .route("/api/webhooks", webhooksRouter)
 // .route("/api/reports/query", reportsQueryRouter)
 // .route("/api/reports", reportsListRouter)
