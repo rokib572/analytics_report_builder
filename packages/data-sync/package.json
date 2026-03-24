@@ -8,6 +8,7 @@
     "@analytics/square": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "square": "^44.0.0",
     "typescript": "^5"
   }

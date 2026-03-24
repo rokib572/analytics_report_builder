@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { validator } from "hono/validator"
 import { createAppIntegration } from "@analytics/database"
+import { syncLocations } from "@analytics/data-sync"
 import { DomainError } from "@analytics/shared-libs"
 import { ConnectSquareSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
@@ -39,6 +40,13 @@ const createSquareConnectionRouter = new Hono<AuthEnv>().post(
         clientSafeMessage: "Failed to save integration. Please try again later.",
         additionalContext: { customerId },
       })
+    }
+
+    // Auto-sync locations after connecting
+    try {
+      await syncLocations(db, customerId)
+    } catch (error) {
+      console.error("Failed to auto-sync locations after connect:", error)
     }
 
     return context.json({ success: true, integration })
