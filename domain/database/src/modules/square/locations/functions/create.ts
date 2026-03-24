@@ -1,9 +1,14 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../../db/client"
+import { type LocationDto, type LocationPayload, locations } from "../schema"
 
 export const createLocation = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _data: unknown,
-) => {
-  // TODO: implement — set customerId on insert
+  db: DbClient,
+  customerId: string,
+  data: LocationPayload,
+): Promise<LocationDto> => {
+  const [location] = await db
+    .insert(locations)
+    .values({ ...data, customerId })
+    .returning()
+  return location!
 }

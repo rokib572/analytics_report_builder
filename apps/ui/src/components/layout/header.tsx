@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { Separator, SidebarTrigger } from "@analytics/ui-shared"
 import { useAuth } from "../../lib/auth-context"
 import { CustomerSwitcher } from "./customer-switcher"
+import { AccountSwitcher } from "./account-switcher"
 
 export const Header = ({ children }: { children?: ReactNode }) => {
   const { isSystemAdmin } = useAuth()
@@ -11,6 +12,7 @@ export const Header = ({ children }: { children?: ReactNode }) => {
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-2 h-4" />
       {isSystemAdmin && <CustomerSwitcher />}
+      <AccountSwitcher />
       {children}
     </header>
   )

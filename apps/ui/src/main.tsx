@@ -19,11 +19,14 @@ import { SyncRoute } from "./routes/sync"
 import { IntegrationsRoute } from "./routes/integrations"
 import { ConnectRoute } from "./routes/connect"
 import { ReportBuilderRoute } from "./routes/report-builder"
+import { AcceptInviteRoute } from "./routes/accept-invite"
+import { TeamRoute } from "./routes/team"
 
 const App = () => {
   const route = Router.useRoute([
     "Login",
     "Signup",
+    "AcceptInvite",
     "Home",
     "Locations",
     "LocationGet",
@@ -32,6 +35,7 @@ const App = () => {
     "Sync",
     "Integrations",
     "Connect",
+    "Team",
     "ReportBuilder",
     "ReportBuilderGet",
   ])
@@ -48,6 +52,7 @@ const App = () => {
         <SignupRoute />
       </GuestGuard>
     )
+  if (route?.name === "AcceptInvite") return <AcceptInviteRoute />
 
   return (
     <AuthGuard>
@@ -61,6 +66,7 @@ const App = () => {
           {route?.name === "Sync" && <SyncRoute />}
           {route?.name === "Integrations" && <IntegrationsRoute />}
           {route?.name === "Connect" && <ConnectRoute />}
+          {route?.name === "Team" && <TeamRoute />}
           {route?.name === "ReportBuilder" && <ReportBuilderRoute />}
           {route?.name === "ReportBuilderGet" && <ReportBuilderRoute />}
           {!route && <p>Not found</p>}

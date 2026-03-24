@@ -45,6 +45,11 @@ export const LoginRoute = () => {
       return
     }
 
+    const redirectParam = new URLSearchParams(window.location.search).get("redirect")
+    if (redirectParam) {
+      window.location.href = redirectParam
+      return
+    }
     Router.replace("Home")
   }
 

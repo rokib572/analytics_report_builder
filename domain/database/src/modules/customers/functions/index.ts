@@ -1,5 +1,6 @@
 export * from "./create"
 export * from "./get.by-id"
+export * from "./get.by-ids"
 export * from "./get.by-slug"
 export * from "./list"
 export * from "./update"
