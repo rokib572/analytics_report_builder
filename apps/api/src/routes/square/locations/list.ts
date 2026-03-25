@@ -9,7 +9,7 @@ import { db } from "../../../lib/db"
 const listSquareLocationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
-  search: z.string().trim().default(""),
+  search: z.string().trim().default(""), // search by location name, optional, defaults to empty string (no search)
 })
 
 const listSquareLocation = new Hono<AuthEnv>()

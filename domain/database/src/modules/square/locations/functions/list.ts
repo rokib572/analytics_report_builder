@@ -1,17 +1,6 @@
-import { and, count, eq, ilike } from "drizzle-orm"
+import { and, count, eq, ilike, or, sql } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
-import { type LocationDto, locations } from "../schema"
-
-type ListLocationsOptions = {
-  page: number
-  limit: number
-  search: string
-}
-
-type ListLocationsResult = {
-  locations: LocationDto[]
-  totalCount: number
-}
+import { type ListLocationsOptions, type ListLocationsResult, locations } from "../schema"
 
 export const listLocations = async (
   db: DbClient,
@@ -20,7 +9,24 @@ export const listLocations = async (
 ): Promise<ListLocationsResult> => {
   const customerClause = eq(locations.customerId, customerId)
   const normalizedSearch = options.search.trim()
-  const conditions = normalizedSearch ? [ilike(locations.name, `%${normalizedSearch}%`)] : []
+  const conditions = normalizedSearch
+    ? [
+        or(
+          ilike(locations.name, `%${normalizedSearch}%`),
+          ilike(
+            sql`coalesce(${locations.address} ->> 'addressLine1', '')`,
+            `%${normalizedSearch}%`,
+          ),
+          ilike(sql`coalesce(${locations.address} ->> 'locality', '')`, `%${normalizedSearch}%`),
+          ilike(
+            sql`coalesce(${locations.address} ->> 'administrativeDistrictLevel1', '')`,
+            `%${normalizedSearch}%`,
+          ),
+          ilike(sql`coalesce(${locations.address} ->> 'postalCode', '')`, `%${normalizedSearch}%`),
+          ilike(sql`coalesce(${locations.address} ->> 'country', '')`, `%${normalizedSearch}%`),
+        ),
+      ]
+    : []
   const whereClause = conditions.length > 0 ? and(customerClause, ...conditions) : customerClause
   const offset = (options.page - 1) * options.limit
 
