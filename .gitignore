@@ -4,4 +4,3 @@ dist
 *.tsbuildinfo
 .turbo
 .agents
-CLAUDE.md

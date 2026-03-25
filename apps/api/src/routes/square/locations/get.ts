@@ -20,7 +20,6 @@ const getLocationRouter = new Hono<AuthEnv>()
         clientSafeMessage: "Location not found.",
       })
     }
-
     return context.json({ success: true, location })
   })
 
