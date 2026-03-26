@@ -1,16 +1,11 @@
-import { and, eq, desc, count, gte, ilike, lte, or, type SQL } from "drizzle-orm"
+import { and, eq, desc, count, gte, lte, or, sql, type SQL } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
-import { type SquareCustomerListDto, squareCustomers } from "../schema"
-
-type ListSquareCustomersOptions = {
-  page: number
-  limit: number
-  name?: string
-  phoneNumber?: string
-  emailAddress?: string
-  creationTimeFrom?: Date
-  creationTimeTo?: Date
-}
+import {
+  type SquareCustomerListDto,
+  type ListSquareCustomersOptions,
+  squareCustomers,
+} from "../schema"
+import { toContainsIlike } from "@analytics/shared-libs"
 
 export const listSquareCustomers = async (
   db: DbClient,
@@ -21,9 +16,10 @@ export const listSquareCustomers = async (
   const whereConditions = [eq(squareCustomers.customerId, customerId)]
 
   if (options.name) {
+    const safePattern = toContainsIlike(options.name)
     const nameConditions: SQL[] = [
-      ilike(squareCustomers.givenName, `%${options.name}%`),
-      ilike(squareCustomers.familyName, `%${options.name}%`),
+      sql`${squareCustomers.givenName} ILIKE ${safePattern} ESCAPE '\\'`,
+      sql`${squareCustomers.familyName} ILIKE ${safePattern} ESCAPE '\\'`,
     ].filter((condition): condition is SQL => condition !== undefined)
 
     const nameWhereClause = or(...nameConditions)
@@ -34,11 +30,13 @@ export const listSquareCustomers = async (
   }
 
   if (options.phoneNumber) {
-    whereConditions.push(ilike(squareCustomers.phoneNumber, `%${options.phoneNumber}%`))
+    const safePattern = toContainsIlike(options.phoneNumber)
+    whereConditions.push(sql`${squareCustomers.phoneNumber} ILIKE ${safePattern} ESCAPE '\\'`)
   }
 
   if (options.emailAddress) {
-    whereConditions.push(ilike(squareCustomers.emailAddress, `%${options.emailAddress}%`))
+    const safePattern = toContainsIlike(options.emailAddress)
+    whereConditions.push(sql`${squareCustomers.emailAddress} ILIKE ${safePattern} ESCAPE '\\'`)
   }
 
   if (options.creationTimeFrom) {

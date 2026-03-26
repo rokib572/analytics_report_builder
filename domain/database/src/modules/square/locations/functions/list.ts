@@ -1,6 +1,7 @@
 import { and, count, eq, ilike, or, sql } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
 import { type ListLocationsOptions, type ListLocationsResult, locations } from "../schema"
+import { toContainsIlike } from "@analytics/shared-libs"
 
 export const listLocations = async (
   db: DbClient,
@@ -8,22 +9,19 @@ export const listLocations = async (
   options: ListLocationsOptions,
 ): Promise<ListLocationsResult> => {
   const customerClause = eq(locations.customerId, customerId)
-  const normalizedSearch = options.search.trim()
-  const conditions = normalizedSearch
+  const safePattern = toContainsIlike(options.search.trim())
+  const conditions = safePattern
     ? [
         or(
-          ilike(locations.name, `%${normalizedSearch}%`),
-          ilike(
-            sql`coalesce(${locations.address} ->> 'addressLine1', '')`,
-            `%${normalizedSearch}%`,
-          ),
-          ilike(sql`coalesce(${locations.address} ->> 'locality', '')`, `%${normalizedSearch}%`),
+          ilike(locations.name, `%${safePattern}%`),
+          ilike(sql`coalesce(${locations.address} ->> 'addressLine1', '')`, `%${safePattern}%`),
+          ilike(sql`coalesce(${locations.address} ->> 'locality', '')`, `%${safePattern}%`),
           ilike(
             sql`coalesce(${locations.address} ->> 'administrativeDistrictLevel1', '')`,
-            `%${normalizedSearch}%`,
+            `%${safePattern}%`,
           ),
-          ilike(sql`coalesce(${locations.address} ->> 'postalCode', '')`, `%${normalizedSearch}%`),
-          ilike(sql`coalesce(${locations.address} ->> 'country', '')`, `%${normalizedSearch}%`),
+          ilike(sql`coalesce(${locations.address} ->> 'postalCode', '')`, `%${safePattern}%`),
+          ilike(sql`coalesce(${locations.address} ->> 'country', '')`, `%${safePattern}%`),
         ),
       ]
     : []

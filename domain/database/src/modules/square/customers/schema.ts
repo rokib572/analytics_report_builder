@@ -40,5 +40,15 @@ export type SquareCustomerPayload = {
   contentHash: string
 }
 
+export type ListSquareCustomersOptions = {
+  page: number
+  limit: number
+  name?: string
+  phoneNumber?: string
+  emailAddress?: string
+  creationTimeFrom?: Date
+  creationTimeTo?: Date
+}
+
 export type SquareCustomerDto = typeof squareCustomers.$inferSelect
 export type SquareCustomerListDto = Omit<SquareCustomerDto, "contentHash" | "squareId">

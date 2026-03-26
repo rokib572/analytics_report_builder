@@ -18,9 +18,11 @@ export const fetchAllSquareCustomers = async (customerId: string): Promise<Squar
   }
 
   const allCustomers = response.data || []
-  if (response.hasNextPage()) {
-    const nextPageResponse = await response.getNextPage()
-    allCustomers.push(...(nextPageResponse.data || []))
+
+  let current = response
+  while (current.hasNextPage()) {
+    current = await current.getNextPage()
+    allCustomers.push(...(current.data || []))
   }
   return allCustomers
 }

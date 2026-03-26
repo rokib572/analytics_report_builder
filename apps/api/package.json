@@ -22,8 +22,7 @@
     "dotenv": "^17.3.1",
     "hono": "latest",
     "node-cron": "latest",
-    "zod": "^4.3.6",
-    "square": "44.0.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "latest",

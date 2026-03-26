@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { zValidator } from "@hono/zod-validator"
+import { validator } from "hono/validator"
 import { z } from "zod"
 import { listCustomers } from "@analytics/database"
 import type { AuthEnv } from "../../middleware/auth"
@@ -11,9 +11,10 @@ const listCustomersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
 
-const listCustomersRouter = new Hono<AuthEnv>()
-  .use(requireRole("system_admin"))
-  .get("/", zValidator("query", listCustomersQuerySchema), async (context) => {
+const listCustomersRouter = new Hono<AuthEnv>().use(requireRole("system_admin")).get(
+  "/",
+  validator("query", (input) => listCustomersQuerySchema.parse(input)),
+  async (context) => {
     const { page, limit } = context.req.valid("query")
     const { customers, totalCount } = await listCustomers(db, { page, limit })
 
@@ -26,6 +27,7 @@ const listCustomersRouter = new Hono<AuthEnv>()
         totalCount,
       },
     })
-  })
+  },
+)
 
 export default listCustomersRouter

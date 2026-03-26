@@ -4,7 +4,7 @@ import { listSquareCustomers as listSquareCustomersDB } from "@analytics/databas
 import type { AuthEnv } from "../../../middleware/auth"
 import { requirePermission } from "../../../middleware/permission"
 import { db } from "../../../lib/db"
-import { listSquareCustomersQuerySchema } from "./schema.output"
+import { listSquareCustomersQuerySchema } from "@analytics/validators"
 
 const listSquareCustomers = new Hono<AuthEnv>()
   .use(requirePermission("square-customers", "view"))

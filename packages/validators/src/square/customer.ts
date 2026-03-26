@@ -10,4 +10,4 @@ export const listSquareCustomersQuerySchema = z.object({
   creationTimeTo: z.coerce.date().optional(),
 })
 
-export type ListSquareCustomersQuery = z.infer<typeof listSquareCustomersQuerySchema>
+export type listSquareCustomersQuery = z.infer<typeof listSquareCustomersQuerySchema>
