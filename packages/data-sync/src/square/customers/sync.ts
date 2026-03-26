@@ -5,13 +5,18 @@ import { computeContentHash } from "../../utils/content-hash"
 export const syncCustomers = async (
   db: DbClient,
   customerId: string,
-): Promise<{ synced: number; unchanged: number }> => {
+): Promise<{ synced: number; skipped: number }> => {
   const allCustomers = await fetchAllSquareCustomers(customerId)
 
   let synced = 0
-  let unchanged = 0
+  let skipped = 0
 
   for (const customer of allCustomers) {
+    if (!customer.id || !customer.createdAt) {
+      skipped++
+      continue
+    }
+
     const hashInput = {
       id: customer.id,
       givenName: customer.givenName,
@@ -22,24 +27,20 @@ export const syncCustomers = async (
     }
     const contentHash = computeContentHash(hashInput as Record<string, unknown>)
 
-    const result = await upsertCustomers(db, customerId, {
-      squareId: customer.id!,
+    await upsertCustomers(db, customerId, {
+      squareId: customer.id,
       givenName: customer.givenName ?? "",
       familyName: customer.familyName ?? "",
       emailAddress: customer.emailAddress ?? null,
       phoneNumber: customer.phoneNumber ?? null,
       referenceId: customer.referenceId ?? null,
       creationSource: customer.creationSource ?? null,
-      creationTime: new Date(customer.createdAt!),
+      creationTime: new Date(customer.createdAt),
       contentHash,
     })
 
-    if (result) {
-      synced++
-    } else {
-      unchanged++
-    }
+    synced++
   }
 
-  return { synced, unchanged }
+  return { synced, skipped }
 }

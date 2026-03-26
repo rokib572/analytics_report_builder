@@ -9,20 +9,23 @@ export const listLocations = async (
   options: ListLocationsOptions,
 ): Promise<ListLocationsResult> => {
   const customerClause = eq(locations.customerId, customerId)
-  const safePattern = toContainsIlike(options.search.trim())
-  const conditions = safePattern
+  const trimmed = options.search.trim()
+  const conditions = trimmed
     ? [
-        or(
-          ilike(locations.name, `%${safePattern}%`),
-          ilike(sql`coalesce(${locations.address} ->> 'addressLine1', '')`, `%${safePattern}%`),
-          ilike(sql`coalesce(${locations.address} ->> 'locality', '')`, `%${safePattern}%`),
-          ilike(
-            sql`coalesce(${locations.address} ->> 'administrativeDistrictLevel1', '')`,
-            `%${safePattern}%`,
-          ),
-          ilike(sql`coalesce(${locations.address} ->> 'postalCode', '')`, `%${safePattern}%`),
-          ilike(sql`coalesce(${locations.address} ->> 'country', '')`, `%${safePattern}%`),
-        ),
+        (() => {
+          const safePattern = toContainsIlike(trimmed)
+          return or(
+            ilike(locations.name, safePattern),
+            ilike(sql`coalesce(${locations.address} ->> 'addressLine1', '')`, safePattern),
+            ilike(sql`coalesce(${locations.address} ->> 'locality', '')`, safePattern),
+            ilike(
+              sql`coalesce(${locations.address} ->> 'administrativeDistrictLevel1', '')`,
+              safePattern,
+            ),
+            ilike(sql`coalesce(${locations.address} ->> 'postalCode', '')`, safePattern),
+            ilike(sql`coalesce(${locations.address} ->> 'country', '')`, safePattern),
+          )
+        })(),
       ]
     : []
   const whereClause = conditions.length > 0 ? and(customerClause, ...conditions) : customerClause
