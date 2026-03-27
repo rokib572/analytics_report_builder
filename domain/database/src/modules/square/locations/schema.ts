@@ -30,3 +30,14 @@ export type LocationPayload = {
 }
 
 export type LocationDto = typeof locations.$inferSelect
+
+export type ListLocationsOptions = {
+  page: number
+  limit: number
+  search: string
+}
+
+export type ListLocationsResult = {
+  locations: LocationDto[]
+  totalCount: number
+}

@@ -19,7 +19,8 @@ export const SyncRoute = () => {
     setError(null)
     try {
       const data = await syncLocations.mutateAsync()
-      setResult({ synced: data.synced, unchanged: data.unchanged })
+      const unchanged = "unchanged" in data ? data.unchanged : 0
+      setResult({ synced: data.synced, unchanged })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sync locations")
     }

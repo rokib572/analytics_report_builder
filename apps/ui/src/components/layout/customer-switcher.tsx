@@ -6,7 +6,12 @@ const useCustomers = () =>
   useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      const res = await apiClient.api.customers.$get()
+      const res = await apiClient.api.customers.$get({
+        query: {
+          page: "1",
+          limit: "20",
+        },
+      })
       if (!res.ok) throw new Error("Failed to fetch customers")
       return res.json()
     },

@@ -4,5 +4,4 @@ dist
 *.tsbuildinfo
 .turbo
 .agents
-CLAUDE.md
 domain/database/drizzle/

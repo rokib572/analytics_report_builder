@@ -1,11 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../lib/api-client"
 
-export const useLocations = () =>
+type UseLocationsOptions = {
+  page: number
+  limit: number
+  search: string
+}
+
+export const useLocations = ({ page, limit, search }: UseLocationsOptions) =>
   useQuery({
-    queryKey: ["locations"],
+    queryKey: ["locations", page, limit, search],
     queryFn: async () => {
-      const res = await apiClient.api.square.locations.list.$get()
+      const res = await apiClient.api.square.locations.list.$get({
+        query: {
+          page: String(page),
+          limit: String(limit),
+          search,
+        },
+      })
       if (!res.ok) throw new Error("Failed to fetch locations")
       return res.json()
     },
