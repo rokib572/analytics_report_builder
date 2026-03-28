@@ -1,28 +1,27 @@
 import { Hono } from "hono"
 import { validator } from "hono/validator"
-import { z } from "zod"
-import { syncLocations, syncCustomers } from "@analytics/data-sync"
+import { syncLocations, syncCustomers, syncOrders } from "@analytics/data-sync"
+import { SyncRequestSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 import { requireRole } from "../../../middleware/require-role"
-
-const SyncRequestSchema = z.object({
-  type: z.enum(["locations", "customers"]),
-})
 
 const router = new Hono<AuthEnv>().post(
   "/",
   requireRole("system_admin"),
   validator("json", (input) => SyncRequestSchema.parse(input)),
   async (context) => {
-    const { type } = context.req.valid("json")
+    const data = context.req.valid("json")
     const customerId = context.get("customerId")
 
-    if (type === "locations") {
+    if (data.type === "locations") {
       const result = await syncLocations(db, customerId)
       return context.json({ success: true, ...result })
-    } else if (type === "customers") {
+    } else if (data.type === "customers") {
       const result = await syncCustomers(db, customerId)
+      return context.json({ success: true, ...result })
+    } else if (data.type === "orders") {
+      const result = await syncOrders(db, customerId, data.startAt, data.endAt)
       return context.json({ success: true, ...result })
     }
 
