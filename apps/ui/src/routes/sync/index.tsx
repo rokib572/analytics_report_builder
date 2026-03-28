@@ -1,28 +1,58 @@
 import { useState } from "react"
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@analytics/ui-shared"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
 import { useSyncLocations } from "../../data/locations/hooks"
+import { useSyncOrders } from "../../data/sync/hooks"
+import { SyncLocationsContent } from "./contents-location"
+import { SyncOrdersContent } from "./contents-orders"
+import { MAX_SYNC_DAYS, orderSyncSchema } from "./schemas"
+import type { OrderSyncValues } from "./types"
 
 export const SyncRoute = () => {
   const syncLocations = useSyncLocations()
-  const [result, setResult] = useState<{ synced: number; unchanged: number } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [locResult, setLocResult] = useState<{ synced: number; unchanged: number } | null>(null)
+  const [locError, setLocError] = useState<string | null>(null)
+
+  const syncOrders = useSyncOrders()
+  const [orderResult, setOrderResult] = useState<{
+    synced: number
+    unchanged: number
+    skipped: number
+  } | null>(null)
+  const [orderError, setOrderError] = useState<string | null>(null)
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<OrderSyncValues>({
+    resolver: zodResolver(orderSyncSchema),
+  })
 
   const handleSyncLocations = async () => {
-    setResult(null)
-    setError(null)
+    setLocResult(null)
+    setLocError(null)
     try {
       const data = await syncLocations.mutateAsync()
       const unchanged = "unchanged" in data ? data.unchanged : 0
-      setResult({ synced: data.synced, unchanged })
+      setLocResult({ synced: data.synced, unchanged })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync locations")
+      setLocError(err instanceof Error ? err.message : "Failed to sync locations")
+    }
+  }
+
+  const handleSyncOrders = async (values: OrderSyncValues) => {
+    setOrderResult(null)
+    setOrderError(null)
+    try {
+      const data = await syncOrders.mutateAsync(values)
+      setOrderResult({
+        synced: "synced" in data ? data.synced : 0,
+        unchanged: "unchanged" in data ? data.unchanged : 0,
+        skipped: "skipped" in data ? data.skipped : 0,
+      })
+    } catch (err) {
+      setOrderError(err instanceof Error ? err.message : "Failed to sync orders")
     }
   }
 
@@ -33,25 +63,22 @@ export const SyncRoute = () => {
         <p className="text-muted-foreground">Manually trigger data synchronization from Square.</p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sync Locations</CardTitle>
-          <CardDescription>
-            Fetch the latest locations from Square and update the database.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Button onClick={handleSyncLocations} disabled={syncLocations.isPending}>
-            {syncLocations.isPending ? "Syncing..." : "Sync Locations"}
-          </Button>
-          {result && (
-            <p className="text-sm text-muted-foreground">
-              Sync complete: {result.synced} synced, {result.unchanged} unchanged.
-            </p>
-          )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-        </CardContent>
-      </Card>
+      <SyncLocationsContent
+        onSync={handleSyncLocations}
+        isPending={syncLocations.isPending}
+        result={locResult}
+        error={locError}
+      />
+
+      <SyncOrdersContent
+        register={register}
+        errors={errors}
+        onSubmit={handleSubmit(handleSyncOrders)}
+        isPending={syncOrders.isPending}
+        result={orderResult}
+        error={orderError}
+        maxDays={MAX_SYNC_DAYS}
+      />
     </div>
   )
 }

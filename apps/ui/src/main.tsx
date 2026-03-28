@@ -4,9 +4,7 @@ import { createRoot } from "react-dom/client"
 import { QueryClientProvider } from "@tanstack/react-query"
 import { queryClient } from "./lib/query-client"
 import { Router } from "./router"
-import { AuthGuard } from "./components/auth-guard"
-import { GuestGuard } from "./components/guest-guard"
-import { OnboardingGuard } from "./components/onboarding-guard"
+import { AuthGuard, GuestGuard, OnboardingGuard, RouteRoleGuard } from "./components/access-guards"
 import { DashboardLayout } from "./components/dashboard-layout"
 import { LoginRoute } from "./routes/login"
 import { SignupRoute } from "./routes/signup"
@@ -58,18 +56,20 @@ const App = () => {
     <AuthGuard>
       <OnboardingGuard>
         <DashboardLayout>
-          {route?.name === "Home" && <HomeRoute />}
-          {route?.name === "Locations" && <LocationsRoute />}
-          {route?.name === "LocationGet" && <LocationGetRoute />}
-          {route?.name === "Sales" && <SalesRoute />}
-          {route?.name === "SalesGet" && <SalesGetRoute />}
-          {route?.name === "Sync" && <SyncRoute />}
-          {route?.name === "Integrations" && <IntegrationsRoute />}
-          {route?.name === "Connect" && <ConnectRoute />}
-          {route?.name === "Team" && <TeamRoute />}
-          {route?.name === "ReportBuilder" && <ReportBuilderRoute />}
-          {route?.name === "ReportBuilderGet" && <ReportBuilderRoute />}
-          {!route && <p>Not found</p>}
+          <RouteRoleGuard routeName={route?.name}>
+            {route?.name === "Home" && <HomeRoute />}
+            {route?.name === "Locations" && <LocationsRoute />}
+            {route?.name === "LocationGet" && <LocationGetRoute />}
+            {route?.name === "Sales" && <SalesRoute />}
+            {route?.name === "SalesGet" && <SalesGetRoute />}
+            {route?.name === "Sync" && <SyncRoute />}
+            {route?.name === "Integrations" && <IntegrationsRoute />}
+            {route?.name === "Connect" && <ConnectRoute />}
+            {route?.name === "Team" && <TeamRoute />}
+            {route?.name === "ReportBuilder" && <ReportBuilderRoute />}
+            {route?.name === "ReportBuilderGet" && <ReportBuilderRoute />}
+            {!route && <p>Not found</p>}
+          </RouteRoleGuard>
         </DashboardLayout>
       </OnboardingGuard>
     </AuthGuard>

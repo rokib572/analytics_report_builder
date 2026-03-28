@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react"
-import { authClient } from "../lib/auth-client"
-import { Router } from "../router"
+import { authClient } from "../../lib/auth-client"
+import { Router } from "../../router"
 
 export const GuestGuard = ({ children }: { children: ReactNode }) => {
   const { data: session, isPending } = authClient.useSession()

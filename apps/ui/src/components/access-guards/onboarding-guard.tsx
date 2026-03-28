@@ -1,7 +1,7 @@
 import { type ReactNode } from "react"
-import { useAuth } from "../lib/auth-context"
-import { useIntegrations } from "../data/integrations/hooks"
-import { Router } from "../router"
+import { useAuth } from "../../lib/auth-context"
+import { useIntegrations } from "../../data/integrations/hooks"
+import { Router } from "../../router"
 
 export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
   const { isSystemAdmin } = useAuth()

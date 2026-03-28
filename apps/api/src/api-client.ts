@@ -21,7 +21,7 @@ const app = new Hono()
     "*",
     cors({
       origin: "http://localhost:5173",
-      allowHeaders: ["Content-Type", "Authorization", "X-Account-Id"],
+      allowHeaders: ["Content-Type", "Authorization", "X-Account-Id", "X-Customer-Id"],
       allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
       credentials: true,
     }),
