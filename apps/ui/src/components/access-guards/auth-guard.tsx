@@ -1,8 +1,8 @@
 import { useEffect, type ReactNode } from "react"
-import { authClient } from "../lib/auth-client"
-import { useCurrentUser } from "../data/auth/hooks"
-import { AuthProvider } from "../lib/auth-context"
-import { Router } from "../router"
+import { authClient } from "../../lib/auth-client"
+import { useCurrentUser } from "../../data/auth/hooks"
+import { AuthProvider } from "../../lib/auth-context"
+import { Router } from "../../router"
 
 export const AuthGuard = ({ children }: { children: ReactNode }) => {
   const { data: session, isPending: sessionPending } = authClient.useSession()
