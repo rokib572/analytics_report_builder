@@ -1,4 +1,5 @@
 import { varchar, bigint, date, index } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { orders } from "../orders/schema"
 import { locations } from "../locations/schema"
@@ -30,3 +31,11 @@ export const orderLineItems = coreSchema.table(
     index("line_items_location_date_idx").on(t.locationId, t.saleDate),
   ],
 )
+
+export const insertOrderLineItemSchema = createInsertSchema(orderLineItems).omit({
+  id: true,
+})
+export const selectOrderLineItemSchema = createSelectSchema(orderLineItems)
+
+export type OrderLineItemPayload = ReturnType<typeof insertOrderLineItemSchema.parse>
+export type OrderLineItemDto = ReturnType<typeof selectOrderLineItemSchema.parse>

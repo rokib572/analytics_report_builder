@@ -5,3 +5,5 @@ dist
 .turbo
 .agents
 domain/database/drizzle/
+packages/data-sync/src/square/orders/sync.ts
+CLAUDE.md
