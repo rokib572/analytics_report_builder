@@ -1,6 +1,6 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@analytics/ui-shared"
-import { useLocation } from "../../data/locations/hooks"
-import { Router } from "../../router"
+import { useLocation } from "../../../data/square/locations/hooks"
+import { Router } from "../../../router"
 
 const formatFullAddress = (address: unknown): string => {
   if (!address || typeof address !== "object") return "—"
@@ -16,7 +16,7 @@ const formatFullAddress = (address: unknown): string => {
 }
 
 export const LocationGetRoute = () => {
-  const route = Router.useRoute(["LocationGet"])
+  const route = Router.useRoute(["SquareLocationGet"])
   const id = route?.params?.id ?? ""
   const { data, isPending } = useLocation(id)
   const location = data?.location
@@ -33,7 +33,7 @@ export const LocationGetRoute = () => {
     return (
       <div className="p-6">
         <p className="text-muted-foreground">Location not found.</p>
-        <Button variant="outline" className="mt-4" onClick={() => Router.push("Locations")}>
+        <Button variant="outline" className="mt-4" onClick={() => Router.push("SquareLocations")}>
           Back to Locations
         </Button>
       </div>
@@ -43,7 +43,7 @@ export const LocationGetRoute = () => {
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => Router.push("Locations")}>
+        <Button variant="outline" size="sm" onClick={() => Router.push("SquareLocations")}>
           Back
         </Button>
         <div>

@@ -6,6 +6,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -19,9 +20,9 @@ import { NavUser } from "./nav-user"
 
 type RouteName =
   | "Home"
-  | "Locations"
-  | "Sales"
-  | "Sync"
+  | "SquareLocations"
+  | "SquareSales"
+  | "SquareSync"
   | "Integrations"
   | "Connect"
   | "Team"
@@ -36,40 +37,12 @@ type NavItem = {
   permission?: string
 }
 
-const navItems: NavItem[] = [
+const coreNavItems: NavItem[] = [
   {
     label: "Dashboard",
     icon: Home,
     route: "Home",
     roles: ["owner", "admin", "member", "system_admin"],
-  },
-  {
-    label: "Locations",
-    icon: MapPin,
-    route: "Locations",
-    matchRoutes: ["LocationGet"],
-    roles: ["owner", "admin", "member", "system_admin"],
-    permission: "locations:view",
-  },
-  {
-    label: "Sales",
-    icon: BarChart3,
-    route: "Sales",
-    matchRoutes: ["SalesGet"],
-    roles: ["owner", "admin", "member", "system_admin"],
-    permission: "sales:view",
-  },
-  {
-    label: "Team",
-    icon: Users,
-    route: "Team",
-    roles: ["owner", "admin", "system_admin"],
-  },
-  {
-    label: "Sync",
-    icon: RefreshCw,
-    route: "Sync",
-    roles: ["system_admin"],
   },
   {
     label: "Report Builder",
@@ -79,16 +52,47 @@ const navItems: NavItem[] = [
     roles: ["owner", "admin", "member", "system_admin"],
     permission: "reports:view",
   },
+  {
+    label: "Team",
+    icon: Users,
+    route: "Team",
+    roles: ["owner", "admin", "system_admin"],
+  },
+]
+
+const squareNavItems: NavItem[] = [
+  {
+    label: "Locations",
+    icon: MapPin,
+    route: "SquareLocations",
+    matchRoutes: ["SquareLocationGet"],
+    roles: ["owner", "admin", "member", "system_admin"],
+    permission: "locations:view",
+  },
+  {
+    label: "Sales",
+    icon: BarChart3,
+    route: "SquareSales",
+    matchRoutes: ["SquareSalesGet"],
+    roles: ["owner", "admin", "member", "system_admin"],
+    permission: "sales:view",
+  },
+  {
+    label: "Sync",
+    icon: RefreshCw,
+    route: "SquareSync",
+    roles: ["system_admin"],
+  },
 ]
 
 export const AppSidebar = () => {
   const route = Router.useRoute([
     "Home",
-    "Locations",
-    "LocationGet",
-    "Sales",
-    "SalesGet",
-    "Sync",
+    "SquareLocations",
+    "SquareLocationGet",
+    "SquareSales",
+    "SquareSalesGet",
+    "SquareSync",
     "Integrations",
     "Connect",
     "Team",
@@ -125,19 +129,21 @@ export const AppSidebar = () => {
     })
   }
 
-  const allItems = [...navItems, ...dynamicItems]
+  const filterVisible = (items: NavItem[]) =>
+    items.filter((item) => {
+      if (!item.roles.includes(user.role as UserRole)) return false
 
-  const visibleItems = allItems.filter((item) => {
-    if (!item.roles.includes(user.role as UserRole)) return false
+      // Members need explicit permission for gated items
+      if (!isAccountAdmin && !isSystemAdmin && item.permission) {
+        const [resource, action] = item.permission.split(":")
+        return permissions.some((p) => p.resource === resource && p.action === action && p.allowed)
+      }
 
-    // Members need explicit permission for gated items
-    if (!isAccountAdmin && !isSystemAdmin && item.permission) {
-      const [resource, action] = item.permission.split(":")
-      return permissions.some((p) => p.resource === resource && p.action === action && p.allowed)
-    }
+      return true
+    })
 
-    return true
-  })
+  const visibleCoreItems = filterVisible([...coreNavItems, ...dynamicItems])
+  const visibleSquareItems = connectedApps.has("square") ? filterVisible(squareNavItems) : []
 
   return (
     <Sidebar collapsible="icon">
@@ -160,7 +166,7 @@ export const AppSidebar = () => {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleItems.map((item) => {
+              {visibleCoreItems.map((item) => {
                 const isActive =
                   currentRoute === item.route ||
                   (item.matchRoutes?.some((r) => r === currentRoute) ?? false)
@@ -181,6 +187,34 @@ export const AppSidebar = () => {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {visibleSquareItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Square</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {visibleSquareItems.map((item) => {
+                  const isActive =
+                    currentRoute === item.route ||
+                    (item.matchRoutes?.some((r) => r === currentRoute) ?? false)
+
+                  return (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        tooltip={item.label}
+                        onClick={() => Router.push(item.route)}
+                      >
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

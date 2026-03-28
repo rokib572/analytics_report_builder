@@ -9,11 +9,11 @@ import { DashboardLayout } from "./components/dashboard-layout"
 import { LoginRoute } from "./routes/login"
 import { SignupRoute } from "./routes/signup"
 import { HomeRoute } from "./routes/home"
-import { LocationsRoute } from "./routes/locations"
-import { LocationGetRoute } from "./routes/locations/get"
-import { SalesRoute } from "./routes/sales"
-import { SalesGetRoute } from "./routes/sales/get"
-import { SyncRoute } from "./routes/sync"
+import { LocationsRoute } from "./routes/square/locations"
+import { LocationGetRoute } from "./routes/square/locations/get"
+import { SalesRoute } from "./routes/square/sales"
+import { SalesGetRoute } from "./routes/square/sales/get"
+import { SyncRoute } from "./routes/square/sync"
 import { IntegrationsRoute } from "./routes/integrations"
 import { ConnectRoute } from "./routes/connect"
 import { ReportBuilderRoute } from "./routes/report-builder"
@@ -26,11 +26,11 @@ const App = () => {
     "Signup",
     "AcceptInvite",
     "Home",
-    "Locations",
-    "LocationGet",
-    "Sales",
-    "SalesGet",
-    "Sync",
+    "SquareLocations",
+    "SquareLocationGet",
+    "SquareSales",
+    "SquareSalesGet",
+    "SquareSync",
     "Integrations",
     "Connect",
     "Team",
@@ -58,11 +58,11 @@ const App = () => {
         <DashboardLayout>
           <RouteRoleGuard routeName={route?.name}>
             {route?.name === "Home" && <HomeRoute />}
-            {route?.name === "Locations" && <LocationsRoute />}
-            {route?.name === "LocationGet" && <LocationGetRoute />}
-            {route?.name === "Sales" && <SalesRoute />}
-            {route?.name === "SalesGet" && <SalesGetRoute />}
-            {route?.name === "Sync" && <SyncRoute />}
+            {route?.name === "SquareLocations" && <LocationsRoute />}
+            {route?.name === "SquareLocationGet" && <LocationGetRoute />}
+            {route?.name === "SquareSales" && <SalesRoute />}
+            {route?.name === "SquareSalesGet" && <SalesGetRoute />}
+            {route?.name === "SquareSync" && <SyncRoute />}
             {route?.name === "Integrations" && <IntegrationsRoute />}
             {route?.name === "Connect" && <ConnectRoute />}
             {route?.name === "Team" && <TeamRoute />}

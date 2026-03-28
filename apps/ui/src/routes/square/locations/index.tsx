@@ -14,8 +14,8 @@ import {
   TableHeader,
   TableRow,
 } from "@analytics/ui-shared"
-import { useLocations } from "../../data/locations/hooks"
-import { Router } from "../../router"
+import { useLocations } from "../../../data/square/locations/hooks"
+import { Router } from "../../../router"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100]
 
@@ -150,7 +150,7 @@ export const LocationsRoute = () => {
                   <TableRow
                     key={loc.id}
                     className="cursor-pointer"
-                    onClick={() => Router.push("LocationGet", { id: loc.id })}
+                    onClick={() => Router.push("SquareLocationGet", { id: loc.id })}
                   >
                     <TableCell className="font-medium">{loc.name}</TableCell>
                     <TableCell>

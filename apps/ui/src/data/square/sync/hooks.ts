@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { apiClient } from "../../lib/api-client"
+import { apiClient } from "../../../lib/api-client"
 
 export const useSyncOrders = () => {
   const queryClient = useQueryClient()

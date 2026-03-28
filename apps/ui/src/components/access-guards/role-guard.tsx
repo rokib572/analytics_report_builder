@@ -7,16 +7,16 @@ const ALL_ROLES: UserRole[] = ["owner", "admin", "member", "system_admin"]
 
 const routeRoles: Record<string, UserRole[]> = {
   Home: ALL_ROLES,
-  Locations: ALL_ROLES,
-  LocationGet: ALL_ROLES,
-  Sales: ALL_ROLES,
-  SalesGet: ALL_ROLES,
+  SquareLocations: ALL_ROLES,
+  SquareLocationGet: ALL_ROLES,
+  SquareSales: ALL_ROLES,
+  SquareSalesGet: ALL_ROLES,
   ReportBuilder: ALL_ROLES,
   ReportBuilderGet: ALL_ROLES,
   Integrations: ["owner", "admin"],
   Connect: ["owner", "admin"],
   Team: ["owner", "admin", "system_admin"],
-  Sync: ["system_admin"],
+  SquareSync: ["system_admin"],
 }
 
 export const RouteRoleGuard = ({
