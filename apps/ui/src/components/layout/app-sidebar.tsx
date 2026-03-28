@@ -111,7 +111,7 @@ export const AppSidebar = () => {
   // Build dynamic nav items for Connect/Integrations
   const dynamicItems: NavItem[] = []
 
-  if (hasIntegrations) {
+  if (isSystemAdmin || hasIntegrations) {
     dynamicItems.push({
       label: "Integrations",
       icon: Plug,
@@ -120,7 +120,7 @@ export const AppSidebar = () => {
     })
   }
 
-  if (!allAppsConnected) {
+  if (isSystemAdmin || !allAppsConnected) {
     dynamicItems.push({
       label: "Connect",
       icon: Link2,
@@ -131,10 +131,12 @@ export const AppSidebar = () => {
 
   const filterVisible = (items: NavItem[]) =>
     items.filter((item) => {
+      if (isSystemAdmin) return true
+
       if (!item.roles.includes(user.role as UserRole)) return false
 
       // Members need explicit permission for gated items
-      if (!isAccountAdmin && !isSystemAdmin && item.permission) {
+      if (!isAccountAdmin && item.permission) {
         const [resource, action] = item.permission.split(":")
         return permissions.some((p) => p.resource === resource && p.action === action && p.allowed)
       }
@@ -143,7 +145,8 @@ export const AppSidebar = () => {
     })
 
   const visibleCoreItems = filterVisible([...coreNavItems, ...dynamicItems])
-  const visibleSquareItems = connectedApps.has("square") ? filterVisible(squareNavItems) : []
+  const visibleSquareItems =
+    isSystemAdmin || connectedApps.has("square") ? filterVisible(squareNavItems) : []
 
   return (
     <Sidebar collapsible="icon">

@@ -26,9 +26,9 @@ export const RouteRoleGuard = ({
   routeName: string | undefined
   children: ReactNode
 }) => {
-  const { user } = useAuth()
+  const { user, isSystemAdmin } = useAuth()
   const roles = routeName ? routeRoles[routeName] : undefined
-  const authorized = !roles || roles.includes(user.role as UserRole)
+  const authorized = isSystemAdmin || !roles || roles.includes(user.role as UserRole)
 
   useEffect(() => {
     if (!authorized) {
@@ -52,7 +52,7 @@ export const RoleGuard = ({
 }) => {
   const { user, permissions, isSystemAdmin, isAccountAdmin } = useAuth()
 
-  const hasRole = roles.includes(user.role as UserRole)
+  const hasRole = isSystemAdmin || roles.includes(user.role as UserRole)
 
   // Members need explicit permission if specified
   const hasPermission =
