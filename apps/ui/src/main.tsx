@@ -11,8 +11,8 @@ import { SignupRoute } from "./routes/signup"
 import { HomeRoute } from "./routes/home"
 import { LocationsRoute } from "./routes/square/locations"
 import { LocationGetRoute } from "./routes/square/locations/get"
-import { SalesRoute } from "./routes/square/sales"
-import { SalesGetRoute } from "./routes/square/sales/get"
+import { OrdersRoute } from "./routes/square/orders"
+import { OrderGetRoute } from "./routes/square/orders/get"
 import { SyncRoute } from "./routes/square/sync"
 import { IntegrationsRoute } from "./routes/integrations"
 import { ConnectRoute } from "./routes/connect"
@@ -28,8 +28,8 @@ const App = () => {
     "Home",
     "SquareLocations",
     "SquareLocationGet",
-    "SquareSales",
-    "SquareSalesGet",
+    "SquareOrders",
+    "SquareOrderGet",
     "SquareSync",
     "Integrations",
     "Connect",
@@ -60,8 +60,8 @@ const App = () => {
             {route?.name === "Home" && <HomeRoute />}
             {route?.name === "SquareLocations" && <LocationsRoute />}
             {route?.name === "SquareLocationGet" && <LocationGetRoute />}
-            {route?.name === "SquareSales" && <SalesRoute />}
-            {route?.name === "SquareSalesGet" && <SalesGetRoute />}
+            {route?.name === "SquareOrders" && <OrdersRoute />}
+            {route?.name === "SquareOrderGet" && <OrderGetRoute />}
             {route?.name === "SquareSync" && <SyncRoute />}
             {route?.name === "Integrations" && <IntegrationsRoute />}
             {route?.name === "Connect" && <ConnectRoute />}

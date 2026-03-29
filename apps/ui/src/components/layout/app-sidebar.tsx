@@ -21,7 +21,7 @@ import { NavUser } from "./nav-user"
 type RouteName =
   | "Home"
   | "SquareLocations"
-  | "SquareSales"
+  | "SquareOrders"
   | "SquareSync"
   | "Integrations"
   | "Connect"
@@ -70,12 +70,12 @@ const squareNavItems: NavItem[] = [
     permission: "locations:view",
   },
   {
-    label: "Sales",
+    label: "Orders",
     icon: BarChart3,
-    route: "SquareSales",
-    matchRoutes: ["SquareSalesGet"],
+    route: "SquareOrders",
+    matchRoutes: ["SquareOrderGet"],
     roles: ["owner", "admin", "member", "system_admin"],
-    permission: "sales:view",
+    permission: "orders:view",
   },
   {
     label: "Sync",
@@ -90,8 +90,8 @@ export const AppSidebar = () => {
     "Home",
     "SquareLocations",
     "SquareLocationGet",
-    "SquareSales",
-    "SquareSalesGet",
+    "SquareOrders",
+    "SquareOrderGet",
     "SquareSync",
     "Integrations",
     "Connect",
