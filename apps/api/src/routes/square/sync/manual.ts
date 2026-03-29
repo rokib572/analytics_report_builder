@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { validator } from "hono/validator"
-import { syncLocations, syncCustomers, syncOrders } from "@analytics/data-sync"
+import { syncLocations, syncCustomers, syncOrders, syncCatalog } from "@analytics/data-sync"
 import { SyncRequestSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
@@ -22,6 +22,9 @@ const router = new Hono<AuthEnv>().post(
       return context.json({ success: true, ...result })
     } else if (data.type === "orders") {
       const result = await syncOrders(db, customerId, data.startAt, data.endAt)
+      return context.json({ success: true, ...result })
+    } else if (data.type === "catalog") {
+      const result = await syncCatalog(db, customerId)
       return context.json({ success: true, ...result })
     }
 

@@ -20,6 +20,7 @@ const MAX_SYNC_DAYS = 30
 export const SyncRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("locations") }),
   z.object({ type: z.literal("customers") }),
+  z.object({ type: z.literal("catalog") }),
   z
     .object({
       type: z.literal("orders"),
