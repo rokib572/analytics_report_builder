@@ -2,9 +2,10 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useSyncLocations } from "../../../data/square/locations/hooks"
-import { useSyncOrders } from "../../../data/square/sync/hooks"
+import { useSyncOrders, useSyncCatalog } from "../../../data/square/sync/hooks"
 import { SyncLocationsContent } from "./contents-location"
 import { SyncOrdersContent } from "./contents-orders"
+import { SyncCatalogContent } from "./contents-catalog"
 import { MAX_SYNC_DAYS, orderSyncSchema } from "./schemas"
 import type { OrderSyncValues } from "./types"
 
@@ -20,6 +21,14 @@ export const SyncRoute = () => {
     skipped: number
   } | null>(null)
   const [orderError, setOrderError] = useState<string | null>(null)
+
+  const syncCatalog = useSyncCatalog()
+  const [catalogResult, setCatalogResult] = useState<{
+    synced: number
+    unchanged: number
+    skipped: number
+  } | null>(null)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
 
   const {
     register,
@@ -56,6 +65,21 @@ export const SyncRoute = () => {
     }
   }
 
+  const handleSyncCatalog = async () => {
+    setCatalogResult(null)
+    setCatalogError(null)
+    try {
+      const data = await syncCatalog.mutateAsync()
+      setCatalogResult({
+        synced: "synced" in data ? data.synced : 0,
+        unchanged: "unchanged" in data ? data.unchanged : 0,
+        skipped: "skipped" in data ? data.skipped : 0,
+      })
+    } catch (err) {
+      setCatalogError(err instanceof Error ? err.message : "Failed to sync catalog")
+    }
+  }
+
   return (
     <div className="space-y-6 p-6">
       <div>
@@ -78,6 +102,13 @@ export const SyncRoute = () => {
         result={orderResult}
         error={orderError}
         maxDays={MAX_SYNC_DAYS}
+      />
+
+      <SyncCatalogContent
+        onSync={handleSyncCatalog}
+        isPending={syncCatalog.isPending}
+        result={catalogResult}
+        error={catalogError}
       />
     </div>
   )

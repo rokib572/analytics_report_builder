@@ -21,3 +21,10 @@ export type SyncOrdersContentProps = {
   error: string | null
   maxDays: number
 }
+
+export type SyncCatalogContentProps = {
+  onSync: () => void
+  isPending: boolean
+  result: { synced: number; unchanged: number; skipped: number } | null
+  error: string | null
+}

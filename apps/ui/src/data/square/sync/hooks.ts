@@ -16,3 +16,19 @@ export const useSyncOrders = () => {
     },
   })
 }
+
+export const useSyncCatalog = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const res = await apiClient.api.sync.manual.$post({
+        json: { type: "catalog" },
+      })
+      if (!res.ok) throw new Error("Failed to sync catalog")
+      return res.json()
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["catalog"] })
+    },
+  })
+}
