@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm"
 import { varchar, bigint, integer, timestamp, date, unique, index } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { locations } from "../locations/schema"
 
@@ -58,3 +59,12 @@ export const dailySales = coreSchema.table(
     index("daily_sales_location_date_idx").on(t.locationId, t.saleDate),
   ],
 )
+
+export const insertDailySalesSchema = createInsertSchema(dailySales).omit({
+  id: true,
+  syncedAt: true,
+})
+export const selectDailySalesSchema = createSelectSchema(dailySales)
+
+export type DailySalesPayload = ReturnType<typeof insertDailySalesSchema.parse>
+export type DailySalesDto = ReturnType<typeof selectDailySalesSchema.parse>

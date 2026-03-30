@@ -1,4 +1,5 @@
 import { varchar, timestamp, index } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { customers } from "../../customers/schema"
 
@@ -28,27 +29,17 @@ export const squareCustomers = coreSchema.table(
   ],
 )
 
-export type SquareCustomerPayload = {
-  squareId: string
-  givenName: string
-  familyName: string
-  emailAddress: string | null
-  phoneNumber: string | null
-  referenceId: string | null
-  creationSource: string | null
-  creationTime: Date
-  contentHash: string
-}
+export const insertSquareCustomerSchema = createInsertSchema(squareCustomers).omit({
+  id: true,
+  customerId: true,
+  syncedAt: true,
+})
+export const selectSquareCustomerSchema = createSelectSchema(squareCustomers)
+export const selectSquareCustomerListSchema = createSelectSchema(squareCustomers).omit({
+  contentHash: true,
+  squareId: true,
+})
 
-export type ListSquareCustomersOptions = {
-  page: number
-  limit: number
-  name?: string
-  phoneNumber?: string
-  emailAddress?: string
-  creationTimeFrom?: Date
-  creationTimeTo?: Date
-}
-
-export type SquareCustomerDto = typeof squareCustomers.$inferSelect
-export type SquareCustomerListDto = Omit<SquareCustomerDto, "contentHash" | "squareId">
+export type SquareCustomerPayload = ReturnType<typeof insertSquareCustomerSchema.parse>
+export type SquareCustomerDto = ReturnType<typeof selectSquareCustomerSchema.parse>
+export type SquareCustomerListDto = ReturnType<typeof selectSquareCustomerListSchema.parse>

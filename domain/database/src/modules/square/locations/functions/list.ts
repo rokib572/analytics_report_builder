@@ -1,6 +1,7 @@
 import { and, count, eq, ilike, or, sql } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
-import { type ListLocationsOptions, type ListLocationsResult, locations } from "../schema"
+import { locations } from "../schema"
+import type { ListLocationsOptions, ListLocationsResult } from "../types"
 import { toContainsIlike } from "@analytics/shared-libs"
 
 export const listLocations = async (

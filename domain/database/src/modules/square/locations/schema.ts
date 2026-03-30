@@ -1,4 +1,6 @@
 import { varchar, jsonb, timestamp, index } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
+import { z } from "zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { customers } from "../../customers/schema"
 
@@ -20,24 +22,19 @@ export const locations = coreSchema.table(
   (t) => [index("locations_customer_id_idx").on(t.customerId)],
 )
 
-export type LocationPayload = {
-  squareId: string
-  name: string
-  address?: Record<string, unknown> | null
-  status: string
-  timezone?: string | null
-  contentHash: string
-}
+const addressInsertSchema = z.record(z.string(), z.unknown()).nullable().optional()
+const addressSelectSchema = z.record(z.string(), z.unknown()).nullable()
 
-export type LocationDto = typeof locations.$inferSelect
+export const insertLocationSchema = createInsertSchema(locations, {
+  address: () => addressInsertSchema,
+}).omit({
+  id: true,
+  customerId: true,
+  syncedAt: true,
+})
+export const selectLocationSchema = createSelectSchema(locations, {
+  address: () => addressSelectSchema,
+})
 
-export type ListLocationsOptions = {
-  page: number
-  limit: number
-  search: string
-}
-
-export type ListLocationsResult = {
-  locations: LocationDto[]
-  totalCount: number
-}
+export type LocationPayload = ReturnType<typeof insertLocationSchema.parse>
+export type LocationDto = ReturnType<typeof selectLocationSchema.parse>

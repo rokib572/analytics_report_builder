@@ -1,10 +1,7 @@
 import { and, eq, desc, count, gte, lte, or, sql, type SQL } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
-import {
-  type SquareCustomerListDto,
-  type ListSquareCustomersOptions,
-  squareCustomers,
-} from "../schema"
+import { type SquareCustomerListDto, squareCustomers } from "../schema"
+import type { ListSquareCustomersOptions } from "../types"
 import { toContainsIlike } from "@analytics/shared-libs"
 
 export const listSquareCustomers = async (
