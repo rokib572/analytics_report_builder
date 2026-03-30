@@ -6,3 +6,6 @@ dist
 .agents
 domain/database/drizzle/
 CLAUDE.md
+CHECKLIST.md
+.gitignore
+ROADMAP.md
