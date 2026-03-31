@@ -1,6 +1,14 @@
 import { Hono } from "hono"
 import { validator } from "hono/validator"
-import { syncLocations, syncCustomers, syncOrders, syncCatalog } from "@analytics/data-sync"
+import {
+  aggregateOrdersToDaily,
+  syncLocations,
+  syncCustomers,
+  syncOrders,
+  syncCatalog,
+} from "@analytics/data-sync"
+import { getLocationSquareIdMap, upsertDailySales } from "@analytics/database"
+import { batchSearchOrders } from "@analytics/square"
 import { SyncRequestSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
@@ -22,7 +30,30 @@ const router = new Hono<AuthEnv>().post(
       return context.json({ success: true, ...result })
     } else if (data.type === "orders") {
       const result = await syncOrders(db, customerId, data.startAt, data.endAt)
-      return context.json({ success: true, ...result })
+      let aggregated = 0
+
+      if (result.synced > 0) {
+        const locationMap = await getLocationSquareIdMap(db, customerId)
+        const squareLocationIds = [...locationMap.keys()]
+
+        if (squareLocationIds.length > 0) {
+          const orders = await batchSearchOrders(
+            customerId,
+            squareLocationIds,
+            data.startAt,
+            data.endAt,
+          )
+          const dailyPayloads = aggregateOrdersToDaily(orders, locationMap, "manual")
+
+          for (const payload of dailyPayloads) {
+            await upsertDailySales(db, customerId, payload)
+          }
+
+          aggregated = dailyPayloads.length
+        }
+      }
+
+      return context.json({ success: true, ...result, aggregated })
     } else if (data.type === "catalog") {
       const result = await syncCatalog(db, customerId)
       return context.json({ success: true, ...result })

@@ -1,9 +1,14 @@
 import { varchar, integer, timestamp, date } from "drizzle-orm/pg-core"
+import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { auditSchema, foreignKey, primaryKey } from "../../../db/base"
+import { customers } from "../../customers/schema"
 import { locations } from "../locations/schema"
 
 export const syncLog = auditSchema.table("sync_log", {
   id: primaryKey(),
+  customerId: foreignKey("customer_id")
+    .notNull()
+    .references(() => customers.id),
   syncType: varchar("sync_type", { length: 50 }).notNull(),
   locationId: foreignKey("location_id").references(() => locations.id),
   dateFrom: date("date_from").notNull(),
@@ -16,3 +21,12 @@ export const syncLog = auditSchema.table("sync_log", {
   errorMessage: varchar("error_message", { length: 1000 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
+
+export const insertSyncLogSchema = createInsertSchema(syncLog).omit({
+  id: true,
+  createdAt: true,
+})
+export const selectSyncLogSchema = createSelectSchema(syncLog)
+
+export type SyncLogPayload = ReturnType<typeof insertSyncLogSchema.parse>
+export type SyncLogDto = ReturnType<typeof selectSyncLogSchema.parse>
