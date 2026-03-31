@@ -21,3 +21,8 @@ export const DailySalesSchema = z.object({
 })
 
 export type DailySales = z.infer<typeof DailySalesSchema>
+
+export const dashboardSummaryQuerySchema = z.object({
+  dateFrom: z.iso.date().optional(),
+  dateTo: z.iso.date().optional(),
+})
