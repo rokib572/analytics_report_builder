@@ -8,7 +8,7 @@ export const Router = createRouter({
   SquareLocations: "/square/locations",
   SquareLocationGet: "/square/locations/:id",
   SquareOrders: "/square/orders",
-  SquareOrderGet: "/square/orders/:locationId/:date",
+  SquareOrderGet: "/square/orders/:id",
   SquareSync: "/square/sync",
   Integrations: "/integrations",
   Connect: "/connect",
