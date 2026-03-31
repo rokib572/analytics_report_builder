@@ -14,6 +14,7 @@ import invitationRouter from "./routes/invitations"
 import validateInvitationRouter from "./routes/invitations/validate"
 import usersRouter from "./routes/users/list"
 import manualSyncRouter from "./routes/square/sync/manual"
+import webhooksRouter from "./routes/square/webhooks"
 
 const app = new Hono()
   .onError(errorHandler)
@@ -28,6 +29,7 @@ const app = new Hono()
   )
   .on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw))
   .route("/api/invitations/validate", validateInvitationRouter)
+  .route("/api/square/webhooks", webhooksRouter)
   .use("/api/*", authMiddleware)
   .route("/api/onboarding", onboardingRouter)
   .route("/api/current-user", currentUserRouter)

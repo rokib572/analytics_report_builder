@@ -1,9 +1,10 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../db/client"
+import { type WebhookLogDto, type WebhookLogPayload, webhookLog } from "../schema"
 
 export const createWebhookLog = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _data: unknown,
-) => {
-  // TODO: implement
+  db: DbClient,
+  data: WebhookLogPayload,
+): Promise<WebhookLogDto> => {
+  const [row] = await db.insert(webhookLog).values(data).returning()
+  return row!
 }
