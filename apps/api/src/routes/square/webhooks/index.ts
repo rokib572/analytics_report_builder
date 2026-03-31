@@ -1,12 +1,156 @@
+import { randomUUID } from "node:crypto"
 import { Hono } from "hono"
+import {
+  createWebhookLog,
+  findLocationBySquareId,
+  findWebhookLogByEventId,
+  updateWebhookLogProcessed,
+} from "@analytics/database"
+import { processWebhookEvent } from "@analytics/data-sync"
+import { verifySquareWebhook } from "@analytics/square"
+import { db } from "../../../lib/db"
 
-const router = new Hono()
+type ParsedWebhookEvent = {
+  eventId: string
+  eventType: string
+  merchantId: string | null
+  orderId: string | null
+  locationId: string | null
+  payload: Record<string, unknown>
+}
 
-router.post("/", (c) => {
-  // TODO: verify HMAC via WebhooksHelper.verifySignature
-  // TODO: idempotency check via eventId in webhook_log
-  // TODO: upsert order → recalculate daily_sales
-  // Must respond HTTP 200 quickly — Square requires fast response
+const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
+  const parsed = JSON.parse(body) as Record<string, unknown>
+  const data = parsed.data as Record<string, unknown> | undefined
+  const object = data?.object as Record<string, unknown> | undefined
+  const orderUpdated = object?.order_updated as Record<string, unknown> | undefined
+  const order = object?.order as Record<string, unknown> | undefined
+  const locationId =
+    (orderUpdated?.location_id as string | undefined) ??
+    (order?.location_id as string | undefined) ??
+    (order?.locationId as string | undefined) ??
+    null
+
+  return {
+    eventId: (parsed.event_id as string | undefined) ?? randomUUID(),
+    eventType: (parsed.type as string | undefined) ?? "unknown",
+    merchantId: (parsed.merchant_id as string | undefined) ?? null,
+    orderId: (data?.id as string | undefined) ?? null,
+    locationId,
+    payload: parsed,
+  }
+}
+
+const router = new Hono().post("/", async (c) => {
+  const requestBody = await c.req.text()
+  const signatureHeader = c.req.header("x-square-hmacsha256-signature") ?? ""
+  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL ?? c.req.url
+
+  let parsedEvent: ParsedWebhookEvent
+  try {
+    parsedEvent = parseWebhookPayload(requestBody)
+  } catch {
+    parsedEvent = {
+      eventId: randomUUID(),
+      eventType: "unknown",
+      merchantId: null,
+      orderId: null,
+      locationId: null,
+      payload: { rawBody: requestBody },
+    }
+  }
+
+  const isValidSignature =
+    signatureHeader.length > 0 &&
+    (await verifySquareWebhook({ requestBody, signatureHeader, notificationUrl }))
+
+  if (!isValidSignature) {
+    const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
+    if (!existing) {
+      await createWebhookLog(db, {
+        eventId: parsedEvent.eventId,
+        eventType: parsedEvent.eventType,
+        merchantId: parsedEvent.merchantId,
+        locationId: parsedEvent.locationId,
+        orderId: parsedEvent.orderId,
+        signatureValid: false,
+        processed: false,
+        payload: parsedEvent.payload,
+      })
+    }
+
+    return c.json({ ok: true })
+  }
+
+  if (!parsedEvent.orderId || !parsedEvent.locationId) {
+    const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
+    if (!existing) {
+      await createWebhookLog(db, {
+        eventId: parsedEvent.eventId,
+        eventType: parsedEvent.eventType,
+        merchantId: parsedEvent.merchantId,
+        locationId: parsedEvent.locationId,
+        orderId: parsedEvent.orderId,
+        signatureValid: true,
+        processed: false,
+        payload: parsedEvent.payload,
+      })
+    }
+
+    return c.json({ ok: true })
+  }
+
+  const location = await findLocationBySquareId(db, parsedEvent.locationId)
+  if (!location) {
+    const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
+    if (!existing) {
+      await createWebhookLog(db, {
+        eventId: parsedEvent.eventId,
+        eventType: parsedEvent.eventType,
+        merchantId: parsedEvent.merchantId,
+        locationId: parsedEvent.locationId,
+        orderId: parsedEvent.orderId,
+        signatureValid: true,
+        processed: false,
+        payload: parsedEvent.payload,
+      })
+    }
+
+    return c.json({ ok: true })
+  }
+
+  const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
+  const webhookLog =
+    existing ??
+    (await createWebhookLog(db, {
+      eventId: parsedEvent.eventId,
+      eventType: parsedEvent.eventType,
+      merchantId: parsedEvent.merchantId,
+      locationId: parsedEvent.locationId,
+      orderId: parsedEvent.orderId,
+      signatureValid: true,
+      processed: false,
+      payload: parsedEvent.payload,
+    }))
+
+  void processWebhookEvent(db, location.customerId, {
+    eventId: parsedEvent.eventId,
+    orderId: parsedEvent.orderId,
+    locationId: parsedEvent.locationId,
+  })
+    .then(async (result) => {
+      if (result.processed) {
+        await updateWebhookLogProcessed(db, webhookLog.id)
+      }
+    })
+    .catch((error) => {
+      console.error("[SquareWebhookProcessingError]", {
+        eventId: parsedEvent.eventId,
+        message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+    })
+
   return c.json({ ok: true })
 })
 
