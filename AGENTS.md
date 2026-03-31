@@ -79,6 +79,17 @@ The app uses a shadcn sidebar layout (`packages/ui-shared/src/components/ui/side
 - System admins see a customer-switcher dropdown in the header.
 - Integration-aware sidebar: "Integrations" menu appears when apps are connected; "Connect" disappears when all app types are connected.
 
+### UI Page Structure
+
+Pages follow a **container/presentational** pattern with separation between data logic and rendering:
+
+- **`index.tsx`** — Main page (container). Hosts all hooks, state, mutations, and handlers. Passes data and callbacks as props to content components.
+- **`contents-{feature}.tsx`** — Presentational (dummy) components that only receive props (data, handlers, loading states). No hooks or data fetching inside these. A page can have multiple content files for distinct UI sections.
+- **`types.ts`** — All prop types and shared type definitions for the page.
+- **`schemas.ts`** — Zod validation schemas and constants used by the page.
+
+This keeps UI components testable and reusable, with all data logic centralized in the main page.
+
 ### Key Conventions
 
 - Primary keys use ULID (26-char, sortable).
@@ -92,9 +103,10 @@ The app uses a shadcn sidebar layout (`packages/ui-shared/src/components/ui/side
 Each domain module lives in `domain/database/src/modules/<module>/` with:
 
 - `schema.ts` — Drizzle table definition plus `drizzle-zod` derived types:
-  - `insertSchema` (omits id, customerId, timestamps) → `Payload` type for create
-  - `updateSchema` (partial, omits id, customerId, userId, timestamps) → `UpdatePayload` type
-  - `selectSchema` → `Dto` type for responses
+  - `insertSchema` — `createInsertSchema(table).omit({ id, customerId, timestamps })` → `Payload` type for create
+  - `updateSchema` — `createInsertSchema(table).partial().omit({ id, customerId, userId, timestamps })` → `UpdatePayload` type
+  - `selectSchema` — `createSelectSchema(table).omit({ sensitive/internal fields })` → `Dto` type for responses
+  - Types are always derived via `ReturnType<typeof schema.parse>`, never manually declared. Do NOT use `$inferSelect`, `$inferInsert`, or hand-written type literals for Payload/Dto types.
 - `functions/` — One file per operation (`create.ts`, `list.ts`, `update.ts`, `delete.ts`).
   - All functions take `db: DbClient` as first param, `customerId: string` as second.
   - Use `Payload`/`UpdatePayload` types for input, `Dto` for return types.
