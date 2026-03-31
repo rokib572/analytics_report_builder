@@ -49,7 +49,7 @@ export const LocationsRoute = () => {
               setPagination((p) => ({ ...p, page: 1 }))
             }}
             isLoading={isPending}
-            emptyMessage="No locations found. Connect a Square account to sync locations."
+            emptyMessage="No locations found."
             onRowClick={(row) => Router.push("SquareLocationGet", { id: row.id })}
           />
         </CardContent>
