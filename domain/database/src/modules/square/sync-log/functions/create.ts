@@ -1,9 +1,7 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../../db/client"
+import { type SyncLogDto, type SyncLogPayload, syncLog } from "../schema"
 
-export const createSyncLog = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _data: unknown,
-) => {
-  // TODO: implement — verify locationId belongs to customerId before insert
+export const createSyncLog = async (db: DbClient, data: SyncLogPayload): Promise<SyncLogDto> => {
+  const [row] = await db.insert(syncLog).values(data).returning()
+  return row!
 }
