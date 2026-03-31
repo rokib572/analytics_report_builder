@@ -3,6 +3,7 @@ import { z } from "zod"
 export const ResourceSchema = z.enum([
   "sales",
   "locations",
+  "orders",
   "sync",
   "api_keys",
   "users",

@@ -10,6 +10,7 @@ import currentUserRouter from "./routes/users/current-user"
 import listCustomersRouter from "./routes/customers/list"
 import squareLocationRouter from "./routes/square/locations"
 import squareCustomerRouter from "./routes/square/customers"
+import ordersRouter from "./routes/square/orders"
 import invitationRouter from "./routes/invitations"
 import validateInvitationRouter from "./routes/invitations/validate"
 import usersRouter from "./routes/users/list"
@@ -39,6 +40,7 @@ const app = new Hono()
   .route("/api/square/connect", squareConnectRouter)
   .route("/api/square/locations", squareLocationRouter)
   .route("/api/square/customers", squareCustomerRouter)
+  .route("/api/square/orders", ordersRouter)
   .route("/api/invitations", invitationRouter)
   .route("/api/users", usersRouter)
   .route("/api/sync/manual", manualSyncRouter)

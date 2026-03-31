@@ -1,11 +1,27 @@
 import { Hono } from "hono"
+import { getOrder } from "@analytics/database"
+import { DomainError } from "@analytics/shared-libs"
+import type { AuthEnv } from "../../../middleware/auth"
+import { requirePermission } from "../../../middleware/permission"
+import { db } from "../../../lib/db"
 
-const router = new Hono()
+const getOrderRouter = new Hono<AuthEnv>()
+  .use(requirePermission("orders", "view"))
+  .get("/:id", async (context) => {
+    const customerId = context.get("customerId")
+    const id = context.req.param("id")
 
-router.get("/:locationId/:date", (c) => {
-  // TODO: JIT — check DB, staleness check for today, fetch from Square, upsert, return
-  // Response includes current date + same-day-last-year for YoY comparison
-  return c.json({})
-})
+    const result = await getOrder(db, customerId, id)
 
-export default router
+    if (!result) {
+      throw DomainError.makeError({
+        code: "NOT_FOUND",
+        message: `Order ${id} not found for customer ${customerId}`,
+        clientSafeMessage: "Order not found.",
+      })
+    }
+
+    return context.json({ success: true, order: result.order, lineItems: result.lineItems })
+  })
+
+export default getOrderRouter
