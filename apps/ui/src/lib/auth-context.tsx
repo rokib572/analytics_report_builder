@@ -1,4 +1,5 @@
 import { createContext, useContext, useCallback, useState, type ReactNode } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { isAccountAdmin, isSystemAdmin } from "@analytics/validators"
 import { setApiCustomerId, setApiAccountId } from "./api-client"
 
@@ -58,12 +59,17 @@ export const AuthProvider = ({
   accounts: Account[]
   children: ReactNode
 }) => {
+  const queryClient = useQueryClient()
   const [selectedCustomerId, _setSelectedCustomerId] = useState<string | null>(null)
 
-  const setSelectedCustomerId = useCallback((id: string | null) => {
-    _setSelectedCustomerId(id)
-    setApiCustomerId(id)
-  }, [])
+  const setSelectedCustomerId = useCallback(
+    (id: string | null) => {
+      _setSelectedCustomerId(id)
+      setApiCustomerId(id)
+      void queryClient.invalidateQueries()
+    },
+    [queryClient],
+  )
 
   const switchAccount = useCallback((customerId: string) => {
     setApiAccountId(customerId)

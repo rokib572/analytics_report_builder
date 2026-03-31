@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
+import { apiClient } from "../../lib/api-client"
 
-export const useSales = (locationId: string, date: string) => {
-  return useQuery({
-    queryKey: ["sales", locationId, date],
+export const useDashboardSummary = () =>
+  useQuery({
+    queryKey: ["dashboard-summary"],
     queryFn: async () => {
-      // TODO: implement — response includes current date + YoY
+      const res = await apiClient.api.square["daily-sales"].summary.$get({ query: {} })
+      if (!res.ok) throw new Error("Failed to fetch dashboard summary")
+      return res.json()
     },
-    enabled: !!locationId && !!date,
   })
-}
