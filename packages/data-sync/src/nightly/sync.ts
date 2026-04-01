@@ -8,6 +8,7 @@ import {
 import { batchSearchOrders } from "@analytics/square"
 import { aggregateOrdersToDaily } from "../aggregator/daily"
 import { reconcile } from "../reconciler/reconcile"
+import { syncInventory } from "../square/inventory/sync"
 import { syncOrders } from "../square/orders/sync"
 import { syncPayments } from "../square/payments/sync"
 import { syncRefunds } from "../square/refunds/sync"
@@ -96,5 +97,6 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
 
     await syncPayments(db, customerId, startAt, endAt)
     await syncRefunds(db, customerId, startAt, endAt)
+    await syncInventory(db, customerId, startAt, endAt)
   }
 }

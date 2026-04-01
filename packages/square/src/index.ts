@@ -1,5 +1,8 @@
 export { createSquareClient } from "./client"
 export { fetchAllLocations } from "./locations/list"
+export { listInventoryCounts } from "./inventory/counts"
+export { listInventoryChanges } from "./inventory/changes"
+export { getInventoryTransfer } from "./inventory/transfer"
 export { batchSearchOrders } from "./orders/search"
 export { getOrder } from "./orders/get"
 export { getPayment } from "./payments/get"

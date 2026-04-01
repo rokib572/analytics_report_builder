@@ -7,6 +7,7 @@ import {
   updateWebhookLogProcessed,
 } from "@analytics/database"
 import {
+  processInventoryWebhookEvent,
   processPaymentWebhookEvent,
   processRefundWebhookEvent,
   processWebhookEvent,
@@ -21,6 +22,7 @@ type ParsedWebhookEvent = {
   orderId: string | null
   paymentId: string | null
   refundId: string | null
+  inventoryCatalogObjectIds: string[]
   locationId: string | null
   payload: Record<string, unknown>
 }
@@ -33,14 +35,21 @@ const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
   const order = object?.order as Record<string, unknown> | undefined
   const payment = object?.payment as Record<string, unknown> | undefined
   const refund = object?.refund as Record<string, unknown> | undefined
+  const inventoryCountsRaw =
+    (object?.inventory_counts as Record<string, unknown>[] | undefined) ??
+    (object?.inventoryCounts as Record<string, unknown>[] | undefined) ??
+    []
+  const firstInventoryCount = inventoryCountsRaw[0]
   const locationId =
     (orderUpdated?.location_id as string | undefined) ??
     (order?.location_id as string | undefined) ??
     (payment?.location_id as string | undefined) ??
     (refund?.location_id as string | undefined) ??
+    (firstInventoryCount?.location_id as string | undefined) ??
     (order?.locationId as string | undefined) ??
     (payment?.locationId as string | undefined) ??
     (refund?.locationId as string | undefined) ??
+    (firstInventoryCount?.locationId as string | undefined) ??
     null
 
   const orderId =
@@ -56,6 +65,14 @@ const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
     orderId,
     paymentId: (payment?.id as string | undefined) ?? null,
     refundId: (refund?.id as string | undefined) ?? null,
+    inventoryCatalogObjectIds: inventoryCountsRaw
+      .map(
+        (count) =>
+          (count.catalog_object_id as string | undefined) ??
+          (count.catalogObjectId as string | undefined) ??
+          null,
+      )
+      .filter((value): value is string => Boolean(value)),
     locationId,
     payload: parsed,
   }
@@ -77,6 +94,7 @@ const router = new Hono().post("/", async (c) => {
       orderId: null,
       paymentId: null,
       refundId: null,
+      inventoryCatalogObjectIds: [],
       locationId: null,
       payload: { rawBody: requestBody },
     }
@@ -106,7 +124,10 @@ const router = new Hono().post("/", async (c) => {
 
   if (
     !parsedEvent.locationId ||
-    (!parsedEvent.orderId && !parsedEvent.paymentId && !parsedEvent.refundId)
+    (!parsedEvent.orderId &&
+      !parsedEvent.paymentId &&
+      !parsedEvent.refundId &&
+      parsedEvent.inventoryCatalogObjectIds.length === 0)
   ) {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
     if (!existing) {
@@ -211,6 +232,26 @@ const router = new Hono().post("/", async (c) => {
       })
       .catch((error) => {
         console.error("[SquareRefundWebhookProcessingError]", {
+          eventId: parsedEvent.eventId,
+          message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+      })
+  }
+
+  if (parsedEvent.eventType === "inventory.count.updated") {
+    void processInventoryWebhookEvent(db, location.customerId, {
+      eventId: parsedEvent.eventId,
+      locationId: parsedEvent.locationId,
+      catalogObjectIds: parsedEvent.inventoryCatalogObjectIds,
+    })
+      .then(async (result) => {
+        if (result.processed) {
+          await updateWebhookLogProcessed(db, webhookLog.id)
+        }
+      })
+      .catch((error) => {
+        console.error("[SquareInventoryWebhookProcessingError]", {
           eventId: parsedEvent.eventId,
           message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
           stack: error instanceof Error ? error.stack : undefined,

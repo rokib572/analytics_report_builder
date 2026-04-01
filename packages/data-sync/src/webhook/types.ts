@@ -18,6 +18,12 @@ export type ProcessRefundWebhookEvent = {
   locationId: string
 }
 
+export type ProcessInventoryWebhookEvent = {
+  eventId: string
+  locationId: string
+  catalogObjectIds: string[]
+}
+
 export type ProcessWebhookEventResult = {
   processed: boolean
   reason?: string
