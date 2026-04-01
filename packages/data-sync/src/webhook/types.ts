@@ -12,6 +12,12 @@ export type ProcessPaymentWebhookEvent = {
   locationId: string
 }
 
+export type ProcessRefundWebhookEvent = {
+  eventId: string
+  refundId: string
+  locationId: string
+}
+
 export type ProcessWebhookEventResult = {
   processed: boolean
   reason?: string

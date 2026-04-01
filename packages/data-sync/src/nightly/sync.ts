@@ -10,6 +10,7 @@ import { aggregateOrdersToDaily } from "../aggregator/daily"
 import { reconcile } from "../reconciler/reconcile"
 import { syncOrders } from "../square/orders/sync"
 import { syncPayments } from "../square/payments/sync"
+import { syncRefunds } from "../square/refunds/sync"
 
 const getYesterdayDate = (): string => {
   const yesterday = new Date()
@@ -94,5 +95,6 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
     }
 
     await syncPayments(db, customerId, startAt, endAt)
+    await syncRefunds(db, customerId, startAt, endAt)
   }
 }
