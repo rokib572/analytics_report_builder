@@ -4,6 +4,7 @@ import {
   aggregateOrdersToDaily,
   syncLocations,
   syncCustomers,
+  syncInventory,
   syncOrders,
   syncPayments,
   syncRefunds,
@@ -34,6 +35,7 @@ const router = new Hono<AuthEnv>().post(
       const result = await syncOrders(db, customerId, data.startAt, data.endAt)
       const paymentResult = await syncPayments(db, customerId, data.startAt, data.endAt)
       const refundResult = await syncRefunds(db, customerId, data.startAt, data.endAt)
+      const inventoryResult = await syncInventory(db, customerId, data.startAt, data.endAt)
       let aggregated = 0
 
       if (result.synced > 0) {
@@ -62,6 +64,7 @@ const router = new Hono<AuthEnv>().post(
         ...result,
         payments: paymentResult,
         refunds: refundResult,
+        inventory: inventoryResult,
         aggregated,
       })
     } else if (data.type === "catalog") {
