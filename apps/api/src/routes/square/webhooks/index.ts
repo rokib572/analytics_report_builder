@@ -6,7 +6,7 @@ import {
   findWebhookLogByEventId,
   updateWebhookLogProcessed,
 } from "@analytics/database"
-import { processWebhookEvent } from "@analytics/data-sync"
+import { processPaymentWebhookEvent, processWebhookEvent } from "@analytics/data-sync"
 import { verifySquareWebhook } from "@analytics/square"
 import { db } from "../../../lib/db"
 
@@ -15,6 +15,7 @@ type ParsedWebhookEvent = {
   eventType: string
   merchantId: string | null
   orderId: string | null
+  paymentId: string | null
   locationId: string | null
   payload: Record<string, unknown>
 }
@@ -25,17 +26,27 @@ const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
   const object = data?.object as Record<string, unknown> | undefined
   const orderUpdated = object?.order_updated as Record<string, unknown> | undefined
   const order = object?.order as Record<string, unknown> | undefined
+  const payment = object?.payment as Record<string, unknown> | undefined
   const locationId =
     (orderUpdated?.location_id as string | undefined) ??
     (order?.location_id as string | undefined) ??
+    (payment?.location_id as string | undefined) ??
     (order?.locationId as string | undefined) ??
+    (payment?.locationId as string | undefined) ??
+    null
+
+  const orderId =
+    (orderUpdated?.order_id as string | undefined) ??
+    (order?.id as string | undefined) ??
+    (order || orderUpdated ? (data?.id as string | undefined) : undefined) ??
     null
 
   return {
     eventId: (parsed.event_id as string | undefined) ?? randomUUID(),
     eventType: (parsed.type as string | undefined) ?? "unknown",
     merchantId: (parsed.merchant_id as string | undefined) ?? null,
-    orderId: (data?.id as string | undefined) ?? null,
+    orderId,
+    paymentId: (payment?.id as string | undefined) ?? null,
     locationId,
     payload: parsed,
   }
@@ -55,6 +66,7 @@ const router = new Hono().post("/", async (c) => {
       eventType: "unknown",
       merchantId: null,
       orderId: null,
+      paymentId: null,
       locationId: null,
       payload: { rawBody: requestBody },
     }
@@ -82,7 +94,7 @@ const router = new Hono().post("/", async (c) => {
     return c.json({ ok: true })
   }
 
-  if (!parsedEvent.orderId || !parsedEvent.locationId) {
+  if (!parsedEvent.locationId || (!parsedEvent.orderId && !parsedEvent.paymentId)) {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
     if (!existing) {
       await createWebhookLog(db, {
@@ -133,23 +145,45 @@ const router = new Hono().post("/", async (c) => {
       payload: parsedEvent.payload,
     }))
 
-  void processWebhookEvent(db, location.customerId, {
-    eventId: parsedEvent.eventId,
-    orderId: parsedEvent.orderId,
-    locationId: parsedEvent.locationId,
-  })
-    .then(async (result) => {
-      if (result.processed) {
-        await updateWebhookLogProcessed(db, webhookLog.id)
-      }
+  if (parsedEvent.eventType.startsWith("order.") && parsedEvent.orderId) {
+    void processWebhookEvent(db, location.customerId, {
+      eventId: parsedEvent.eventId,
+      orderId: parsedEvent.orderId,
+      locationId: parsedEvent.locationId,
     })
-    .catch((error) => {
-      console.error("[SquareWebhookProcessingError]", {
-        eventId: parsedEvent.eventId,
-        message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
-        stack: error instanceof Error ? error.stack : undefined,
+      .then(async (result) => {
+        if (result.processed) {
+          await updateWebhookLogProcessed(db, webhookLog.id)
+        }
       })
+      .catch((error) => {
+        console.error("[SquareWebhookProcessingError]", {
+          eventId: parsedEvent.eventId,
+          message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+      })
+  }
+
+  if (parsedEvent.eventType.startsWith("payment.") && parsedEvent.paymentId) {
+    void processPaymentWebhookEvent(db, location.customerId, {
+      eventId: parsedEvent.eventId,
+      paymentId: parsedEvent.paymentId,
+      locationId: parsedEvent.locationId,
     })
+      .then(async (result) => {
+        if (result.processed) {
+          await updateWebhookLogProcessed(db, webhookLog.id)
+        }
+      })
+      .catch((error) => {
+        console.error("[SquarePaymentWebhookProcessingError]", {
+          eventId: parsedEvent.eventId,
+          message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
+          stack: error instanceof Error ? error.stack : undefined,
+        })
+      })
+  }
 
   return c.json({ ok: true })
 })
