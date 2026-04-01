@@ -6,6 +6,7 @@ import {
   syncCustomers,
   syncOrders,
   syncPayments,
+  syncRefunds,
   syncCatalog,
 } from "@analytics/data-sync"
 import { getLocationSquareIdMap, upsertDailySales } from "@analytics/database"
@@ -32,6 +33,7 @@ const router = new Hono<AuthEnv>().post(
     } else if (data.type === "orders") {
       const result = await syncOrders(db, customerId, data.startAt, data.endAt)
       const paymentResult = await syncPayments(db, customerId, data.startAt, data.endAt)
+      const refundResult = await syncRefunds(db, customerId, data.startAt, data.endAt)
       let aggregated = 0
 
       if (result.synced > 0) {
@@ -55,7 +57,13 @@ const router = new Hono<AuthEnv>().post(
         }
       }
 
-      return context.json({ success: true, ...result, payments: paymentResult, aggregated })
+      return context.json({
+        success: true,
+        ...result,
+        payments: paymentResult,
+        refunds: refundResult,
+        aggregated,
+      })
     } else if (data.type === "catalog") {
       const result = await syncCatalog(db, customerId)
       return context.json({ success: true, ...result })
