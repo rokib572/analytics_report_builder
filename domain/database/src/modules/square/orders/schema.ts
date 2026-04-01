@@ -25,6 +25,10 @@ export const orders = coreSchema.table(
     netAmounts: jsonb("net_amounts"),
     returnAmounts: jsonb("return_amounts"),
     sourceName: varchar("source_name", { length: 255 }),
+    squareCustomerId: varchar("square_customer_id", { length: 255 }),
+    ticketName: varchar("ticket_name", { length: 255 }),
+    closedAt: timestamp("closed_at"),
+    fulfillmentType: varchar("fulfillment_type", { length: 50 }),
     rawJson: jsonb("raw_json").notNull(),
     contentHash: varchar("content_hash", { length: 64 }).notNull(),
     syncedAt: timestamp("synced_at"),
@@ -34,6 +38,7 @@ export const orders = coreSchema.table(
   (t) => [
     index("orders_location_date_idx").on(t.locationId, t.saleDate),
     index("orders_customer_id_idx").on(t.customerId),
+    index("orders_square_customer_id_idx").on(t.squareCustomerId),
   ],
 )
 
