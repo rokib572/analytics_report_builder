@@ -9,6 +9,7 @@ import { batchSearchOrders } from "@analytics/square"
 import { aggregateOrdersToDaily } from "../aggregator/daily"
 import { reconcile } from "../reconciler/reconcile"
 import { syncOrders } from "../square/orders/sync"
+import { syncPayments } from "../square/payments/sync"
 
 const getYesterdayDate = (): string => {
   const yesterday = new Date()
@@ -91,5 +92,7 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
         })
       }
     }
+
+    await syncPayments(db, customerId, startAt, endAt)
   }
 }
