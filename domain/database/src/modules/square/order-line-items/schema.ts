@@ -1,4 +1,4 @@
-import { varchar, bigint, date, index } from "drizzle-orm/pg-core"
+import { varchar, bigint, date, index, jsonb } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
 import { orders } from "../orders/schema"
@@ -25,6 +25,9 @@ export const orderLineItems = coreSchema.table(
     totalDiscountMoney: bigint("total_discount_money", { mode: "bigint" }),
     totalTaxMoney: bigint("total_tax_money", { mode: "bigint" }),
     totalMoney: bigint("total_money", { mode: "bigint" }),
+    modifiers: jsonb("modifiers"),
+    appliedDiscounts: jsonb("applied_discounts"),
+    appliedTaxes: jsonb("applied_taxes"),
   },
   (t) => [
     index("line_items_order_id_idx").on(t.orderId),
