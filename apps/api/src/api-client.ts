@@ -18,6 +18,7 @@ import usersRouter from "./routes/users/list"
 import manualSyncRouter from "./routes/square/sync/manual"
 import webhooksRouter from "./routes/square/webhooks"
 import syncStatusRouter from "./routes/square/sync/status"
+import reportsRouter from "./routes/square/reports/index"
 
 const app = new Hono()
   .onError(errorHandler)
@@ -47,13 +48,9 @@ const app = new Hono()
   .route("/api/users", usersRouter)
   .route("/api/sync/manual", manualSyncRouter)
   .route("/api/sync/status", syncStatusRouter)
+  .route("/api/reports", reportsRouter)
 // .route("/api/orders", ordersRouter)
 // .route("/api/webhooks", webhooksRouter)
-// .route("/api/reports/query", reportsQueryRouter)
-// .route("/api/reports", reportsListRouter)
-// .route("/api/reports", reportsCreateRouter)
-// .route("/api/reports", reportsGetRouter)
-// .route("/api/reports", reportsRemoveRouter)
 
 export type AppType = typeof app
 export default app

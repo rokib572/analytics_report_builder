@@ -1,9 +1,15 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import type { DbClient } from "../../../db/client"
+import { type SavedReportDto, type SavedReportPayload, savedReports } from "../schema"
 
 export const createSavedReport = async (
-  _db: PostgresJsDatabase,
-  _customerId: string,
-  _data: unknown,
-) => {
-  // TODO: implement — set customerId on insert
+  db: DbClient,
+  customerId: string,
+  data: SavedReportPayload,
+): Promise<SavedReportDto> => {
+  const [savedReport] = await db
+    .insert(savedReports)
+    .values({ ...data, customerId })
+    .returning()
+
+  return savedReport! as SavedReportDto
 }
