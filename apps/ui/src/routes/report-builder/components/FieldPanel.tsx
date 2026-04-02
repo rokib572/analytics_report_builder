@@ -2,18 +2,13 @@ import { useState } from "react"
 import { useDraggable } from "@dnd-kit/core"
 import { ChevronDown, ChevronRight, GripVertical, LayoutGrid, Sigma } from "lucide-react"
 import {
-  isSupportedMetric,
-  type Dimension,
-  type Metric,
-  type SupportedMetric,
-} from "@analytics/report-builder"
-import {
   Badge,
   cn,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@analytics/ui-shared"
+import { FIELD_LABELS, SUPPORTED_DIMENSIONS, SUPPORTED_METRICS } from "../constants"
 
 type FieldPanelProps = {
   activeMetrics: string[]
@@ -26,45 +21,6 @@ type DraggableFieldProps = {
   label: string
   isActive: boolean
 }
-
-const FIELD_LABELS: Record<string, string> = {
-  netSales: "Net Sales",
-  grossSales: "Gross Sales",
-  orderCount: "Order Count",
-  storeGrossSales: "Store Gross Sales",
-  totalDiscounts: "Total Discounts",
-  totalTax: "Total Tax",
-  totalTips: "Total Tips",
-  totalCollected: "Total Collected",
-  locationId: "Location",
-  saleDate: "Sale Date",
-  dayOfWeek: "Day of Week",
-  week: "Week",
-  month: "Month",
-}
-
-const ALL_METRICS: Metric[] = [
-  "netSales",
-  "grossSales",
-  "orderCount",
-  "storeGrossSales",
-  "uberGrossSales",
-  "uberBogoRecoverable",
-  "totalDiscounts",
-  "totalTax",
-  "totalTips",
-  "totalCollected",
-]
-
-const SUPPORTED_METRICS: SupportedMetric[] = ALL_METRICS.filter(isSupportedMetric)
-
-const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
-  "locationId",
-  "saleDate",
-  "dayOfWeek",
-  "week",
-  "month",
-]
 
 const DraggableField = ({ id, type, label, isActive }: DraggableFieldProps) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
