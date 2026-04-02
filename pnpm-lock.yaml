@@ -95,6 +95,9 @@ importers:
 
   apps/ui:
     dependencies:
+      "@analytics/report-builder":
+        specifier: workspace:*
+        version: link:../../packages/report-builder
       "@analytics/ui-shared":
         specifier: workspace:*
         version: link:../../packages/ui-shared

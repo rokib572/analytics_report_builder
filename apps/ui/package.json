@@ -10,6 +10,7 @@
     "lint:fix": "eslint . --fix --max-warnings 0"
   },
   "dependencies": {
+    "@analytics/report-builder": "workspace:*",
     "@analytics/ui-shared": "workspace:*",
     "@analytics/validators": "workspace:*",
     "@dnd-kit/core": "latest",
