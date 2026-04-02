@@ -1,0 +1,16 @@
+{
+  "name": "@analytics/report-builder",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "@analytics/shared-libs": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}
