@@ -1,15 +1,22 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 import type { ReportConfig } from "@analytics/report-builder"
-import { Button } from "@analytics/ui-shared"
+import { ReportConfigSchema } from "@analytics/validators"
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
+import { apiClient } from "../../lib/api-client"
+import { Router } from "../../router"
 import { useReportQuery } from "../../data/report-builder/hooks"
 import { ReportCanvas } from "./components/ReportCanvas"
 import { FieldPanel } from "./components/FieldPanel"
 import { PreviewPanel } from "./components/PreviewPanel"
 import { SaveReportModal } from "./components/SaveReportModal"
+import { SavedReportsList } from "./components/SavedReportsList"
 import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
 
 export const ReportBuilderRoute = () => {
+  const route = Router.useRoute(["ReportBuilderGet"])
+  const reportId = route?.params?.reportId
+  const [activeTab, setActiveTab] = useState("builder")
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [config, setConfig] = useState<ReportConfig>({
     metrics: [],
@@ -20,6 +27,33 @@ export const ReportBuilderRoute = () => {
     dateRange: getDefaultDateRange(),
   })
   const reportQuery = useReportQuery(config.metrics.length > 0 ? config : null)
+
+  useEffect(() => {
+    if (!reportId) return
+
+    let isMounted = true
+
+    const loadReport = async () => {
+      const res = await apiClient.api.reports[":id"].$get({ param: { id: reportId } })
+      if (!res.ok) return
+
+      const json = (await res.json()) as unknown as {
+        success: true
+        data: { config: unknown }
+      }
+
+      if (!isMounted) return
+
+      setConfig(ReportConfigSchema.parse(json.data.config))
+      setActiveTab("builder")
+    }
+
+    void loadReport()
+
+    return () => {
+      isMounted = false
+    }
+  }, [reportId])
 
   const handleDragEnd = ({ active, over }: DragEndEvent) => {
     if (!over) return
@@ -66,15 +100,20 @@ export const ReportBuilderRoute = () => {
     })
   }
 
+  const handleOpenSavedReport = (savedConfig: ReportConfig) => {
+    setConfig(savedConfig)
+    setActiveTab("builder")
+  }
+
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="flex h-full min-h-[calc(100vh-4rem)]">
-        <FieldPanel
-          activeMetrics={config.metrics}
-          activeDimensions={[...config.rows, ...config.columns]}
-        />
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <div className="flex justify-end">
+    <>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="flex items-center justify-between border-b px-4 py-2">
+          <TabsList>
+            <TabsTrigger value="builder">Builder</TabsTrigger>
+            <TabsTrigger value="my-reports">My Reports</TabsTrigger>
+          </TabsList>
+          {activeTab === "builder" && (
             <Button
               type="button"
               onClick={() => setSaveModalOpen(true)}
@@ -82,17 +121,32 @@ export const ReportBuilderRoute = () => {
             >
               Save
             </Button>
-          </div>
-          <ReportCanvas config={config} onConfigChange={setConfig} />
-          <PreviewPanel
-            result={reportQuery.data}
-            chartType={config.chartType}
-            isLoading={reportQuery.isLoading}
-            error={reportQuery.error}
-          />
-          <SaveReportModal open={saveModalOpen} onOpenChange={setSaveModalOpen} config={config} />
+          )}
         </div>
-      </div>
-    </DndContext>
+        <TabsContent value="builder" className="mt-0">
+          <DndContext onDragEnd={handleDragEnd}>
+            <div className="flex h-full min-h-[calc(100vh-8rem)]">
+              <FieldPanel
+                activeMetrics={config.metrics}
+                activeDimensions={[...config.rows, ...config.columns]}
+              />
+              <div className="flex-1 space-y-4 overflow-y-auto p-4">
+                <ReportCanvas config={config} onConfigChange={setConfig} />
+                <PreviewPanel
+                  result={reportQuery.data}
+                  chartType={config.chartType}
+                  isLoading={reportQuery.isLoading}
+                  error={reportQuery.error}
+                />
+              </div>
+            </div>
+          </DndContext>
+        </TabsContent>
+        <TabsContent value="my-reports" className="mt-0 p-4">
+          <SavedReportsList onOpen={handleOpenSavedReport} />
+        </TabsContent>
+      </Tabs>
+      <SaveReportModal open={saveModalOpen} onOpenChange={setSaveModalOpen} config={config} />
+    </>
   )
 }
