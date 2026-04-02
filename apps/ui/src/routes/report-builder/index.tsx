@@ -1,43 +1,9 @@
 import { useState } from "react"
 import { DndContext, type DragEndEvent } from "@dnd-kit/core"
-import { type Dimension, type Metric, type ReportConfig } from "@analytics/report-builder"
+import type { ReportConfig } from "@analytics/report-builder"
+import { ReportCanvas } from "./components/ReportCanvas"
 import { FieldPanel } from "./components/FieldPanel"
-
-const SUPPORTED_METRICS: Metric[] = [
-  "netSales",
-  "grossSales",
-  "orderCount",
-  "storeGrossSales",
-  "totalDiscounts",
-  "totalTax",
-  "totalTips",
-  "totalCollected",
-]
-
-const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
-  "locationId",
-  "saleDate",
-  "dayOfWeek",
-  "week",
-  "month",
-]
-
-const isSupportedMetricValue = (value: string): value is Metric =>
-  SUPPORTED_METRICS.includes(value as Metric)
-
-const isSupportedDimension = (value: string): value is Exclude<Dimension, "channel"> =>
-  SUPPORTED_DIMENSIONS.includes(value as Exclude<Dimension, "channel">)
-
-const getDefaultDateRange = () => {
-  const today = new Date()
-  const from = new Date()
-  from.setDate(today.getDate() - 30)
-
-  return {
-    from: from.toISOString().slice(0, 10),
-    to: today.toISOString().slice(0, 10),
-  }
-}
+import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
 
 export const ReportBuilderRoute = () => {
   const [config, setConfig] = useState<ReportConfig>({
@@ -101,13 +67,8 @@ export const ReportBuilderRoute = () => {
           activeMetrics={config.metrics}
           activeDimensions={[...config.rows, ...config.columns]}
         />
-        <div className="flex-1 p-4">
-          <div className="rounded-lg border border-dashed border-border p-6">
-            <h1 className="text-lg font-semibold">Report Builder</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Report canvas and preview panel will be implemented in tasks 3.4 and 3.5.
-            </p>
-          </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <ReportCanvas config={config} onConfigChange={setConfig} />
         </div>
       </div>
     </DndContext>
