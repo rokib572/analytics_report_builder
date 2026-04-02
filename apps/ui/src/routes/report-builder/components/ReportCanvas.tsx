@@ -1,6 +1,6 @@
 import { useDroppable } from "@dnd-kit/core"
 import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
-import type { ReportConfig } from "@analytics/report-builder"
+import { hasIncompatibleDimensions, type ReportConfig } from "@analytics/report-builder"
 import {
   Badge,
   Button,
@@ -72,6 +72,8 @@ const DropZone = ({ id, label, items, onRemove }: DropZoneProps) => {
 }
 
 export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
+  const selectedDimensions = [...config.rows, ...config.columns]
+
   const updateFilter = (
     index: number,
     field: keyof ReportConfig["filters"][number],
@@ -122,6 +124,12 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
           }
         />
       </div>
+
+      {hasIncompatibleDimensions(selectedDimensions) && (
+        <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          Product and Payment Method cannot be used in the same report.
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="flex flex-col gap-4 md:flex-row">

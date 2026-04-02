@@ -20,6 +20,9 @@ export const DimensionSchema = z.enum([
   "dayOfWeek",
   "week",
   "month",
+  "customer",
+  "product",
+  "paymentMethod",
 ])
 
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])

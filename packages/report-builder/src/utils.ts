@@ -1,8 +1,15 @@
 import { DomainError } from "@analytics/shared-libs"
-import type { ComputedDimension, Dimension, Metric, SupportedMetric } from "./types"
+import type {
+  ComputedDimension,
+  Dimension,
+  Metric,
+  OrderLevelDimension,
+  SupportedMetric,
+} from "./types"
 
 const unsupportedMetrics = new Set<Metric>(["uberGrossSales", "uberBogoRecoverable"])
 const unsupportedDimensions = new Set<Dimension>(["channel"])
+const orderLevelDimensions = new Set<OrderLevelDimension>(["customer", "product", "paymentMethod"])
 
 export const ensureSupportedMetric = (metric: Metric) => {
   if (unsupportedMetrics.has(metric)) {
@@ -30,7 +37,16 @@ export const isSupportedMetric = (metric: Metric): metric is SupportedMetric =>
   !unsupportedMetrics.has(metric)
 
 export const isComputedDimension = (dimension: Dimension): dimension is ComputedDimension =>
-  dimension !== "locationId" && dimension !== "saleDate" && dimension !== "channel"
+  dimension !== "locationId" &&
+  dimension !== "saleDate" &&
+  dimension !== "channel" &&
+  !orderLevelDimensions.has(dimension as OrderLevelDimension)
+
+export const requiresOrderLevelQuery = (dimensions: Dimension[]): boolean =>
+  dimensions.some((dimension) => orderLevelDimensions.has(dimension as OrderLevelDimension))
+
+export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
+  dimensions.includes("product") && dimensions.includes("paymentMethod")
 
 export const mergeReportDimensions = (rows: Dimension[], columns: Dimension[]) => [
   ...new Set([...rows, ...columns]),

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { DndContext, type DragEndEvent } from "@dnd-kit/core"
-import type { ReportConfig } from "@analytics/report-builder"
+import { hasIncompatibleDimensions, type ReportConfig } from "@analytics/report-builder"
 import { ReportConfigSchema } from "@analytics/validators"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
@@ -83,6 +83,10 @@ export const ReportBuilderRoute = () => {
         !current.rows.includes(fieldName) &&
         !current.columns.includes(fieldName)
       ) {
+        if (hasIncompatibleDimensions([...current.rows, ...current.columns, fieldName])) {
+          return current
+        }
+
         return { ...current, rows: [...current.rows, fieldName] }
       }
 
@@ -93,6 +97,10 @@ export const ReportBuilderRoute = () => {
         !current.columns.includes(fieldName) &&
         !current.rows.includes(fieldName)
       ) {
+        if (hasIncompatibleDimensions([...current.rows, ...current.columns, fieldName])) {
+          return current
+        }
+
         return { ...current, columns: [...current.columns, fieldName] }
       }
 

@@ -12,9 +12,23 @@ export type Metric =
 
 export type SupportedMetric = Exclude<Metric, "uberGrossSales" | "uberBogoRecoverable">
 
-export type Dimension = "locationId" | "saleDate" | "channel" | "dayOfWeek" | "week" | "month"
+export type Dimension =
+  | "locationId"
+  | "saleDate"
+  | "channel"
+  | "dayOfWeek"
+  | "week"
+  | "month"
+  | "customer"
+  | "product"
+  | "paymentMethod"
 
-export type ComputedDimension = Exclude<Dimension, "locationId" | "saleDate" | "channel">
+export type OrderLevelDimension = "customer" | "product" | "paymentMethod"
+
+export type ComputedDimension = Exclude<
+  Dimension,
+  "locationId" | "saleDate" | "channel" | OrderLevelDimension
+>
 
 export type ChartType = "bar" | "line" | "table"
 

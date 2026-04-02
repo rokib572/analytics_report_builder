@@ -14,6 +14,9 @@ export const FIELD_LABELS: Record<string, string> = {
   dayOfWeek: "Day of Week",
   week: "Week",
   month: "Month",
+  customer: "Customer",
+  product: "Product",
+  paymentMethod: "Payment Method",
 }
 
 export const SUPPORTED_METRICS: SupportedMetric[] = [
@@ -33,6 +36,9 @@ export const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
   "dayOfWeek",
   "week",
   "month",
+  "customer",
+  "product",
+  "paymentMethod",
 ]
 
 export const isSupportedMetricValue = (value: string): value is Metric =>

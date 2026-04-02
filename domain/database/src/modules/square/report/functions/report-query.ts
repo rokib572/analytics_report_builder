@@ -1,13 +1,15 @@
 import { and, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm"
+import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import {
   ensureSupportedDimension,
   ensureSupportedMetric,
+  hasIncompatibleDimensions,
   isComputedDimension,
   isSupportedMetric,
   mergeReportDimensions,
+  requiresOrderLevelQuery,
   requireBetweenValues,
   serializeReportValue,
-  type ComputedDimension,
   type Dimension,
   type ReportConfig,
   type ReportQueryResult,
@@ -17,6 +19,10 @@ import { DomainError } from "@analytics/shared-libs"
 import type { DbClient } from "../../../../db/client"
 import { dailySales } from "../../daily-sales/schema"
 import { locations } from "../../locations/schema"
+import { orderLineItems } from "../../order-line-items/schema"
+import { orderTenders } from "../../order-tenders/schema"
+import { orders } from "../../orders/schema"
+import { squareCustomers } from "../../customers/schema"
 import type {
   DimensionDefinition,
   GroupableExpression,
@@ -24,7 +30,31 @@ import type {
   SelectExpression,
 } from "./type"
 
-const metricMap: Record<SupportedMetric, MetricDefinition> = {
+type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders"
+
+const lineItemGrossSalesSum = sql<bigint>`coalesce(sum(${orderLineItems.grossSalesMoney}), 0)`
+const lineItemDiscountsSum = sql<bigint>`coalesce(sum(${orderLineItems.totalDiscountMoney}), 0)`
+const lineItemTaxSum = sql<bigint>`coalesce(sum(${orderLineItems.totalTaxMoney}), 0)`
+const lineItemTotalSum = sql<bigint>`coalesce(sum(${orderLineItems.totalMoney}), 0)`
+
+const tenderAmountSum = sql<bigint>`coalesce(sum(${orderTenders.amountMoney}), 0)`
+const tenderTipSum = sql<bigint>`coalesce(sum(${orderTenders.tipMoney}), 0)`
+
+const orderTotalSum = sql<bigint>`coalesce(sum(${orders.totalMoney}), 0)`
+const orderTaxSum = sql<bigint>`coalesce(sum(${orders.totalTaxMoney}), 0)`
+const orderDiscountsSum = sql<bigint>`coalesce(sum(${orders.totalDiscountMoney}), 0)`
+const orderTipSum = sql<bigint>`coalesce(sum(${orders.totalTipMoney}), 0)`
+const orderGrossSalesExpr = sql<bigint>`${orderTotalSum} - ${orderTaxSum} - ${orderTipSum} + ${orderDiscountsSum}`
+const orderNetSalesExpr = sql<bigint>`${orderTotalSum} - ${orderTaxSum} - ${orderTipSum}`
+
+const customerNameExpr = sql<string>`
+  coalesce(
+    nullif(trim(concat_ws(' ', ${squareCustomers.givenName}, ${squareCustomers.familyName})), ''),
+    'Unknown'
+  )
+`
+
+const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
   netSales: {
     select: sql<bigint>`coalesce(sum(${dailySales.netSales}), 0)`,
   },
@@ -51,59 +81,286 @@ const metricMap: Record<SupportedMetric, MetricDefinition> = {
   },
 }
 
-const dayOfWeekExpr = sql<number>`extract(isodow from ${dailySales.saleDate}::timestamp)`
-const weekGroupExpr = sql`date_trunc('week', ${dailySales.saleDate}::timestamp)`
-const monthGroupExpr = sql`date_trunc('month', ${dailySales.saleDate}::timestamp)`
-
-const dimensionMap: Record<Exclude<Dimension, "channel">, DimensionDefinition> = {
-  locationId: {
-    select: dailySales.locationId,
-    groupBy: dailySales.locationId,
-    orderBy: dailySales.locationId,
+const lineItemsMetricMap: Record<SupportedMetric, MetricDefinition> = {
+  netSales: {
+    select: sql<bigint>`${lineItemGrossSalesSum} - ${lineItemDiscountsSum}`,
   },
-  saleDate: {
-    select: dailySales.saleDate,
-    groupBy: dailySales.saleDate,
-    orderBy: dailySales.saleDate,
+  grossSales: {
+    select: lineItemGrossSalesSum,
   },
-  dayOfWeek: {
-    select: dayOfWeekExpr,
-    groupBy: dayOfWeekExpr,
-    orderBy: dayOfWeekExpr,
+  orderCount: {
+    select: sql<number>`count(distinct ${orderLineItems.orderId})`,
   },
-  week: {
-    select: sql<string>`to_char(${weekGroupExpr}, 'YYYY-MM-DD')`,
-    groupBy: weekGroupExpr,
-    orderBy: weekGroupExpr,
+  storeGrossSales: {
+    select: lineItemGrossSalesSum,
   },
-  month: {
-    select: sql<string>`to_char(${monthGroupExpr}, 'YYYY-MM-01')`,
-    groupBy: monthGroupExpr,
-    orderBy: monthGroupExpr,
+  totalDiscounts: {
+    select: lineItemDiscountsSum,
+  },
+  totalTax: {
+    select: lineItemTaxSum,
+  },
+  totalTips: {
+    select: sql<bigint>`0`,
+  },
+  totalCollected: {
+    select: lineItemTotalSum,
   },
 }
 
-const buildComputedDimensionCondition = (
-  dimension: ComputedDimension,
+const tendersMetricMap: Record<SupportedMetric, MetricDefinition> = {
+  netSales: {
+    select: sql<bigint>`0`,
+  },
+  grossSales: {
+    select: sql<bigint>`0`,
+  },
+  orderCount: {
+    select: sql<number>`count(distinct ${orderTenders.orderId})`,
+  },
+  storeGrossSales: {
+    select: sql<bigint>`0`,
+  },
+  totalDiscounts: {
+    select: sql<bigint>`0`,
+  },
+  totalTax: {
+    select: sql<bigint>`0`,
+  },
+  totalTips: {
+    select: tenderTipSum,
+  },
+  totalCollected: {
+    select: tenderAmountSum,
+  },
+}
+
+const ordersMetricMap: Record<SupportedMetric, MetricDefinition> = {
+  netSales: {
+    select: orderNetSalesExpr,
+  },
+  grossSales: {
+    select: orderGrossSalesExpr,
+  },
+  orderCount: {
+    select: sql<number>`count(${orders.id})`,
+  },
+  storeGrossSales: {
+    select: orderGrossSalesExpr,
+  },
+  totalDiscounts: {
+    select: orderDiscountsSum,
+  },
+  totalTax: {
+    select: orderTaxSum,
+  },
+  totalTips: {
+    select: orderTipSum,
+  },
+  totalCollected: {
+    select: orderTotalSum,
+  },
+}
+
+const getTemporalExpressions = (saleDateColumn: AnyPgColumn) => {
+  const dayOfWeekExpr = sql<number>`extract(isodow from ${saleDateColumn}::timestamp)`
+  const weekGroupExpr = sql`date_trunc('week', ${saleDateColumn}::timestamp)`
+  const monthGroupExpr = sql`date_trunc('month', ${saleDateColumn}::timestamp)`
+
+  return { dayOfWeekExpr, weekGroupExpr, monthGroupExpr }
+}
+
+const buildDimensionMap = (
+  locationColumn: AnyPgColumn,
+  saleDateColumn: AnyPgColumn,
+  extraDimensions: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> = {},
+): Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> => {
+  const { dayOfWeekExpr, weekGroupExpr, monthGroupExpr } = getTemporalExpressions(saleDateColumn)
+
+  return {
+    locationId: {
+      select: locationColumn,
+      groupBy: locationColumn,
+      orderBy: locationColumn,
+    },
+    saleDate: {
+      select: saleDateColumn,
+      groupBy: saleDateColumn,
+      orderBy: saleDateColumn,
+    },
+    dayOfWeek: {
+      select: dayOfWeekExpr,
+      groupBy: dayOfWeekExpr,
+      orderBy: dayOfWeekExpr,
+    },
+    week: {
+      select: sql<string>`to_char(${weekGroupExpr}, 'YYYY-MM-DD')`,
+      groupBy: weekGroupExpr,
+      orderBy: weekGroupExpr,
+    },
+    month: {
+      select: sql<string>`to_char(${monthGroupExpr}, 'YYYY-MM-01')`,
+      groupBy: monthGroupExpr,
+      orderBy: monthGroupExpr,
+    },
+    ...extraDimensions,
+  }
+}
+
+const dailySalesDimensionMap = buildDimensionMap(dailySales.locationId, dailySales.saleDate)
+const lineItemsDimensionMap = buildDimensionMap(
+  orderLineItems.locationId,
+  orderLineItems.saleDate,
+  {
+    customer: {
+      select: customerNameExpr,
+      groupBy: customerNameExpr,
+      orderBy: customerNameExpr,
+    },
+    product: {
+      select: orderLineItems.name,
+      groupBy: orderLineItems.name,
+      orderBy: orderLineItems.name,
+    },
+  },
+)
+const tendersDimensionMap = buildDimensionMap(orderTenders.locationId, orders.saleDate, {
+  customer: {
+    select: customerNameExpr,
+    groupBy: customerNameExpr,
+    orderBy: customerNameExpr,
+  },
+  paymentMethod: {
+    select: orderTenders.type,
+    groupBy: orderTenders.type,
+    orderBy: orderTenders.type,
+  },
+})
+const ordersDimensionMap = buildDimensionMap(orders.locationId, orders.saleDate, {
+  customer: {
+    select: customerNameExpr,
+    groupBy: customerNameExpr,
+    orderBy: customerNameExpr,
+  },
+})
+
+const dailySalesFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+  locationId: dailySales.locationId,
+  saleDate: dailySales.saleDate,
+}
+const lineItemsFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+  locationId: orderLineItems.locationId,
+  saleDate: orderLineItems.saleDate,
+  product: orderLineItems.name,
+}
+const tendersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+  locationId: orderTenders.locationId,
+  saleDate: orders.saleDate,
+  paymentMethod: orderTenders.type,
+}
+const ordersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+  locationId: orders.locationId,
+  saleDate: orders.saleDate,
+}
+
+const getQueryMode = (dimensions: Dimension[]): QueryMode => {
+  if (dimensions.includes("product")) return "lineItems"
+  if (dimensions.includes("paymentMethod")) return "tenders"
+  if (dimensions.includes("customer")) return "orders"
+  return "dailySales"
+}
+
+const buildExpressionCondition = (
+  dimension: Dimension,
+  expression: GroupableExpression,
   operator: "eq" | "in" | "between",
   value: string | string[],
 ): SQL => {
-  const expr = dimensionMap[dimension].groupBy
-
   if (operator === "eq") {
-    return sql`${expr} = ${String(value)}`
+    return sql`${expression} = ${String(value)}`
   }
 
   if (operator === "in") {
     const values = Array.isArray(value) ? value : [value]
-    return sql`${expr} in (${sql.join(
+    return sql`${expression} in (${sql.join(
       values.map((item) => sql`${item}`),
       sql`, `,
     )})`
   }
 
   const { from, to } = requireBetweenValues(dimension, operator, value)
-  return sql`${expr} >= ${from} and ${expr} <= ${to}`
+  return sql`${expression} >= ${from} and ${expression} <= ${to}`
+}
+
+const buildColumnCondition = (
+  column: AnyPgColumn,
+  dimension: Dimension,
+  operator: "eq" | "in" | "between",
+  value: string | string[],
+): SQL => {
+  if (operator === "eq") {
+    return eq(column, String(value))
+  }
+
+  if (operator === "in") {
+    return inArray(column, Array.isArray(value) ? value : [value])
+  }
+
+  const { from, to } = requireBetweenValues(dimension, operator, value)
+  return and(gte(column, from), lte(column, to))!
+}
+
+const getModeConfig = (
+  mode: QueryMode,
+): {
+  metricMap: Record<SupportedMetric, MetricDefinition>
+  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>
+  filterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>>
+} => {
+  switch (mode) {
+    case "lineItems":
+      return {
+        metricMap: lineItemsMetricMap,
+        dimensionMap: lineItemsDimensionMap,
+        filterColumns: lineItemsFilterColumns,
+      }
+    case "tenders":
+      return {
+        metricMap: tendersMetricMap,
+        dimensionMap: tendersDimensionMap,
+        filterColumns: tendersFilterColumns,
+      }
+    case "orders":
+      return {
+        metricMap: ordersMetricMap,
+        dimensionMap: ordersDimensionMap,
+        filterColumns: ordersFilterColumns,
+      }
+    default:
+      return {
+        metricMap: dailySalesMetricMap,
+        dimensionMap: dailySalesDimensionMap,
+        filterColumns: dailySalesFilterColumns,
+      }
+  }
+}
+
+const getDimensionDefinition = (
+  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>,
+  dimension: Exclude<Dimension, "channel">,
+) => {
+  const definition = dimensionMap[dimension]
+
+  if (!definition) {
+    throw DomainError.makeError({
+      code: "BAD_REQUEST",
+      message: `Dimension ${dimension} is not available for this report query`,
+      clientSafeMessage: `Dimension "${dimension}" is not available for this report.`,
+      additionalContext: { dimension },
+    })
+  }
+
+  return definition
 }
 
 export const buildReportQuery = async (
@@ -116,6 +373,21 @@ export const buildReportQuery = async (
   for (const filter of config.filters) ensureSupportedDimension(filter.dimension)
 
   const dimensions = mergeReportDimensions(config.rows, config.columns)
+  const filterDimensions = [...new Set(config.filters.map((filter) => filter.dimension))]
+  const queryDimensions = [...new Set([...dimensions, ...filterDimensions])]
+
+  if (hasIncompatibleDimensions(queryDimensions)) {
+    throw DomainError.makeError({
+      code: "BAD_REQUEST",
+      message: "Product and Payment Method dimensions cannot be combined",
+      clientSafeMessage: "Product and Payment Method cannot be used in the same report.",
+    })
+  }
+
+  const queryMode = requiresOrderLevelQuery(queryDimensions)
+    ? getQueryMode(queryDimensions)
+    : "dailySales"
+  const { metricMap, dimensionMap, filterColumns } = getModeConfig(queryMode)
   const selectFields: Record<string, SelectExpression | SQL<bigint | number>> = {}
   const groupByFields: GroupableExpression[] = []
   const columnNames: string[] = []
@@ -123,7 +395,7 @@ export const buildReportQuery = async (
   for (const dimension of dimensions) {
     if (dimension === "channel") continue
 
-    const definition = dimensionMap[dimension]
+    const definition = getDimensionDefinition(dimensionMap, dimension)
     selectFields[dimension] = definition.select
     groupByFields.push(definition.groupBy)
     columnNames.push(dimension)
@@ -141,45 +413,23 @@ export const buildReportQuery = async (
     columnNames.push(metric)
   }
 
-  const customerClause = eq(locations.customerId, customerId)
+  const customerClause =
+    queryMode === "orders"
+      ? eq(orders.customerId, customerId)
+      : eq(locations.customerId, customerId)
+  const dateColumn =
+    queryMode === "dailySales"
+      ? dailySales.saleDate
+      : queryMode === "lineItems"
+        ? orderLineItems.saleDate
+        : orders.saleDate
   const conditions: SQL[] = [
-    gte(dailySales.saleDate, config.dateRange.from),
-    lte(dailySales.saleDate, config.dateRange.to),
+    gte(dateColumn, config.dateRange.from),
+    lte(dateColumn, config.dateRange.to),
   ]
 
   for (const filter of config.filters) {
-    if (filter.dimension === "locationId") {
-      if (filter.operator === "eq") {
-        conditions.push(eq(dailySales.locationId, String(filter.value)))
-      } else if (filter.operator === "in") {
-        conditions.push(
-          inArray(
-            dailySales.locationId,
-            Array.isArray(filter.value) ? filter.value : [filter.value],
-          ),
-        )
-      } else {
-        const { from, to } = requireBetweenValues(filter.dimension, filter.operator, filter.value)
-        conditions.push(and(gte(dailySales.locationId, from), lte(dailySales.locationId, to))!)
-      }
-      continue
-    }
-
-    if (filter.dimension === "saleDate") {
-      if (filter.operator === "eq") {
-        conditions.push(eq(dailySales.saleDate, String(filter.value)))
-      } else if (filter.operator === "in") {
-        conditions.push(
-          inArray(dailySales.saleDate, Array.isArray(filter.value) ? filter.value : [filter.value]),
-        )
-      } else {
-        const { from, to } = requireBetweenValues(filter.dimension, filter.operator, filter.value)
-        conditions.push(and(gte(dailySales.saleDate, from), lte(dailySales.saleDate, to))!)
-      }
-      continue
-    }
-
-    if (!isComputedDimension(filter.dimension)) {
+    if (filter.dimension === "channel") {
       throw DomainError.makeError({
         code: "BAD_REQUEST",
         message: `Dimension ${filter.dimension} is not supported in filters`,
@@ -188,27 +438,86 @@ export const buildReportQuery = async (
       })
     }
 
+    const filterColumn = filterColumns[filter.dimension]
+
+    if (filterColumn) {
+      conditions.push(
+        buildColumnCondition(filterColumn, filter.dimension, filter.operator, filter.value),
+      )
+      continue
+    }
+
+    if (!isComputedDimension(filter.dimension) && filter.dimension !== "customer") {
+      throw DomainError.makeError({
+        code: "BAD_REQUEST",
+        message: `Dimension ${filter.dimension} is not supported in filters`,
+        clientSafeMessage: `Dimension "${filter.dimension}" is not supported yet.`,
+        additionalContext: { dimension: filter.dimension },
+      })
+    }
+
+    const definition = getDimensionDefinition(dimensionMap, filter.dimension)
     conditions.push(
-      buildComputedDimensionCondition(filter.dimension, filter.operator, filter.value),
+      buildExpressionCondition(filter.dimension, definition.groupBy, filter.operator, filter.value),
     )
   }
 
   const whereClause = and(customerClause, ...conditions)
   const firstDimension = dimensions[0]
 
-  let query = db
-    .select(selectFields as never)
-    .from(dailySales)
-    .innerJoin(locations, eq(dailySales.locationId, locations.id))
-    .where(whereClause)
-    .$dynamic()
+  const baseQuery =
+    queryMode === "dailySales"
+      ? db
+          .select(selectFields as never)
+          .from(dailySales)
+          .innerJoin(locations, eq(dailySales.locationId, locations.id))
+      : queryMode === "lineItems"
+        ? db
+            .select(selectFields as never)
+            .from(orderLineItems)
+            .innerJoin(locations, eq(orderLineItems.locationId, locations.id))
+            .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
+            .leftJoin(
+              squareCustomers,
+              and(
+                eq(orders.squareCustomerId, squareCustomers.squareId),
+                eq(squareCustomers.customerId, customerId),
+              ),
+            )
+        : queryMode === "tenders"
+          ? db
+              .select(selectFields as never)
+              .from(orderTenders)
+              .innerJoin(locations, eq(orderTenders.locationId, locations.id))
+              .leftJoin(orders, eq(orderTenders.orderId, orders.id))
+              .leftJoin(
+                squareCustomers,
+                and(
+                  eq(orders.squareCustomerId, squareCustomers.squareId),
+                  eq(squareCustomers.customerId, customerId),
+                ),
+              )
+          : db
+              .select(selectFields as never)
+              .from(orders)
+              .innerJoin(locations, eq(orders.locationId, locations.id))
+              .leftJoin(
+                squareCustomers,
+                and(
+                  eq(orders.squareCustomerId, squareCustomers.squareId),
+                  eq(squareCustomers.customerId, customerId),
+                ),
+              )
+
+  let query = baseQuery.where(whereClause).$dynamic()
 
   if (groupByFields.length > 0) {
     query = query.groupBy(...groupByFields)
   }
 
   if (firstDimension && firstDimension !== "channel") {
-    query = query.orderBy(sql`${dimensionMap[firstDimension].orderBy} asc`)
+    const definition = getDimensionDefinition(dimensionMap, firstDimension)
+    query = query.orderBy(sql`${definition.orderBy} asc`)
   }
 
   const rows = (await query) as Record<string, unknown>[]
