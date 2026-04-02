@@ -30,7 +30,7 @@ const app = new Hono()
       credentials: true,
     }),
   )
-  .on(["POST", "GET"], "/api/auth/**", (c) => auth.handler(c.req.raw))
+  .all("/api/auth/*", (c) => auth.handler(c.req.raw))
   .route("/api/invitations/validate", validateInvitationRouter)
   .route("/api/square/webhooks", webhooksRouter)
   .use("/api/*", authMiddleware)
