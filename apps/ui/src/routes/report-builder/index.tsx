@@ -1,13 +1,16 @@
 import { useState } from "react"
 import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 import type { ReportConfig } from "@analytics/report-builder"
+import { Button } from "@analytics/ui-shared"
 import { useReportQuery } from "../../data/report-builder/hooks"
 import { ReportCanvas } from "./components/ReportCanvas"
 import { FieldPanel } from "./components/FieldPanel"
 import { PreviewPanel } from "./components/PreviewPanel"
+import { SaveReportModal } from "./components/SaveReportModal"
 import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
 
 export const ReportBuilderRoute = () => {
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [config, setConfig] = useState<ReportConfig>({
     metrics: [],
     rows: [],
@@ -71,6 +74,15 @@ export const ReportBuilderRoute = () => {
           activeDimensions={[...config.rows, ...config.columns]}
         />
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={() => setSaveModalOpen(true)}
+              disabled={config.metrics.length === 0}
+            >
+              Save
+            </Button>
+          </div>
           <ReportCanvas config={config} onConfigChange={setConfig} />
           <PreviewPanel
             result={reportQuery.data}
@@ -78,6 +90,7 @@ export const ReportBuilderRoute = () => {
             isLoading={reportQuery.isLoading}
             error={reportQuery.error}
           />
+          <SaveReportModal open={saveModalOpen} onOpenChange={setSaveModalOpen} config={config} />
         </div>
       </div>
     </DndContext>
