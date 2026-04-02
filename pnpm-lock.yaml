@@ -63,7 +63,7 @@ importers:
         version: 0.7.6(hono@4.12.7)(zod@4.3.6)
       better-auth:
         specifier: latest
-        version: 1.5.5(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.1)(kysely@0.28.14)(postgres@3.4.8))(mongodb@7.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 1.5.5(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.1)(kysely@0.28.11)(postgres@3.4.8))(mongodb@7.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -124,7 +124,7 @@ importers:
         version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       better-auth:
         specifier: latest
-        version: 1.5.5(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.1)(kysely@0.28.11)(postgres@3.4.8))(mongodb@7.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 1.5.5(drizzle-kit@0.31.9)(drizzle-orm@0.45.1(@opentelemetry/api@1.9.1)(kysely@0.28.14)(postgres@3.4.8))(mongodb@7.1.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       hono:
         specifier: latest
         version: 4.12.7
@@ -183,6 +183,9 @@ importers:
 
   domain/database:
     dependencies:
+      "@analytics/report-builder":
+        specifier: workspace:*
+        version: link:../../packages/report-builder
       "@analytics/shared-libs":
         specifier: workspace:*
         version: link:../../packages/shared-libs
@@ -236,6 +239,16 @@ importers:
       square:
         specifier: ^44.0.0
         version: 44.0.0
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/report-builder:
+    dependencies:
+      "@analytics/shared-libs":
+        specifier: workspace:*
+        version: link:../shared-libs
+    devDependencies:
       typescript:
         specifier: ^5
         version: 5.9.3
