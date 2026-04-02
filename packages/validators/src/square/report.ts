@@ -61,6 +61,7 @@ export const CreateSavedReportSchema = z.object({
   name: z.string().min(1),
   config: ReportConfigSchema,
 })
+export const UpdateSavedReportSchema = CreateSavedReportSchema.partial()
 
 export type Metric = z.infer<typeof MetricSchema>
 export type Dimension = z.infer<typeof DimensionSchema>
@@ -69,3 +70,4 @@ export type ReportConfig = z.infer<typeof ReportConfigSchema>
 export type ReportQueryResult = z.infer<typeof ReportQueryResultSchema>
 export type SavedReport = z.infer<typeof SavedReportSchema>
 export type CreateSavedReport = z.infer<typeof CreateSavedReportSchema>
+export type UpdateSavedReport = z.infer<typeof UpdateSavedReportSchema>

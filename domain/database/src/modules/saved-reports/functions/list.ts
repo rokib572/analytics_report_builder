@@ -1,5 +1,17 @@
-import type { PostgresJsDatabase } from "drizzle-orm/postgres-js"
+import { desc, eq } from "drizzle-orm"
+import type { DbClient } from "../../../db/client"
+import { type SavedReportDto, savedReports } from "../schema"
 
-export const listSavedReports = async (_db: PostgresJsDatabase, _customerId: string) => {
-  // TODO: implement
+export const listSavedReports = async (
+  db: DbClient,
+  customerId: string,
+): Promise<SavedReportDto[]> => {
+  const customerClause = eq(savedReports.customerId, customerId)
+
+  return db
+    .select()
+    .from(savedReports)
+    .where(customerClause)
+    .orderBy(desc(savedReports.updatedAt))
+    .then((rows) => rows as SavedReportDto[])
 }
