@@ -13,6 +13,7 @@ export const listRefunds = async (
     beginTime: startAt,
     endTime: endAt,
     limit: 100,
+    sortField: "CREATED_AT",
   })
 
   const refunds: Square.PaymentRefund[] = []

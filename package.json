@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
+    "seed:square": "pnpm --filter @analytics/seed-square seed",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -32,7 +33,7 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.3.3",
     "prettier": "^3",
-    "turbo": "latest",
+    "turbo": "2.8.16",
     "typescript": "^5"
   }
 }
