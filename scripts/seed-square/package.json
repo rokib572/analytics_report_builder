@@ -1,0 +1,15 @@
+{
+  "name": "@analytics/seed-square",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "tsx seed.ts"
+  },
+  "dependencies": {
+    "square": "^44.0.0"
+  },
+  "devDependencies": {
+    "tsx": "latest",
+    "@types/node": "latest"
+  }
+}

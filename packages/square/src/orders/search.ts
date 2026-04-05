@@ -24,10 +24,17 @@ export const batchSearchOrders = async (
         query: {
           filter: {
             stateFilter: { states: ["COMPLETED"] },
-            dateTimeFilter: { createdAt: { startAt, endAt } },
+            dateTimeFilter: { closedAt: { startAt, endAt } },
+          },
+          sort: {
+            sortField: "CLOSED_AT",
+            sortOrder: "DESC",
           },
         },
       })
+
+      console.log(chunk, response.orders)
+
       if (response.orders) orders.push(...response.orders)
       return orders
     }),

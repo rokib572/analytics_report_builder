@@ -17,6 +17,11 @@ import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
 import { requireRole } from "../../../middleware/require-role"
 
+const toRfc3339Range = (startAt: string, endAt: string) => ({
+  startAt: `${startAt}T00:00:00.000Z`,
+  endAt: `${endAt}T23:59:59.999Z`,
+})
+
 const router = new Hono<AuthEnv>().post(
   "/",
   requireRole("system_admin"),
@@ -32,10 +37,16 @@ const router = new Hono<AuthEnv>().post(
       const result = await syncCustomers(db, customerId)
       return context.json({ success: true, ...result })
     } else if (data.type === "orders") {
-      const result = await syncOrders(db, customerId, data.startAt, data.endAt)
-      const paymentResult = await syncPayments(db, customerId, data.startAt, data.endAt)
-      const refundResult = await syncRefunds(db, customerId, data.startAt, data.endAt)
-      const inventoryResult = await syncInventory(db, customerId, data.startAt, data.endAt)
+      const syncRange = toRfc3339Range(data.startAt, data.endAt)
+      const result = await syncOrders(db, customerId, syncRange.startAt, syncRange.endAt)
+      const paymentResult = await syncPayments(db, customerId, syncRange.startAt, syncRange.endAt)
+      const refundResult = await syncRefunds(db, customerId, syncRange.startAt, syncRange.endAt)
+      const inventoryResult = await syncInventory(
+        db,
+        customerId,
+        syncRange.startAt,
+        syncRange.endAt,
+      )
       let aggregated = 0
 
       if (result.synced > 0) {
@@ -46,8 +57,8 @@ const router = new Hono<AuthEnv>().post(
           const orders = await batchSearchOrders(
             customerId,
             squareLocationIds,
-            data.startAt,
-            data.endAt,
+            syncRange.startAt,
+            syncRange.endAt,
           )
           const dailyPayloads = aggregateOrdersToDaily(orders, locationMap, "manual")
 

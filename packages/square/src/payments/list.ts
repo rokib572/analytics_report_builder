@@ -13,6 +13,7 @@ export const listPayments = async (
     beginTime: startAt,
     endTime: endAt,
     limit: 100,
+    sortField: "CREATED_AT",
   })
 
   const payments: Square.Payment[] = []

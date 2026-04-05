@@ -35,7 +35,10 @@ export const syncOrders = async (
   const locationMap = await getLocationSquareIdMap(db, customerId)
   const squareLocationIds = [...locationMap.keys()]
 
-  console.log("SquareLocationIds for sync:", squareLocationIds, locationMap)
+  console.log("syncOrders customerId:", customerId)
+  console.log("syncOrders locationMap is Map:", locationMap instanceof Map)
+  console.log("syncOrders locationMap entries:", [...locationMap.entries()])
+  console.log("syncOrders squareLocationIds:", squareLocationIds)
 
   if (squareLocationIds.length === 0) {
     return { synced: 0, unchanged: 0, skipped: 0 }
