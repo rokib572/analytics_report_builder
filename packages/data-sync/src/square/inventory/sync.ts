@@ -61,7 +61,7 @@ export const syncInventory = async (
       customerId,
       count.catalogObjectId,
     )
-    const contentHash = computeInventoryCountContentHash(count)
+    const contentHash = computeInventoryCountContentHash(count, catalogItemVariationId)
     const result = await upsertInventoryCount(
       db,
       customerId,

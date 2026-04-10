@@ -1,5 +1,5 @@
 import { type Square, SquareClient, SquareEnvironment } from "square"
-import { CATALOG_ITEMS, CUSTOMERS, ORDER_CONFIG } from "./config"
+import { CATALOG_ITEMS, CUSTOMERS, INVENTORY_CONFIG, ORDER_CONFIG } from "./config"
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -89,6 +89,44 @@ const createCatalogItems = async (client: SquareClient): Promise<VariationMappin
   }
 
   return variationMappings
+}
+
+// ---------------------------------------------------------------------------
+// Step 2b: Seed inventory counts
+// ---------------------------------------------------------------------------
+
+const seedInventory = async (
+  client: SquareClient,
+  locationId: string,
+  variations: VariationMapping[],
+): Promise<number> => {
+  const occurredAt = new Date().toISOString()
+  const changes: Square.InventoryChange[] = variations.map((variation) => ({
+    type: "PHYSICAL_COUNT",
+    physicalCount: {
+      catalogObjectId: variation.variationId,
+      state: INVENTORY_CONFIG.state,
+      locationId,
+      quantity: String(
+        randomInt(INVENTORY_CONFIG.initialStock.min, INVENTORY_CONFIG.initialStock.max),
+      ),
+      occurredAt,
+    },
+  }))
+
+  let applied = 0
+  for (let i = 0; i < changes.length; i += INVENTORY_CONFIG.batchSize) {
+    const batch = changes.slice(i, i + INVENTORY_CONFIG.batchSize)
+    await client.inventory.batchCreateChanges({
+      idempotencyKey: crypto.randomUUID(),
+      changes: batch,
+      ignoreUnchangedCounts: true,
+    })
+    applied += batch.length
+    await delay(200)
+  }
+
+  return applied
 }
 
 // ---------------------------------------------------------------------------
@@ -245,6 +283,11 @@ const main = async () => {
   console.log(`Creating ${CATALOG_ITEMS.length} catalog items with ${variationCount} variations...`)
   const variations = await createCatalogItems(client)
   console.log(`  Created ${variations.length} variations\n`)
+
+  // 2b. Seed inventory counts
+  console.log(`Seeding inventory for ${variations.length} variations at ${location.name}...`)
+  const stockedCount = await seedInventory(client, location.id!, variations)
+  console.log(`  Applied ${stockedCount} PHYSICAL_COUNT changes\n`)
 
   // 3. Create customers
   console.log(`Creating ${CUSTOMERS.length} customers...`)

@@ -6,9 +6,13 @@ import type {
 import type { Square } from "square"
 import { computeContentHash } from "../../utils/content-hash"
 
-export const computeInventoryCountContentHash = (count: Square.InventoryCount): string =>
+export const computeInventoryCountContentHash = (
+  count: Square.InventoryCount,
+  catalogItemVariationId: string | null,
+): string =>
   computeContentHash({
     catalogObjectId: count.catalogObjectId,
+    catalogItemVariationId,
     locationId: count.locationId,
     state: count.state,
     quantity: count.quantity,

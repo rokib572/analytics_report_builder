@@ -92,3 +92,9 @@ export const ORDER_CONFIG = {
   tenderTypes: ["CASH", "CARD", "CARD", "CARD"] as const,
   cardBrands: ["VISA", "MASTERCARD", "AMEX", "DISCOVER"] as const,
 }
+
+export const INVENTORY_CONFIG = {
+  initialStock: { min: 25, max: 200 },
+  state: "IN_STOCK" as const,
+  batchSize: 100,
+}

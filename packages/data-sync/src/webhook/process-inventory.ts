@@ -55,7 +55,7 @@ export const processInventoryWebhookEvent = async (
       customerId,
       count.catalogObjectId,
     )
-    const contentHash = computeInventoryCountContentHash(count)
+    const contentHash = computeInventoryCountContentHash(count, catalogItemVariationId)
     await upsertInventoryCount(
       db,
       customerId,
