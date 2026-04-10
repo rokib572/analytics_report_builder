@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { getOrder } from "@analytics/database"
+import { normalizeJsonValue } from "@analytics/data-sync"
 import { DomainError } from "@analytics/shared-libs"
 import type { AuthEnv } from "../../../middleware/auth"
 import { requirePermission } from "../../../middleware/permission"
@@ -21,7 +22,11 @@ const getOrderRouter = new Hono<AuthEnv>()
       })
     }
 
-    return context.json({ success: true, order: result.order, lineItems: result.lineItems })
+    return context.json({
+      success: true,
+      order: normalizeJsonValue(result.order),
+      lineItems: normalizeJsonValue(result.lineItems),
+    })
   })
 
 export default getOrderRouter

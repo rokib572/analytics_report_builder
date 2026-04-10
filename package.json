@@ -4,8 +4,7 @@
   "private": true,
   "packageManager": "pnpm@10.29.3",
   "scripts": {
-    "dev": "turbo run dev --ui=stream --log-order=stream --log-prefix=task --output-logs=full",
-    "dev:tui": "turbo run dev --ui=stream --log-order=stream --log-prefix=task --output-logs=full",
+    "dev": "turbo run dev --filter=@analytics/ui --filter=@analytics/api",
     "build": "turbo lint && prettier --check . && turbo build",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",

@@ -12,7 +12,7 @@ import {
 } from "@analytics/database"
 import { batchSearchOrders, detectChannel } from "@analytics/square"
 import type { Square } from "square"
-import { computeContentHash } from "../utils/content-hash"
+import { computeContentHash, normalizeJsonValue } from "../utils/content-hash"
 import { aggregateOrdersToDaily } from "../aggregator/daily"
 import { validateWebhookLocation } from "./process.validate-location"
 import { validateWebhookOrder } from "./process.validate-order"
@@ -87,14 +87,15 @@ export const processWebhookEvent = async (
     totalDiscountMoney: toBigInt(order.totalDiscountMoney),
     totalTipMoney: toBigInt(order.totalTipMoney),
     totalServiceChargeMoney: toBigInt(order.totalServiceChargeMoney),
-    netAmounts: order.netAmounts ?? null,
-    returnAmounts: order.returnAmounts ?? null,
+    netAmounts: (normalizeJsonValue(order.netAmounts) as Record<string, unknown> | null) ?? null,
+    returnAmounts:
+      (normalizeJsonValue(order.returnAmounts) as Record<string, unknown> | null) ?? null,
     sourceName: order.source?.name ?? null,
     squareCustomerId: order.customerId ?? null,
     ticketName: order.ticketName ?? null,
     closedAt: order.closedAt ? new Date(order.closedAt) : null,
     fulfillmentType: order.fulfillments?.[0]?.type ?? null,
-    rawJson: order,
+    rawJson: normalizeJsonValue(order) as Record<string, unknown>,
     contentHash,
     createdAt: new Date(order.createdAt),
     updatedAt: new Date(order.updatedAt ?? order.createdAt),

@@ -19,23 +19,30 @@ export const batchSearchOrders = async (
   const results = await Promise.all(
     chunks.map(async (chunk) => {
       const orders: Square.Order[] = []
-      const response = await client.orders.search({
-        locationIds: chunk,
-        query: {
-          filter: {
-            stateFilter: { states: ["COMPLETED"] },
-            dateTimeFilter: { closedAt: { startAt, endAt } },
-          },
-          sort: {
-            sortField: "CLOSED_AT",
-            sortOrder: "DESC",
-          },
-        },
-      })
+      let cursor: string | undefined
 
-      console.log(chunk, response.orders)
+      do {
+        const request = {
+          cursor,
+          locationIds: chunk,
+          query: {
+            filter: {
+              stateFilter: { states: ["COMPLETED"] },
+              dateTimeFilter: { createdAt: { startAt, endAt } },
+            },
+            sort: {
+              sortField: "CREATED_AT",
+              sortOrder: "DESC",
+            },
+          },
+        } satisfies Square.SearchOrdersRequest
 
-      if (response.orders) orders.push(...response.orders)
+        const response = await client.orders.search(request)
+
+        if (response.orders) orders.push(...response.orders)
+        cursor = response.cursor ?? undefined
+      } while (cursor)
+
       return orders
     }),
   )

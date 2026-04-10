@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto"
 
-const normalizeHashValue = (value: unknown): unknown => {
+export const normalizeJsonValue = (value: unknown): unknown => {
   if (typeof value === "bigint") {
     return value.toString()
   }
@@ -10,14 +10,14 @@ const normalizeHashValue = (value: unknown): unknown => {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => normalizeHashValue(item))
+    return value.map((item) => normalizeJsonValue(item))
   }
 
   if (value && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value)
         .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, nestedValue]) => [key, normalizeHashValue(nestedValue)]),
+        .map(([key, nestedValue]) => [key, normalizeJsonValue(nestedValue)]),
     )
   }
 
@@ -25,7 +25,7 @@ const normalizeHashValue = (value: unknown): unknown => {
 }
 
 export const computeContentHash = (data: Record<string, unknown>): string => {
-  const normalized = normalizeHashValue(data)
+  const normalized = normalizeJsonValue(data)
   const sorted = JSON.stringify(normalized)
   return createHash("sha256").update(sorted).digest("hex")
 }

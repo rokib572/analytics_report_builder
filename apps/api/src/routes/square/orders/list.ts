@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { validator } from "hono/validator"
 import { listOrdersQuerySchema } from "@analytics/validators"
 import { listOrders } from "@analytics/database"
+import { normalizeJsonValue } from "@analytics/data-sync"
 import type { AuthEnv } from "../../../middleware/auth"
 import { requirePermission } from "../../../middleware/permission"
 import { db } from "../../../lib/db"
@@ -23,7 +24,7 @@ const listOrdersRouter = new Hono<AuthEnv>().use(requirePermission("orders", "vi
 
     return context.json({
       success: true,
-      orders,
+      orders: normalizeJsonValue(orders),
       pagination: {
         page,
         limit,
