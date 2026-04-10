@@ -7,7 +7,7 @@ import { SyncLocationsContent } from "./contents-location"
 import { SyncOrdersContent } from "./contents-orders"
 import { SyncCatalogContent } from "./contents-catalog"
 import { MAX_SYNC_DAYS, orderSyncSchema } from "./schemas"
-import type { OrderSyncResult, OrderSyncValues } from "./types"
+import type { OrderSyncAsyncResult, OrderSyncResult, OrderSyncValues } from "./types"
 
 const ZERO_FLAT = { synced: 0, unchanged: 0, skipped: 0 }
 const ZERO_INVENTORY = {
@@ -25,6 +25,7 @@ export const SyncRoute = () => {
 
   const syncOrders = useSyncOrders()
   const [orderResult, setOrderResult] = useState<OrderSyncResult | null>(null)
+  const [orderAsyncResult, setOrderAsyncResult] = useState<OrderSyncAsyncResult | null>(null)
   const [orderError, setOrderError] = useState<string | null>(null)
 
   const syncCatalog = useSyncCatalog()
@@ -48,8 +49,9 @@ export const SyncRoute = () => {
     setLocError(null)
     try {
       const data = await syncLocations.mutateAsync()
+      const synced = "synced" in data ? data.synced : 0
       const unchanged = "unchanged" in data ? data.unchanged : 0
-      setLocResult({ synced: data.synced, unchanged })
+      setLocResult({ synced, unchanged })
     } catch (err) {
       setLocError(err instanceof Error ? err.message : "Failed to sync locations")
     }
@@ -57,9 +59,19 @@ export const SyncRoute = () => {
 
   const handleSyncOrders = async (values: OrderSyncValues) => {
     setOrderResult(null)
+    setOrderAsyncResult(null)
     setOrderError(null)
     try {
       const data = await syncOrders.mutateAsync(values)
+      if ("async" in data && data.async) {
+        setOrderAsyncResult({
+          async: true,
+          syncLogId: data.syncLogId,
+          message: data.message,
+        })
+        return
+      }
+
       setOrderResult({
         orders: {
           synced: "synced" in data ? data.synced : 0,
@@ -112,6 +124,7 @@ export const SyncRoute = () => {
         onSubmit={handleSubmit(handleSyncOrders)}
         isPending={syncOrders.isPending}
         result={orderResult}
+        asyncResult={orderAsyncResult}
         error={orderError}
         maxDays={MAX_SYNC_DAYS}
       />

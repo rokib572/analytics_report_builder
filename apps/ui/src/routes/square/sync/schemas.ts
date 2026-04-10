@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-export const MAX_SYNC_DAYS = 30
+export const MAX_SYNC_DAYS = 3650
 
 export const orderSyncSchema = z
   .object({
@@ -23,7 +23,7 @@ export const orderSyncSchema = z
       return diffDays <= MAX_SYNC_DAYS
     },
     {
-      message: `Date range must not exceed ${MAX_SYNC_DAYS} days. Use nightly sync for larger ranges.`,
+      message: `Date range must not exceed ${MAX_SYNC_DAYS} days.`,
       path: ["endAt"],
     },
   )

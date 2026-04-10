@@ -26,12 +26,19 @@ export type OrderSyncResult = {
   aggregated: number
 }
 
+export type OrderSyncAsyncResult = {
+  async: true
+  syncLogId: string
+  message: string
+}
+
 export type SyncOrdersContentProps = {
   register: UseFormRegister<OrderSyncValues>
   errors: FieldErrors<OrderSyncValues>
   onSubmit: () => void
   isPending: boolean
   result: OrderSyncResult | null
+  asyncResult: OrderSyncAsyncResult | null
   error: string | null
   maxDays: number
 }

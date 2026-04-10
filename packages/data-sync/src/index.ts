@@ -1,4 +1,5 @@
 export { jitSync } from "./jit/sync"
+export { getBackfillDateRange, runBackfill } from "./backfill/run"
 export { nightlySync } from "./nightly/sync"
 export { processWebhookEvent } from "./webhook/process"
 export { processPaymentWebhookEvent } from "./webhook/process-payment"

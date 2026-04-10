@@ -31,20 +31,21 @@ export const syncOrders = async (
   customerId: string,
   startAt: string,
   endAt: string,
+  squareLocationIds?: string[],
 ): Promise<{ synced: number; unchanged: number; skipped: number }> => {
   const locationMap = await getLocationSquareIdMap(db, customerId)
-  const squareLocationIds = [...locationMap.keys()]
+  const selectedSquareLocationIds = squareLocationIds?.filter((locationId) =>
+    locationMap.has(locationId),
+  )
+  const locationIdsToSync = selectedSquareLocationIds?.length
+    ? selectedSquareLocationIds
+    : [...locationMap.keys()]
 
-  console.log("syncOrders customerId:", customerId)
-  console.log("syncOrders locationMap is Map:", locationMap instanceof Map)
-  console.log("syncOrders locationMap entries:", [...locationMap.entries()])
-  console.log("syncOrders squareLocationIds:", squareLocationIds)
-
-  if (squareLocationIds.length === 0) {
+  if (locationIdsToSync.length === 0) {
     return { synced: 0, unchanged: 0, skipped: 0 }
   }
 
-  const squareOrders = await batchSearchOrders(customerId, squareLocationIds, startAt, endAt)
+  const squareOrders = await batchSearchOrders(customerId, locationIdsToSync, startAt, endAt)
 
   let synced = 0
   let unchanged = 0

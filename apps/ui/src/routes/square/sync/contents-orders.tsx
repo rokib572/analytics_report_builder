@@ -16,6 +16,7 @@ export const SyncOrdersContent = ({
   onSubmit,
   isPending,
   result,
+  asyncResult,
   error,
   maxDays,
 }: SyncOrdersContentProps) => (
@@ -43,6 +44,7 @@ export const SyncOrdersContent = ({
         <Button type="submit" disabled={isPending}>
           {isPending ? "Syncing..." : "Sync Orders"}
         </Button>
+        {asyncResult && <p className="text-sm text-muted-foreground">{asyncResult.message}</p>}
         {result && (
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>

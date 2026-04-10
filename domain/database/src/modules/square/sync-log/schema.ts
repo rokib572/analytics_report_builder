@@ -20,11 +20,13 @@ export const syncLog = auditSchema.table("sync_log", {
   status: varchar("status", { length: 20 }).notNull(),
   errorMessage: varchar("error_message", { length: 1000 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
 export const insertSyncLogSchema = createInsertSchema(syncLog).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 })
 export const selectSyncLogSchema = createSelectSchema(syncLog)
 

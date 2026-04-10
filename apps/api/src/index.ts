@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server"
 import app from "./api-client"
-import { startNightlySyncJob } from "./jobs/nightly-sync"
+import { startBackgroundJobs } from "./jobs/nightly-sync"
 
-startNightlySyncJob()
+startBackgroundJobs()
 
 serve({ fetch: app.fetch, port: Number(process.env.PORT ?? 3001) })

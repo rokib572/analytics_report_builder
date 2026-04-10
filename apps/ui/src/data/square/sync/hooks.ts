@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
 
 export const useSyncOrders = () => {
@@ -13,6 +13,7 @@ export const useSyncOrders = () => {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["orders"] })
+      void queryClient.invalidateQueries({ queryKey: ["square-backfill-status"] })
     },
   })
 }
@@ -32,3 +33,17 @@ export const useSyncCatalog = () => {
     },
   })
 }
+
+export const useBackfillStatus = () =>
+  useQuery({
+    queryKey: ["square-backfill-status"],
+    queryFn: async () => {
+      const res = await apiClient.api.sync["backfill-status"].$get()
+      if (!res.ok) throw new Error("Failed to fetch backfill status")
+      return res.json()
+    },
+    refetchInterval: (query) => {
+      const status = query.state.data?.backfill?.status
+      return status === "pending" || status === "running" ? 10000 : false
+    },
+  })

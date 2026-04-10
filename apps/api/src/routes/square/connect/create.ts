@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { validator } from "hono/validator"
-import { createAppIntegration } from "@analytics/database"
-import { syncLocations } from "@analytics/data-sync"
+import { createAppIntegration, createSyncLog, findRunningBackfill } from "@analytics/database"
+import { getBackfillDateRange, runBackfill, syncLocations } from "@analytics/data-sync"
 import { DomainError } from "@analytics/shared-libs"
 import { ConnectSquareSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
@@ -17,7 +17,7 @@ const createSquareConnectionRouter = new Hono<AuthEnv>().post(
   async (context) => {
     // accessKye is optional and to be used only for apps requiring both appId and secretKey (like Facebook Conversions API).
     // For Square, we can ignore it but still keep it optional in case we want to use it in the future for other integrations.
-    const { accessToken, environment, accessKey } = context.req.valid("json")
+    const { accessToken, environment, accessKey, backfillScope } = context.req.valid("json")
     const customerId = context.get("customerId")
 
     // Verify the token has required permissions and can connect to Square API
@@ -49,7 +49,45 @@ const createSquareConnectionRouter = new Hono<AuthEnv>().post(
       console.error("Failed to auto-sync locations after connect:", error)
     }
 
-    return context.json({ success: true, integration })
+    const runningBackfill = await findRunningBackfill(db, customerId)
+    if (runningBackfill) {
+      throw DomainError.makeError({
+        code: "BAD_REQUEST",
+        message: "A backfill is already in progress for this customer.",
+        clientSafeMessage: "A Square history import is already running for this account.",
+        additionalContext: { customerId, syncLogId: runningBackfill.id },
+      })
+    }
+
+    const backfillRange = getBackfillDateRange(backfillScope)
+    const backfillLog = await createSyncLog(db, {
+      customerId,
+      syncType: "backfill",
+      locationId: null,
+      dateFrom: backfillRange.startAt,
+      dateTo: backfillRange.endAt,
+      squareCount: null,
+      dbCount: null,
+      discrepancy: null,
+      ordersFetched: 0,
+      status: "pending",
+      errorMessage: null,
+    })
+
+    void runBackfill(db, customerId, backfillLog.id).catch((error) => {
+      console.error("[BackfillStartError]", error)
+    })
+
+    return context.json({
+      success: true,
+      integration,
+      backfill: {
+        id: backfillLog.id,
+        status: backfillLog.status,
+        dateFrom: backfillLog.dateFrom,
+        dateTo: backfillLog.dateTo,
+      },
+    })
   },
 )
 

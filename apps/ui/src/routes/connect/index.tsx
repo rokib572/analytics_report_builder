@@ -20,9 +20,19 @@ import { Router } from "../../router"
 const connectSquareSchema = z.object({
   accessToken: z.string().min(1, "Access token is required"),
   environment: z.enum(["sandbox", "production"]),
+  backfillScope: z.enum(["30d", "3m", "6m", "12m", "24m", "all"]),
 })
 
 type ConnectSquareValues = z.infer<typeof connectSquareSchema>
+
+const BACKFILL_SCOPE_OPTIONS = [
+  { value: "30d", label: "30 days" },
+  { value: "3m", label: "3 months" },
+  { value: "6m", label: "6 months" },
+  { value: "12m", label: "12 months" },
+  { value: "24m", label: "24 months" },
+  { value: "all", label: "All history" },
+] as const
 
 const SquareConnectForm = () => {
   const [error, setError] = useState<string | null>(null)
@@ -35,7 +45,7 @@ const SquareConnectForm = () => {
     formState: { errors, isSubmitting },
   } = useForm<ConnectSquareValues>({
     resolver: zodResolver(connectSquareSchema),
-    defaultValues: { environment: "sandbox" },
+    defaultValues: { environment: "sandbox", backfillScope: "12m" },
   })
 
   const onSubmit = async (values: ConnectSquareValues) => {
@@ -44,6 +54,7 @@ const SquareConnectForm = () => {
       json: {
         accessToken: values.accessToken,
         environment: values.environment,
+        backfillScope: values.backfillScope,
       },
     })
 
@@ -58,6 +69,7 @@ const SquareConnectForm = () => {
 
     setSuccess(true)
     await queryClient.invalidateQueries({ queryKey: ["app-integrations"] })
+    await queryClient.invalidateQueries({ queryKey: ["square-backfill-status"] })
     setTimeout(() => Router.replace("Integrations"), 1500)
   }
 
@@ -93,6 +105,21 @@ const SquareConnectForm = () => {
         >
           <option value="sandbox">Sandbox</option>
           <option value="production">Production</option>
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="backfillScope">History to import</Label>
+        <select
+          id="backfillScope"
+          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
+          {...register("backfillScope")}
+        >
+          {BACKFILL_SCOPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
         </select>
       </div>
 

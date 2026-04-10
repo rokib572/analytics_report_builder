@@ -33,6 +33,7 @@ export const ConnectSquareSchema = z.object({
   accessToken: z.string().min(1, "Access token is required"),
   accessKey: z.string().optional(),
   environment: AppIntegrationEnvironmentSchema.default("sandbox"),
+  backfillScope: z.enum(["30d", "3m", "6m", "12m", "24m", "all"]).default("12m"),
 })
 
 export type AppIntegration = z.infer<typeof AppIntegrationSchema>

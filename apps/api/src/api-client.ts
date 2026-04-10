@@ -17,6 +17,7 @@ import invitationRouter from "./routes/invitations"
 import validateInvitationRouter from "./routes/invitations/validate"
 import usersRouter from "./routes/users/list"
 import manualSyncRouter from "./routes/square/sync/manual"
+import backfillStatusRouter from "./routes/square/sync/backfill-status"
 import webhooksRouter from "./routes/square/webhooks"
 import syncStatusRouter from "./routes/square/sync/status"
 import reportsRouter from "./routes/square/reports/index"
@@ -49,6 +50,7 @@ const app = new Hono()
   .route("/api/invitations", invitationRouter)
   .route("/api/users", usersRouter)
   .route("/api/sync/manual", manualSyncRouter)
+  .route("/api/sync/backfill-status", backfillStatusRouter)
   .route("/api/sync/status", syncStatusRouter)
   .route("/api/reports", reportsRouter)
 // .route("/api/orders", ordersRouter)

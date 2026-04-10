@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 export const SyncLogSchema = z.object({
-  id: z.number(),
+  id: z.string(),
   syncType: z.string(),
   locationId: z.string().nullable(),
   dateFrom: z.string(),
@@ -9,13 +9,15 @@ export const SyncLogSchema = z.object({
   squareCount: z.number().nullable(),
   dbCount: z.number().nullable(),
   discrepancy: z.number().nullable(),
+  ordersFetched: z.number().nullable(),
   status: z.string(),
   createdAt: z.string(),
+  updatedAt: z.string(),
 })
 
 export type SyncLog = z.infer<typeof SyncLogSchema>
 
-const MAX_SYNC_DAYS = 30
+const MAX_SYNC_DAYS = 3650
 
 export const SyncRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("locations") }),
@@ -34,7 +36,7 @@ export const SyncRequestSchema = z.discriminatedUnion("type", [
         const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
         return diffDays <= MAX_SYNC_DAYS && diffDays > 0
       },
-      { message: "Date range must be between 1 and 30 days. Use nightly sync for larger ranges." },
+      { message: "Date range must be between 1 and 3650 days." },
     ),
 ])
 
