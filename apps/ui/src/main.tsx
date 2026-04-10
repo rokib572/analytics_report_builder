@@ -13,6 +13,7 @@ import { LocationsRoute } from "./routes/square/locations"
 import { LocationGetRoute } from "./routes/square/locations/get"
 import { OrdersRoute } from "./routes/square/orders"
 import { OrderGetRoute } from "./routes/square/orders/get"
+import { InventoryRoute } from "./routes/square/inventory"
 import { SyncRoute } from "./routes/square/sync"
 import { IntegrationsRoute } from "./routes/integrations"
 import { ConnectRoute } from "./routes/connect"
@@ -30,6 +31,7 @@ const App = () => {
     "SquareLocationGet",
     "SquareOrders",
     "SquareOrderGet",
+    "SquareInventory",
     "SquareSync",
     "Integrations",
     "Connect",
@@ -62,6 +64,7 @@ const App = () => {
             {route?.name === "SquareLocationGet" && <LocationGetRoute />}
             {route?.name === "SquareOrders" && <OrdersRoute />}
             {route?.name === "SquareOrderGet" && <OrderGetRoute />}
+            {route?.name === "SquareInventory" && <InventoryRoute />}
             {route?.name === "SquareSync" && <SyncRoute />}
             {route?.name === "Integrations" && <IntegrationsRoute />}
             {route?.name === "Connect" && <ConnectRoute />}

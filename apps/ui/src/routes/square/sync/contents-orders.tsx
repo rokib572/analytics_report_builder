@@ -44,10 +44,27 @@ export const SyncOrdersContent = ({
           {isPending ? "Syncing..." : "Sync Orders"}
         </Button>
         {result && (
-          <p className="text-sm text-muted-foreground">
-            Sync complete: {result.synced} synced, {result.unchanged} unchanged, {result.skipped}{" "}
-            skipped.
-          </p>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              Orders: {result.orders.synced} synced, {result.orders.unchanged} unchanged,{" "}
+              {result.orders.skipped} skipped.
+            </p>
+            <p>
+              Payments: {result.payments.synced} synced, {result.payments.unchanged} unchanged,{" "}
+              {result.payments.skipped} skipped.
+            </p>
+            <p>
+              Refunds: {result.refunds.synced} synced, {result.refunds.unchanged} unchanged,{" "}
+              {result.refunds.skipped} skipped.
+            </p>
+            <p>
+              Inventory: {result.inventory.countsSynced} counts,{" "}
+              {result.inventory.adjustmentsSynced} adjustments, {result.inventory.transfersSynced}{" "}
+              transfers ({result.inventory.unchanged} unchanged, {result.inventory.skipped}{" "}
+              skipped).
+            </p>
+            <p>Daily aggregations upserted: {result.aggregated}.</p>
+          </div>
         )}
         {error && <p className="text-sm text-destructive">{error}</p>}
       </form>

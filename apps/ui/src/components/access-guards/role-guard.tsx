@@ -11,6 +11,7 @@ const routeRoles: Record<string, UserRole[]> = {
   SquareLocationGet: ALL_ROLES,
   SquareOrders: ALL_ROLES,
   SquareOrderGet: ALL_ROLES,
+  SquareInventory: ALL_ROLES,
   ReportBuilder: ALL_ROLES,
   ReportBuilderGet: ALL_ROLES,
   Integrations: ["owner", "admin"],

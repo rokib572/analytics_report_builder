@@ -9,6 +9,7 @@ export const ResourceSchema = z.enum([
   "users",
   "reports",
   "square-customers",
+  "inventory",
 ])
 export const ActionSchema = z.enum(["view", "create", "update", "delete"])
 

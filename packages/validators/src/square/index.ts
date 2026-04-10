@@ -1,4 +1,5 @@
 export * from "./customer"
+export * from "./inventory"
 export * from "./location"
 export * from "./order"
 export * from "./report"

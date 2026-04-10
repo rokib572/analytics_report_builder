@@ -1,4 +1,14 @@
-import { BarChart3, Home, Link2, Plug, MapPin, RefreshCw, FileBarChart, Users } from "lucide-react"
+import {
+  BarChart3,
+  Home,
+  Link2,
+  Plug,
+  MapPin,
+  Package,
+  RefreshCw,
+  FileBarChart,
+  Users,
+} from "lucide-react"
 import type { UserRole } from "@analytics/validators"
 import {
   Sidebar,
@@ -22,6 +32,7 @@ type RouteName =
   | "Home"
   | "SquareLocations"
   | "SquareOrders"
+  | "SquareInventory"
   | "SquareSync"
   | "Integrations"
   | "Connect"
@@ -78,6 +89,13 @@ const squareNavItems: NavItem[] = [
     permission: "orders:view",
   },
   {
+    label: "Inventory",
+    icon: Package,
+    route: "SquareInventory",
+    roles: ["owner", "admin", "member", "system_admin"],
+    permission: "inventory:view",
+  },
+  {
     label: "Sync",
     icon: RefreshCw,
     route: "SquareSync",
@@ -92,6 +110,7 @@ export const AppSidebar = () => {
     "SquareLocationGet",
     "SquareOrders",
     "SquareOrderGet",
+    "SquareInventory",
     "SquareSync",
     "Integrations",
     "Connect",

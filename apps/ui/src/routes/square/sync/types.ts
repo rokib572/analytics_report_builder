@@ -12,12 +12,26 @@ export type SyncLocationsContentProps = {
   error: string | null
 }
 
+export type OrderSyncResult = {
+  orders: { synced: number; unchanged: number; skipped: number }
+  payments: { synced: number; unchanged: number; skipped: number }
+  refunds: { synced: number; unchanged: number; skipped: number }
+  inventory: {
+    countsSynced: number
+    adjustmentsSynced: number
+    transfersSynced: number
+    unchanged: number
+    skipped: number
+  }
+  aggregated: number
+}
+
 export type SyncOrdersContentProps = {
   register: UseFormRegister<OrderSyncValues>
   errors: FieldErrors<OrderSyncValues>
   onSubmit: () => void
   isPending: boolean
-  result: { synced: number; unchanged: number; skipped: number } | null
+  result: OrderSyncResult | null
   error: string | null
   maxDays: number
 }

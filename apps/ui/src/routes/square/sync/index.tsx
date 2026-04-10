@@ -7,7 +7,16 @@ import { SyncLocationsContent } from "./contents-location"
 import { SyncOrdersContent } from "./contents-orders"
 import { SyncCatalogContent } from "./contents-catalog"
 import { MAX_SYNC_DAYS, orderSyncSchema } from "./schemas"
-import type { OrderSyncValues } from "./types"
+import type { OrderSyncResult, OrderSyncValues } from "./types"
+
+const ZERO_FLAT = { synced: 0, unchanged: 0, skipped: 0 }
+const ZERO_INVENTORY = {
+  countsSynced: 0,
+  adjustmentsSynced: 0,
+  transfersSynced: 0,
+  unchanged: 0,
+  skipped: 0,
+}
 
 export const SyncRoute = () => {
   const syncLocations = useSyncLocations()
@@ -15,11 +24,7 @@ export const SyncRoute = () => {
   const [locError, setLocError] = useState<string | null>(null)
 
   const syncOrders = useSyncOrders()
-  const [orderResult, setOrderResult] = useState<{
-    synced: number
-    unchanged: number
-    skipped: number
-  } | null>(null)
+  const [orderResult, setOrderResult] = useState<OrderSyncResult | null>(null)
   const [orderError, setOrderError] = useState<string | null>(null)
 
   const syncCatalog = useSyncCatalog()
@@ -56,9 +61,16 @@ export const SyncRoute = () => {
     try {
       const data = await syncOrders.mutateAsync(values)
       setOrderResult({
-        synced: "synced" in data ? data.synced : 0,
-        unchanged: "unchanged" in data ? data.unchanged : 0,
-        skipped: "skipped" in data ? data.skipped : 0,
+        orders: {
+          synced: "synced" in data ? data.synced : 0,
+          unchanged: "unchanged" in data ? data.unchanged : 0,
+          skipped: "skipped" in data ? data.skipped : 0,
+        },
+        payments: "payments" in data ? (data.payments as OrderSyncResult["payments"]) : ZERO_FLAT,
+        refunds: "refunds" in data ? (data.refunds as OrderSyncResult["refunds"]) : ZERO_FLAT,
+        inventory:
+          "inventory" in data ? (data.inventory as OrderSyncResult["inventory"]) : ZERO_INVENTORY,
+        aggregated: "aggregated" in data ? (data.aggregated as number) : 0,
       })
     } catch (err) {
       setOrderError(err instanceof Error ? err.message : "Failed to sync orders")

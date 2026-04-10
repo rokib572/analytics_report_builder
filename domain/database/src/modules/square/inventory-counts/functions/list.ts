@@ -1,6 +1,9 @@
-import { and, count, desc, eq } from "drizzle-orm"
+import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import type { DbClient } from "../../../../db/client"
-import { type InventoryCountDto, inventoryCounts } from "../schema"
+import { catalogItems } from "../../catalog-items/schema"
+import { catalogItemVariations } from "../../catalog-item-variations/schema"
+import { locations } from "../../locations/schema"
+import { inventoryCounts } from "../schema"
 import type { ListInventoryCountsOptions, ListInventoryCountsResult } from "../types"
 
 export const listInventoryCounts = async (
@@ -9,38 +12,66 @@ export const listInventoryCounts = async (
   options: ListInventoryCountsOptions,
 ): Promise<ListInventoryCountsResult> => {
   const customerClause = eq(inventoryCounts.customerId, customerId)
-  const conditions = []
+  const stateClause = eq(inventoryCounts.state, "IN_STOCK")
+  const conditions = [stateClause]
 
   if (options.locationId) {
     conditions.push(eq(inventoryCounts.locationId, options.locationId))
   }
 
-  if (options.catalogObjectId) {
-    conditions.push(eq(inventoryCounts.catalogObjectId, options.catalogObjectId))
-  }
-
-  if (options.state) {
-    conditions.push(eq(inventoryCounts.state, options.state))
+  if (options.search) {
+    const term = `%${options.search}%`
+    const searchClause = or(ilike(catalogItems.name, term), ilike(catalogItemVariations.sku, term))
+    if (searchClause) {
+      conditions.push(searchClause)
+    }
   }
 
   const whereClause = and(customerClause, ...conditions)
   const offset = (options.page - 1) * options.limit
 
-  const [items, countRows] = await Promise.all([
+  const [rows, countRows] = await Promise.all([
     db
-      .select()
+      .select({
+        id: inventoryCounts.id,
+        locationId: inventoryCounts.locationId,
+        locationName: locations.name,
+        catalogObjectId: inventoryCounts.catalogObjectId,
+        catalogItemVariationId: inventoryCounts.catalogItemVariationId,
+        itemName: catalogItems.name,
+        variationName: catalogItemVariations.name,
+        sku: catalogItemVariations.sku,
+        state: inventoryCounts.state,
+        quantity: inventoryCounts.quantity,
+        calculatedAt: inventoryCounts.calculatedAt,
+      })
       .from(inventoryCounts)
+      .innerJoin(locations, eq(inventoryCounts.locationId, locations.id))
+      .leftJoin(
+        catalogItemVariations,
+        eq(inventoryCounts.catalogItemVariationId, catalogItemVariations.id),
+      )
+      .leftJoin(catalogItems, eq(catalogItemVariations.itemId, catalogItems.id))
       .where(whereClause)
       .orderBy(desc(inventoryCounts.calculatedAt))
       .limit(options.limit)
       .offset(offset),
-    db.select({ totalCount: count() }).from(inventoryCounts).where(whereClause),
+    db
+      .select({ totalCount: count() })
+      .from(inventoryCounts)
+      .innerJoin(locations, eq(inventoryCounts.locationId, locations.id))
+      .leftJoin(
+        catalogItemVariations,
+        eq(inventoryCounts.catalogItemVariationId, catalogItemVariations.id),
+      )
+      .leftJoin(catalogItems, eq(catalogItemVariations.itemId, catalogItems.id))
+      .where(whereClause),
   ])
 
   const [countResult] = countRows
 
   return {
-    items: items as InventoryCountDto[],
+    items: rows,
     totalCount: Number(countResult?.totalCount ?? 0),
   }
 }

@@ -11,6 +11,7 @@ import listCustomersRouter from "./routes/customers/list"
 import squareLocationRouter from "./routes/square/locations"
 import squareCustomerRouter from "./routes/square/customers"
 import ordersRouter from "./routes/square/orders"
+import inventoryRouter from "./routes/square/inventory"
 import dailySalesRouter from "./routes/square/daily-sales"
 import invitationRouter from "./routes/invitations"
 import validateInvitationRouter from "./routes/invitations/validate"
@@ -43,6 +44,7 @@ const app = new Hono()
   .route("/api/square/locations", squareLocationRouter)
   .route("/api/square/customers", squareCustomerRouter)
   .route("/api/square/orders", ordersRouter)
+  .route("/api/square/inventory", inventoryRouter)
   .route("/api/square/daily-sales", dailySalesRouter)
   .route("/api/invitations", invitationRouter)
   .route("/api/users", usersRouter)
