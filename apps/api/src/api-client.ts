@@ -5,6 +5,8 @@ import { authMiddleware } from "./middleware/auth"
 import { errorHandler } from "./middleware/error-handler"
 import onboardingRouter from "./routes/onboarding"
 import squareConnectRouter from "./routes/square/connect"
+import squareOAuthRouter from "./routes/square/oauth"
+import oauthCallbackRouter from "./routes/square/oauth/callback"
 import appIntegrationRouter from "./routes/app-integration"
 import currentUserRouter from "./routes/users/current-user"
 import listCustomersRouter from "./routes/customers/list"
@@ -36,12 +38,14 @@ const app = new Hono()
   .all("/api/auth/*", (c) => auth.handler(c.req.raw))
   .route("/api/invitations/validate", validateInvitationRouter)
   .route("/api/square/webhooks", webhooksRouter)
+  .route("/api/square/oauth/callback", oauthCallbackRouter)
   .use("/api/*", authMiddleware)
   .route("/api/onboarding", onboardingRouter)
   .route("/api/current-user", currentUserRouter)
   .route("/api/app-integrations", appIntegrationRouter)
   .route("/api/customers", listCustomersRouter)
   .route("/api/square/connect", squareConnectRouter)
+  .route("/api/square/oauth", squareOAuthRouter)
   .route("/api/square/locations", squareLocationRouter)
   .route("/api/square/customers", squareCustomerRouter)
   .route("/api/square/orders", ordersRouter)

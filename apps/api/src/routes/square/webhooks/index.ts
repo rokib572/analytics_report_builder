@@ -4,6 +4,7 @@ import {
   createWebhookLog,
   findLocationBySquareId,
   findWebhookLogByEventId,
+  getAppIntegrationByMerchantId,
   updateWebhookLogProcessed,
 } from "@analytics/database"
 import {
@@ -100,9 +101,23 @@ const router = new Hono().post("/", async (c) => {
     }
   }
 
+  // Try per-customer signature key first, fall back to global key
+  let perCustomerKey: string | undefined
+  if (parsedEvent.merchantId) {
+    const merchantIntegration = await getAppIntegrationByMerchantId(db, parsedEvent.merchantId)
+    if (merchantIntegration?.webhookSignatureKey) {
+      perCustomerKey = merchantIntegration.webhookSignatureKey
+    }
+  }
+
   const isValidSignature =
     signatureHeader.length > 0 &&
-    (await verifySquareWebhook({ requestBody, signatureHeader, notificationUrl }))
+    (await verifySquareWebhook({
+      requestBody,
+      signatureHeader,
+      notificationUrl,
+      signatureKey: perCustomerKey,
+    }))
 
   if (!isValidSignature) {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)

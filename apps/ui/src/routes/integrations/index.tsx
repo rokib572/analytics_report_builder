@@ -1,17 +1,49 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@analytics/ui-shared"
-import { useIntegrations, SUPPORTED_APPS } from "../../data/integrations/hooks"
+import { useEffect, useState } from "react"
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@analytics/ui-shared"
+import { useIntegrations, useDisconnectSquare, SUPPORTED_APPS } from "../../data/integrations/hooks"
 import { Router } from "../../router"
 
 export const IntegrationsRoute = () => {
   const { data, isPending } = useIntegrations()
+  const disconnectMutation = useDisconnectSquare()
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState<string | null>(null)
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get("connected") === "square") {
+      setShowSuccess(true)
+      // Clean up the URL
+      window.history.replaceState({}, "", window.location.pathname)
+      const timer = setTimeout(() => setShowSuccess(false), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [])
 
   if (isPending) {
     return <p className="text-muted-foreground">Loading integrations...</p>
   }
 
   const integrations = data?.data ?? []
-  const connectedApps = new Set(integrations.map((i) => i.appName))
+  const connectedApps = new Set(
+    integrations
+      .filter((integration) => integration.isActive)
+      .map((integration) => integration.appName),
+  )
   const hasUnconnectedApps = SUPPORTED_APPS.some((app) => !connectedApps.has(app))
+
+  const handleDisconnect = (_integrationId: string) => {
+    disconnectMutation.mutate(undefined, {
+      onSuccess: () => setConfirmDisconnect(null),
+    })
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -29,6 +61,18 @@ export const IntegrationsRoute = () => {
           </button>
         )}
       </div>
+
+      {showSuccess && (
+        <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">
+          Square connected successfully! Your data sync has started.
+        </div>
+      )}
+
+      {disconnectMutation.isError && (
+        <div className="rounded-md bg-red-50 p-4 text-sm text-red-800">
+          Failed to disconnect. Please try again.
+        </div>
+      )}
 
       {integrations.length === 0 ? (
         <Card>
@@ -51,21 +95,66 @@ export const IntegrationsRoute = () => {
                   <CardTitle className="text-base">
                     {integration.label ?? integration.appName}
                   </CardTitle>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      integration.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {integration.isActive ? "Active" : "Inactive"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        integration.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {integration.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
                 <CardDescription>
                   Environment: {integration.environment} · Connected{" "}
                   {new Date(integration.createdAt).toLocaleDateString()}
                 </CardDescription>
               </CardHeader>
+              <CardContent>
+                {integration.isActive ? (
+                  confirmDisconnect === integration.id ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        Are you sure? Your synced data will be kept.
+                      </p>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={disconnectMutation.isPending}
+                        onClick={() => handleDisconnect(integration.id)}
+                      >
+                        {disconnectMutation.isPending ? "Disconnecting..." : "Confirm"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmDisconnect(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmDisconnect(integration.id)}
+                    >
+                      Disconnect
+                    </Button>
+                  )
+                ) : integration.appName === "square" ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Reconnect Square to resume syncing data and receiving webhooks.
+                    </p>
+                    <Button size="sm" onClick={() => Router.push("Connect")}>
+                      Reconnect
+                    </Button>
+                  </div>
+                ) : null}
+              </CardContent>
             </Card>
           ))}
         </div>

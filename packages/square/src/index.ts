@@ -13,3 +13,14 @@ export { verifySquareWebhook } from "./webhooks/verify"
 export { detectChannel } from "./utils/categorizer"
 export { fetchAllSquareCustomers } from "./customers/list"
 export { fetchAllCatalogObjects } from "./catalog/list"
+export {
+  buildAuthorizeUrl,
+  exchangeCodeForToken,
+  refreshAccessToken,
+  revokeToken,
+  getSquareEnvironment,
+} from "./oauth/token"
+export {
+  createWebhookSubscription,
+  deleteWebhookSubscription,
+} from "./webhook-subscriptions/manage"

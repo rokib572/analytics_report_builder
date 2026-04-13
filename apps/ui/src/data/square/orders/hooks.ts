@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
+import { useApiScopeKey } from "../../../lib/auth-context"
 
 export type Order = {
   id: string
@@ -60,9 +61,11 @@ type UseOrdersOptions = {
   dateTo?: string
 }
 
-export const useOrders = ({ page, limit, locationId, dateFrom, dateTo }: UseOrdersOptions) =>
-  useQuery({
-    queryKey: ["orders", page, limit, locationId, dateFrom, dateTo],
+export const useOrders = ({ page, limit, locationId, dateFrom, dateTo }: UseOrdersOptions) => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["orders", apiScopeKey, page, limit, locationId, dateFrom, dateTo],
     queryFn: async () => {
       const res = await apiClient.api.square.orders.list.$get({
         query: {
@@ -77,10 +80,13 @@ export const useOrders = ({ page, limit, locationId, dateFrom, dateTo }: UseOrde
       return (await res.json()) as OrdersResponse
     },
   })
+}
 
-export const useOrder = (id: string) =>
-  useQuery({
-    queryKey: ["orders", id],
+export const useOrder = (id: string) => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["orders", apiScopeKey, id],
     queryFn: async () => {
       const res = await apiClient.api.square.orders.get[":id"].$get({ param: { id } })
       if (!res.ok) throw new Error("Failed to fetch order")
@@ -88,3 +94,4 @@ export const useOrder = (id: string) =>
     },
     enabled: !!id,
   })
+}

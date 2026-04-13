@@ -13,7 +13,14 @@ export const appIntegrations = authSchema.table(
       .references(() => customers.id),
     appName: varchar("app_name", { length: 100 }).notNull(),
     appKey: text("app_key"),
-    appSecret: text("app_secret").notNull(),
+    appSecret: text("app_secret"),
+    oauthAccessToken: text("oauth_access_token"),
+    oauthRefreshToken: text("oauth_refresh_token"),
+    oauthExpiresAt: timestamp("oauth_expires_at"),
+    merchantId: varchar("merchant_id", { length: 255 }),
+    scopes: text("scopes"),
+    webhookSubscriptionId: varchar("webhook_subscription_id", { length: 255 }),
+    webhookSignatureKey: text("webhook_signature_key"),
     environment: varchar("environment", { length: 20 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
     label: varchar("label", { length: 255 }),
@@ -31,11 +38,21 @@ export const insertAppIntegrationSchema = createInsertSchema(appIntegrations).om
   customerId: true,
   isActive: true,
   lastUsedAt: true,
+  oauthAccessToken: true,
+  oauthRefreshToken: true,
+  oauthExpiresAt: true,
+  merchantId: true,
+  scopes: true,
+  webhookSubscriptionId: true,
+  webhookSignatureKey: true,
 })
 export const selectAppIntegrationSchema = createSelectSchema(appIntegrations)
 export const selectSafeAppIntegration = selectAppIntegrationSchema.omit({
   appKey: true,
   appSecret: true,
+  oauthAccessToken: true,
+  oauthRefreshToken: true,
+  webhookSignatureKey: true,
 })
 
 export type AppIntegrationDto = z.infer<typeof selectSafeAppIntegration>

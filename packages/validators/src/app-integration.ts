@@ -36,7 +36,18 @@ export const ConnectSquareSchema = z.object({
   backfillScope: z.enum(["30d", "3m", "6m", "12m", "24m", "all"]).default("12m"),
 })
 
+export const InitiateOAuthSchema = z.object({
+  backfillScope: z.enum(["30d", "3m", "6m", "12m", "24m", "all"]).default("12m"),
+})
+
+export const OAuthCallbackSchema = z.object({
+  code: z.string().min(1, "Authorization code is required"),
+  state: z.string().min(1, "State parameter is required"),
+})
+
 export type AppIntegration = z.infer<typeof AppIntegrationSchema>
 export type AppIntegrationEnvironment = z.infer<typeof AppIntegrationEnvironmentSchema>
 export type CreateAppIntegration = z.infer<typeof CreateAppIntegrationSchema>
 export type ConnectSquare = z.infer<typeof ConnectSquareSchema>
+export type InitiateOAuth = z.infer<typeof InitiateOAuthSchema>
+export type OAuthCallback = z.infer<typeof OAuthCallbackSchema>

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
+import { useApiScopeKey } from "../../../lib/auth-context"
 
 export const useSyncOrders = () => {
   const queryClient = useQueryClient()
@@ -34,9 +35,11 @@ export const useSyncCatalog = () => {
   })
 }
 
-export const useBackfillStatus = () =>
-  useQuery({
-    queryKey: ["square-backfill-status"],
+export const useBackfillStatus = () => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["square-backfill-status", apiScopeKey],
     queryFn: async () => {
       const res = await apiClient.api.sync["backfill-status"].$get()
       if (!res.ok) throw new Error("Failed to fetch backfill status")
@@ -47,3 +50,4 @@ export const useBackfillStatus = () =>
       return status === "pending" || status === "running" ? 10000 : false
     },
   })
+}

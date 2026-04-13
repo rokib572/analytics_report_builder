@@ -5,7 +5,7 @@ import { Router } from "../../router"
 
 export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
   const { isSystemAdmin } = useAuth()
-  const route = Router.useRoute(["Connect"])
+  const route = Router.useRoute(["Connect", "Integrations"])
   const { data, isPending } = useIntegrations()
 
   // System admins don't need integrations
@@ -19,10 +19,10 @@ export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
     )
   }
 
-  const hasIntegrations = data?.data && data.data.length > 0
+  const hasActiveIntegrations = (data?.data ?? []).some((integration) => integration.isActive)
 
-  // Allow access to the Connect page even without integrations
-  if (!hasIntegrations && route?.name !== "Connect") {
+  // Allow access to Connect/Integrations even without active integrations so users can reconnect.
+  if (!hasActiveIntegrations && route?.name !== "Connect" && route?.name !== "Integrations") {
     Router.replace("Connect")
     return null
   }

@@ -1,8 +1,4 @@
 import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { useQueryClient } from "@tanstack/react-query"
 import {
   Button,
   Card,
@@ -10,20 +6,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  Input,
   Label,
 } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
 import { useIntegrations, SUPPORTED_APPS } from "../../data/integrations/hooks"
 import { Router } from "../../router"
-
-const connectSquareSchema = z.object({
-  accessToken: z.string().min(1, "Access token is required"),
-  environment: z.enum(["sandbox", "production"]),
-  backfillScope: z.enum(["30d", "3m", "6m", "12m", "24m", "all"]),
-})
-
-type ConnectSquareValues = z.infer<typeof connectSquareSchema>
 
 const BACKFILL_SCOPE_OPTIONS = [
   { value: "30d", label: "30 days" },
@@ -34,86 +21,55 @@ const BACKFILL_SCOPE_OPTIONS = [
   { value: "all", label: "All history" },
 ] as const
 
-const SquareConnectForm = () => {
+const SquareConnectOAuth = () => {
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
-  const queryClient = useQueryClient()
+  const [isRedirecting, setIsRedirecting] = useState(false)
+  const [backfillScope, setBackfillScope] = useState<"30d" | "3m" | "6m" | "12m" | "24m" | "all">(
+    "12m",
+  )
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<ConnectSquareValues>({
-    resolver: zodResolver(connectSquareSchema),
-    defaultValues: { environment: "sandbox", backfillScope: "12m" },
-  })
+  // Check for error from OAuth callback redirect
+  const urlParams = new URLSearchParams(window.location.search)
+  const callbackError = urlParams.get("error")
 
-  const onSubmit = async (values: ConnectSquareValues) => {
+  const handleConnect = async () => {
     setError(null)
-    const res = await apiClient.api.square.connect.create.$post({
-      json: {
-        accessToken: values.accessToken,
-        environment: values.environment,
-        backfillScope: values.backfillScope,
-      },
-    })
+    setIsRedirecting(true)
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => null)
-      setError(
-        (body as { message?: string } | null)?.message ??
-          "Failed to connect. Please check your token.",
-      )
-      return
+    try {
+      const res = await apiClient.api.square.oauth.authorize.$get({
+        query: { backfillScope },
+      })
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        setError(
+          (body as { message?: string } | null)?.message ??
+            "Failed to initiate connection. Please try again.",
+        )
+        setIsRedirecting(false)
+        return
+      }
+
+      const data = await res.json()
+      window.location.href = (data as { url: string }).url
+    } catch {
+      setError("Failed to initiate connection. Please try again.")
+      setIsRedirecting(false)
     }
-
-    setSuccess(true)
-    await queryClient.invalidateQueries({ queryKey: ["app-integrations"] })
-    await queryClient.invalidateQueries({ queryKey: ["square-backfill-status"] })
-    setTimeout(() => Router.replace("Integrations"), 1500)
-  }
-
-  if (success) {
-    return (
-      <div className="rounded-md bg-green-50 p-4 text-sm text-green-800">
-        Square connected successfully! Redirecting...
-      </div>
-    )
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="accessToken">Access Token</Label>
-        <Input
-          id="accessToken"
-          type="password"
-          placeholder="Enter your Square access token"
-          {...register("accessToken")}
-        />
-        {errors.accessToken && (
-          <p className="text-sm text-destructive">{errors.accessToken.message}</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="environment">Environment</Label>
-        <select
-          id="environment"
-          className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
-          {...register("environment")}
-        >
-          <option value="sandbox">Sandbox</option>
-          <option value="production">Production</option>
-        </select>
-      </div>
-
+    <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="backfillScope">History to import</Label>
         <select
           id="backfillScope"
           className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
-          {...register("backfillScope")}
+          value={backfillScope}
+          onChange={(e) =>
+            setBackfillScope(e.target.value as "30d" | "3m" | "6m" | "12m" | "24m" | "all")
+          }
         >
           {BACKFILL_SCOPE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -123,12 +79,16 @@ const SquareConnectForm = () => {
         </select>
       </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {(error ?? callbackError) && (
+        <p className="text-sm text-destructive">
+          {error ?? decodeURIComponent(callbackError!.replace(/\+/g, " "))}
+        </p>
+      )}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Connecting..." : "Connect Square"}
+      <Button onClick={handleConnect} disabled={isRedirecting}>
+        {isRedirecting ? "Redirecting to Square..." : "Connect with Square"}
       </Button>
-    </form>
+    </div>
   )
 }
 
@@ -139,8 +99,12 @@ export const ConnectRoute = () => {
     return <p className="text-muted-foreground">Loading...</p>
   }
 
-  const integrations = data?.data ?? []
-  const connectedApps = new Set(integrations.map((i) => i.appName))
+  const integrations = (data?.data ?? []) as { appName: string; isActive: boolean }[]
+  const connectedApps = new Set(
+    integrations
+      .filter((integration) => integration.isActive)
+      .map((integration) => integration.appName),
+  )
   const unconnectedApps = SUPPORTED_APPS.filter((app) => !connectedApps.has(app))
 
   if (unconnectedApps.length === 0) {
@@ -172,7 +136,7 @@ export const ConnectRoute = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <SquareConnectForm />
+            <SquareConnectOAuth />
           </CardContent>
         </Card>
       )}

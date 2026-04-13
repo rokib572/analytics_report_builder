@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
+import { useApiScopeKey } from "../../../lib/auth-context"
 
 type UseLocationsOptions = {
   page: number
@@ -7,9 +8,11 @@ type UseLocationsOptions = {
   search: string
 }
 
-export const useLocations = ({ page, limit, search }: UseLocationsOptions) =>
-  useQuery({
-    queryKey: ["locations", page, limit, search],
+export const useLocations = ({ page, limit, search }: UseLocationsOptions) => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["locations", apiScopeKey, page, limit, search],
     queryFn: async () => {
       const res = await apiClient.api.square.locations.list.$get({
         query: {
@@ -22,10 +25,13 @@ export const useLocations = ({ page, limit, search }: UseLocationsOptions) =>
       return res.json()
     },
   })
+}
 
-export const useLocation = (id: string) =>
-  useQuery({
-    queryKey: ["locations", id],
+export const useLocation = (id: string) => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["locations", apiScopeKey, id],
     queryFn: async () => {
       const res = await apiClient.api.square.locations.get[":id"].$get({ param: { id } })
       if (!res.ok) throw new Error("Failed to fetch location")
@@ -33,6 +39,7 @@ export const useLocation = (id: string) =>
     },
     enabled: !!id,
   })
+}
 
 export const useSyncLocations = () => {
   const queryClient = useQueryClient()

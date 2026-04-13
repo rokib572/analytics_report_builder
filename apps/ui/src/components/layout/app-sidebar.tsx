@@ -123,14 +123,19 @@ export const AppSidebar = () => {
   const { user, permissions, isAccountAdmin, isSystemAdmin } = useAuth()
   const { data: integrationsData } = useIntegrations()
 
-  const connectedApps = new Set((integrationsData?.data ?? []).map((i) => i.appName))
-  const hasIntegrations = connectedApps.size > 0
+  const integrations = integrationsData?.data ?? []
+  const connectedApps = new Set(
+    integrations
+      .filter((integration) => integration.isActive)
+      .map((integration) => integration.appName),
+  )
+  const hasAnyIntegrations = integrations.length > 0
   const allAppsConnected = SUPPORTED_APPS.every((app) => connectedApps.has(app))
 
   // Build dynamic nav items for Connect/Integrations
   const dynamicItems: NavItem[] = []
 
-  if (isSystemAdmin || hasIntegrations) {
+  if (isSystemAdmin || hasAnyIntegrations) {
     dynamicItems.push({
       label: "Integrations",
       icon: Plug,

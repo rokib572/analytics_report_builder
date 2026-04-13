@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
+import { useApiScopeKey } from "../../../lib/auth-context"
 
 export type InventoryCount = {
   id: string
@@ -37,9 +38,11 @@ export const useInventoryCounts = ({
   limit,
   locationId,
   search,
-}: UseInventoryCountsOptions) =>
-  useQuery({
-    queryKey: ["inventory-counts", page, limit, locationId, search],
+}: UseInventoryCountsOptions) => {
+  const apiScopeKey = useApiScopeKey()
+
+  return useQuery({
+    queryKey: ["inventory-counts", apiScopeKey, page, limit, locationId, search],
     queryFn: async () => {
       const res = await apiClient.api.square.inventory.list.$get({
         query: {
@@ -53,3 +56,4 @@ export const useInventoryCounts = ({
       return (await res.json()) as InventoryCountsResponse
     },
   })
+}

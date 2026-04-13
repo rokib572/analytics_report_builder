@@ -22,6 +22,7 @@ import { DomainError } from "@analytics/shared-libs"
 import { SyncRequestSchema } from "@analytics/validators"
 import { db } from "../../../lib/db"
 import type { AuthEnv } from "../../../middleware/auth"
+import { requireActiveSquareIntegration } from "../../../middleware/require-active-square-integration"
 import { requireRole } from "../../../middleware/require-role"
 
 const toRfc3339Range = (startAt: string, endAt: string) => ({
@@ -34,6 +35,7 @@ const getDiffDays = (startAt: string, endAt: string) =>
 
 const router = new Hono<AuthEnv>().post(
   "/",
+  requireActiveSquareIntegration(),
   requireRole("owner", "admin", "system_admin"),
   validator("json", (input) => SyncRequestSchema.parse(input)),
   async (context) => {

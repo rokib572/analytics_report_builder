@@ -55,12 +55,12 @@ Copy `.env.example` to `.env` at the project root and fill in the values.
 
 ### `packages/square`
 
-| Variable                          | Required | Description                                    |
-| --------------------------------- | -------- | ---------------------------------------------- |
-| `SQUARE_ACCESS_TOKEN`             | Yes      | Square API access token                        |
-| `SQUARE_ENVIRONMENT`              | No       | `sandbox` or `production` (default: `sandbox`) |
-| `SQUARE_WEBHOOK_SECRET`           | Yes      | Square webhook signature key                   |
-| `SQUARE_WEBHOOK_NOTIFICATION_URL` | No       | Public URL for Square webhook delivery         |
+| Variable                          | Required | Description                                                        |
+| --------------------------------- | -------- | ------------------------------------------------------------------ |
+| `SQUARE_APP_ACCESS_TOKEN`         | Yes      | Square application access token for webhook management and scripts |
+| `SQUARE_ENVIRONMENT`              | No       | `sandbox` or `production` (default: `sandbox`)                     |
+| `SQUARE_WEBHOOK_SECRET`           | Yes      | Square webhook signature key                                       |
+| `SQUARE_WEBHOOK_NOTIFICATION_URL` | No       | Public URL for Square webhook delivery                             |
 
 ## Database Migrations
 

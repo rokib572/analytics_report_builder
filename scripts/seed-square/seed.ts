@@ -260,9 +260,9 @@ const createOrders = async (
 // ---------------------------------------------------------------------------
 
 const main = async () => {
-  const token = process.env.SQUARE_ACCESS_TOKEN
+  const token = process.env.SQUARE_APP_ACCESS_TOKEN
   if (!token) {
-    console.error("Error: SQUARE_ACCESS_TOKEN environment variable is required")
+    console.error("Error: SQUARE_APP_ACCESS_TOKEN environment variable is required")
     process.exit(1)
   }
 

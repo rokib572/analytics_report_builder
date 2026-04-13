@@ -12,7 +12,7 @@ export const getAppIntegrationSecret = async (
 ): Promise<{
   id: string
   customerId: string
-  appSecret: string
+  appSecret: string | null
   appName: string
   environment: string
 } | null> => {

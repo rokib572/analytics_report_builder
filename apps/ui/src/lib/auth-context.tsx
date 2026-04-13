@@ -48,6 +48,11 @@ export const useAuth = () => {
   return context
 }
 
+export const useApiScopeKey = () => {
+  const { user, selectedCustomerId } = useAuth()
+  return `${user.customerId}:${selectedCustomerId ?? "self"}`
+}
+
 export const AuthProvider = ({
   user,
   permissions,
