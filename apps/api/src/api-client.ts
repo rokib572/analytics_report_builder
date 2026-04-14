@@ -23,6 +23,7 @@ import backfillStatusRouter from "./routes/square/sync/backfill-status"
 import webhooksRouter from "./routes/square/webhooks"
 import syncStatusRouter from "./routes/square/sync/status"
 import reportsRouter from "./routes/square/reports/index"
+import permissionsRouter from "./routes/permissions"
 
 const app = new Hono()
   .onError(errorHandler)
@@ -53,6 +54,7 @@ const app = new Hono()
   .route("/api/square/daily-sales", dailySalesRouter)
   .route("/api/invitations", invitationRouter)
   .route("/api/users", usersRouter)
+  .route("/api/permissions", permissionsRouter)
   .route("/api/sync/manual", manualSyncRouter)
   .route("/api/sync/backfill-status", backfillStatusRouter)
   .route("/api/sync/status", syncStatusRouter)

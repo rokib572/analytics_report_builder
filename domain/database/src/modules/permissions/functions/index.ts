@@ -1,4 +1,5 @@
 export * from "./list"
+export * from "./bulk-set"
 export * from "./create"
 export * from "./update"
 export * from "./delete"
