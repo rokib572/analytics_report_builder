@@ -25,7 +25,10 @@ export const orderTenders = coreSchema.table(
     squareCustomerId: varchar("square_customer_id", { length: 255 }),
     paymentId: varchar("payment_id", { length: 255 }),
   },
-  (t) => [index("order_tenders_order_id_idx").on(t.orderId)],
+  (t) => [
+    index("order_tenders_order_id_idx").on(t.orderId),
+    index("order_tenders_location_type_idx").on(t.locationId, t.type),
+  ],
 )
 
 export const insertOrderTenderSchema = createInsertSchema(orderTenders).omit({

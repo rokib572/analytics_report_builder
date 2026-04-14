@@ -1,9 +1,12 @@
 import { useMemo } from "react"
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
-import type { ChartType, ReportQueryResult } from "@analytics/report-builder"
+import type { ChartType } from "@analytics/report-builder"
+import type { ReportQueryResult } from "@analytics/validators"
 import {
+  Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Skeleton,
@@ -33,6 +36,10 @@ type PreviewPanelProps = {
   chartType: ChartType
   isLoading: boolean
   error: Error | null
+  onLoadMore: () => void
+  isLoadingMore: boolean
+  onNextPage: () => void
+  onPreviousPage: () => void
 }
 
 type PreviewRow = Record<string, string | number | null>
@@ -86,7 +93,16 @@ const renderCellValue = (column: string, value: string | number | null) => {
   return value ?? "-"
 }
 
-export const PreviewPanel = ({ result, chartType, isLoading, error }: PreviewPanelProps) => {
+export const PreviewPanel = ({
+  result,
+  chartType,
+  isLoading,
+  error,
+  onLoadMore,
+  isLoadingMore,
+  onNextPage,
+  onPreviousPage,
+}: PreviewPanelProps) => {
   const columns = useMemo<ColumnDef<PreviewRow>[]>(
     () =>
       result?.columns.map((column) => ({
@@ -126,6 +142,11 @@ export const PreviewPanel = ({ result, chartType, isLoading, error }: PreviewPan
     <Card>
       <CardHeader>
         <CardTitle>Preview</CardTitle>
+        <CardDescription>
+          {chartType === "table"
+            ? "Table previews can append additional pages without reloading prior rows."
+            : "Charts render the current page only to keep preview data bounded."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {!result && !isLoading && !error ? (
@@ -151,38 +172,60 @@ export const PreviewPanel = ({ result, chartType, isLoading, error }: PreviewPan
         ) : null}
 
         {!isLoading && !error && result && result.rows.length > 0 && chartType === "table" ? (
-          <Table>
-            <TableHeader>
-              {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                    <TableHead
-                      key={header.id}
-                      className={MONETARY_METRICS.has(header.column.id) ? "text-right" : undefined}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
-            <TableBody>
-              {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className={MONETARY_METRICS.has(cell.column.id) ? "text-right" : undefined}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="space-y-4">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead
+                        key={header.id}
+                        className={
+                          MONETARY_METRICS.has(header.column.id) ? "text-right" : undefined
+                        }
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={MONETARY_METRICS.has(cell.column.id) ? "text-right" : undefined}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+              <span>
+                Loaded {result.rows.length.toLocaleString()} row(s)
+                {typeof result.totalRows === "number"
+                  ? ` of ${result.totalRows.toLocaleString()}`
+                  : ""}
+              </span>
+              {result.hasMore ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? "Loading..." : "Load More"}
+                </Button>
+              ) : null}
+            </div>
+          </div>
         ) : null}
 
         {!isLoading &&
@@ -191,29 +234,49 @@ export const PreviewPanel = ({ result, chartType, isLoading, error }: PreviewPan
         result.rows.length > 0 &&
         chartType === "bar" &&
         firstDimension ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey={firstDimension} />
-              <YAxis tickFormatter={formatAxisValue} />
-              <Tooltip
-                formatter={(value, name) =>
-                  MONETARY_METRICS.has(String(name))
-                    ? formatCurrency(value as string | number | null)
-                    : String(value)
-                }
-              />
-              <Legend />
-              {metricColumns.map((metric, index) => (
-                <Bar
-                  key={metric}
-                  dataKey={metric}
-                  name={FIELD_LABELS[metric] ?? metric}
-                  fill={COLORS[index % COLORS.length]}
+          <div className="space-y-4">
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey={firstDimension} />
+                <YAxis tickFormatter={formatAxisValue} />
+                <Tooltip
+                  formatter={(value, name) =>
+                    MONETARY_METRICS.has(String(name))
+                      ? formatCurrency(value as string | number | null)
+                      : String(value)
+                  }
                 />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+                <Legend />
+                {metricColumns.map((metric, index) => (
+                  <Bar
+                    key={metric}
+                    dataKey={metric}
+                    name={FIELD_LABELS[metric] ?? metric}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onPreviousPage}
+                disabled={result.page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onNextPage}
+                disabled={!result.hasMore}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         ) : null}
 
         {!isLoading &&
@@ -222,32 +285,52 @@ export const PreviewPanel = ({ result, chartType, isLoading, error }: PreviewPan
         result.rows.length > 0 &&
         chartType === "line" &&
         firstDimension ? (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey={firstDimension} />
-              <YAxis tickFormatter={formatAxisValue} />
-              <Tooltip
-                formatter={(value, name) =>
-                  MONETARY_METRICS.has(String(name))
-                    ? formatCurrency(value as string | number | null)
-                    : String(value)
-                }
-              />
-              <Legend />
-              {metricColumns.map((metric, index) => (
-                <Line
-                  key={metric}
-                  type="monotone"
-                  dataKey={metric}
-                  name={FIELD_LABELS[metric] ?? metric}
-                  stroke={COLORS[index % COLORS.length]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
+          <div className="space-y-4">
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey={firstDimension} />
+                <YAxis tickFormatter={formatAxisValue} />
+                <Tooltip
+                  formatter={(value, name) =>
+                    MONETARY_METRICS.has(String(name))
+                      ? formatCurrency(value as string | number | null)
+                      : String(value)
+                  }
                 />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+                <Legend />
+                {metricColumns.map((metric, index) => (
+                  <Line
+                    key={metric}
+                    type="monotone"
+                    dataKey={metric}
+                    name={FIELD_LABELS[metric] ?? metric}
+                    stroke={COLORS[index % COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onPreviousPage}
+                disabled={result.page === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onNextPage}
+                disabled={!result.hasMore}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         ) : null}
       </CardContent>
     </Card>

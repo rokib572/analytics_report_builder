@@ -1,0 +1,3 @@
+CREATE INDEX "line_items_location_date_catalog_object_idx" ON "core_data"."order_line_items" USING btree ("location_id","sale_date","catalog_object_id");--> statement-breakpoint
+CREATE INDEX "order_tenders_location_type_idx" ON "core_data"."order_tenders" USING btree ("location_id","type");--> statement-breakpoint
+CREATE INDEX "orders_customer_date_state_idx" ON "core_data"."orders" USING btree ("customer_id","sale_date","state");

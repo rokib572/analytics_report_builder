@@ -5,7 +5,11 @@ import { ReportConfigSchema } from "@analytics/validators"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
 import { Router } from "../../router"
-import { useReportQuery } from "../../data/report-builder/hooks"
+import {
+  DEFAULT_REPORT_PAGE_SIZE,
+  useInfiniteReportQuery,
+  usePagedReportQuery,
+} from "../../data/report-builder/hooks"
 import { ReportCanvas } from "./components/ReportCanvas"
 import { FieldPanel } from "./components/FieldPanel"
 import { PreviewPanel } from "./components/PreviewPanel"
@@ -18,6 +22,7 @@ export const ReportBuilderRoute = () => {
   const reportId = route?.params?.reportId
   const [activeTab, setActiveTab] = useState("builder")
   const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [previewPage, setPreviewPage] = useState(1)
   const [config, setConfig] = useState<ReportConfig>({
     metrics: [],
     rows: [],
@@ -26,7 +31,21 @@ export const ReportBuilderRoute = () => {
     chartType: "table",
     dateRange: getDefaultDateRange(),
   })
-  const reportQuery = useReportQuery(config.metrics.length > 0 ? config : null)
+  const previewConfig = config.metrics.length > 0 ? config : null
+  const isTableChart = config.chartType === "table"
+  const pagedReportQuery = usePagedReportQuery(
+    !isTableChart ? previewConfig : null,
+    previewPage,
+    DEFAULT_REPORT_PAGE_SIZE,
+  )
+  const infiniteReportQuery = useInfiniteReportQuery(
+    isTableChart ? previewConfig : null,
+    DEFAULT_REPORT_PAGE_SIZE,
+  )
+
+  useEffect(() => {
+    setPreviewPage(1)
+  }, [config])
 
   useEffect(() => {
     if (!reportId) return
@@ -113,6 +132,28 @@ export const ReportBuilderRoute = () => {
     setActiveTab("builder")
   }
 
+  const tablePreviewResult = infiniteReportQuery.data
+    ? {
+        ...infiniteReportQuery.data.pages[0],
+        rows: infiniteReportQuery.data.pages.flatMap((page) => page.rows),
+        generatedAt:
+          infiniteReportQuery.data.pages[infiniteReportQuery.data.pages.length - 1]?.generatedAt ??
+          infiniteReportQuery.data.pages[0].generatedAt,
+        page:
+          infiniteReportQuery.data.pages[infiniteReportQuery.data.pages.length - 1]?.page ??
+          infiniteReportQuery.data.pages[0].page,
+        hasMore:
+          infiniteReportQuery.data.pages[infiniteReportQuery.data.pages.length - 1]?.hasMore ??
+          false,
+      }
+    : undefined
+
+  const previewResult = isTableChart ? tablePreviewResult : pagedReportQuery.data
+  const previewLoading = isTableChart ? infiniteReportQuery.isLoading : pagedReportQuery.isLoading
+  const previewError = isTableChart
+    ? (infiniteReportQuery.error ?? null)
+    : (pagedReportQuery.error ?? null)
+
   return (
     <>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -141,10 +182,14 @@ export const ReportBuilderRoute = () => {
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <ReportCanvas config={config} onConfigChange={setConfig} />
                 <PreviewPanel
-                  result={reportQuery.data}
+                  result={previewResult}
                   chartType={config.chartType}
-                  isLoading={reportQuery.isLoading}
-                  error={reportQuery.error}
+                  isLoading={previewLoading}
+                  error={previewError}
+                  onLoadMore={() => void infiniteReportQuery.fetchNextPage()}
+                  isLoadingMore={infiniteReportQuery.isFetchingNextPage}
+                  onNextPage={() => setPreviewPage((current) => current + 1)}
+                  onPreviousPage={() => setPreviewPage((current) => Math.max(1, current - 1))}
                 />
               </div>
             </div>
