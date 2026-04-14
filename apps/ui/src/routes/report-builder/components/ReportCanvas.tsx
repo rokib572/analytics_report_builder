@@ -1,6 +1,10 @@
 import { useDroppable } from "@dnd-kit/core"
 import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
-import { hasIncompatibleDimensions, type ReportConfig } from "@analytics/report-builder"
+import {
+  hasCrossModePivotConflict,
+  hasIncompatibleDimensions,
+  type ReportConfig,
+} from "@analytics/report-builder"
 import {
   Badge,
   Button,
@@ -73,6 +77,7 @@ const DropZone = ({ id, label, items, onRemove }: DropZoneProps) => {
 
 export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   const selectedDimensions = [...config.rows, ...config.columns]
+  const hasPivotModeConflict = hasCrossModePivotConflict(config.rows, config.columns)
 
   const updateFilter = (
     index: number,
@@ -125,9 +130,11 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
         />
       </div>
 
-      {hasIncompatibleDimensions(selectedDimensions) && (
+      {(hasIncompatibleDimensions(selectedDimensions) || hasPivotModeConflict) && (
         <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-          Product and Payment Method cannot be used in the same report.
+          {hasPivotModeConflict
+            ? "Rows and columns must use dimensions from the same query mode when pivoting."
+            : "Product and Payment Method cannot be used in the same report."}
         </div>
       )}
 

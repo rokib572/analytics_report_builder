@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react"
 import { DndContext, type DragEndEvent } from "@dnd-kit/core"
-import { hasIncompatibleDimensions, type ReportConfig } from "@analytics/report-builder"
+import {
+  hasCrossModePivotConflict,
+  hasIncompatibleDimensions,
+  type ReportConfig,
+} from "@analytics/report-builder"
 import { ReportConfigSchema } from "@analytics/validators"
 import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
@@ -107,6 +111,10 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
+        if (hasCrossModePivotConflict([...current.rows, fieldName], current.columns)) {
+          return current
+        }
+
         return { ...current, rows: [...current.rows, fieldName] }
       }
 
@@ -118,6 +126,10 @@ export const ReportBuilderRoute = () => {
         !current.rows.includes(fieldName)
       ) {
         if (hasIncompatibleDimensions([...current.rows, ...current.columns, fieldName])) {
+          return current
+        }
+
+        if (hasCrossModePivotConflict(current.rows, [...current.columns, fieldName])) {
           return current
         }
 
@@ -136,6 +148,7 @@ export const ReportBuilderRoute = () => {
   const tablePreviewResult = infiniteReportQuery.data
     ? {
         ...infiniteReportQuery.data.pages[0],
+        columns: infiniteReportQuery.data.pages[0].columns,
         rows: infiniteReportQuery.data.pages.flatMap((page) => page.rows),
         generatedAt:
           infiniteReportQuery.data.pages[infiniteReportQuery.data.pages.length - 1]?.generatedAt ??
@@ -148,6 +161,15 @@ export const ReportBuilderRoute = () => {
           false,
       }
     : undefined
+
+  if (
+    import.meta.env.DEV &&
+    config.columns.length > 0 &&
+    infiniteReportQuery.data &&
+    infiniteReportQuery.data.pages.length > 1
+  ) {
+    console.warn("Pivot reports should only return a single preview page.")
+  }
 
   const previewResult = isTableChart ? tablePreviewResult : pagedReportQuery.data
   const previewLoading = isTableChart ? infiniteReportQuery.isLoading : pagedReportQuery.isLoading

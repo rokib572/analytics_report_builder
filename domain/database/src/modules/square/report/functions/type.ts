@@ -11,6 +11,7 @@ export type SelectExpression = SQL<string | number> | AnyPgColumn
 
 export type DimensionDefinition = {
   select: SelectExpression
-  groupBy: GroupableExpression
+  groupBy: GroupableExpression | GroupableExpression[]
   orderBy: GroupableExpression
+  filterBy?: SelectExpression
 }

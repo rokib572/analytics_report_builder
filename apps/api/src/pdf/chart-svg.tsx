@@ -4,10 +4,9 @@ import { line as d3Line } from "d3-shape"
 import { scaleBand, scaleLinear } from "d3-scale"
 import {
   getChartValue,
-  getReportColumnLabel,
   isMonetaryColumn,
-  mergeReportDimensions,
   type ReportConfig,
+  type ReportColumn,
   type ReportQueryResult,
 } from "@analytics/report-builder"
 import { reportStyles } from "./styles"
@@ -21,51 +20,55 @@ const CHART_COLORS = [
   "#0891b2",
   "#ca8a04",
   "#dc2626",
+  "#0f766e",
+  "#9333ea",
+  "#4f46e5",
+  "#be123c",
 ]
 
 type ChartSvgProps = {
   config: ReportConfig
   result: ReportQueryResult
+  width?: number
 }
 
 type ChartDatum = {
-  label: string
-  metrics: Record<string, number>
+  x: string
+  values: Record<string, number>
 }
 
-const CHART_WIDTH = 720
 const CHART_HEIGHT = 240
 const PADDING_LEFT = 44
 const PADDING_RIGHT = 20
 const PADDING_TOP = 20
 const PADDING_BOTTOM = 44
+const DEFAULT_CHART_WIDTH = 720
 
 const truncateTick = (value: string) => (value.length > 12 ? `${value.slice(0, 11)}…` : value)
 
-const getMetricColumns = (config: ReportConfig, columns: string[]) =>
-  columns.filter((column) => config.metrics.includes(column as (typeof config.metrics)[number]))
-
-const getDimensionColumn = (config: ReportConfig, columns: string[]) => {
-  const dimension = mergeReportDimensions(config.rows, config.columns)[0]
-
-  if (dimension && columns.includes(dimension)) return dimension
-  return columns[0] ?? null
-}
-
-const getSeries = (config: ReportConfig, result: ReportQueryResult) => {
-  const xKey = getDimensionColumn(config, result.columns)
-  const metricColumns = getMetricColumns(config, result.columns)
+const getSeries = (_config: ReportConfig, result: ReportQueryResult) => {
+  const rowDimensionColumns = result.columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
+  )
+  const metricColumns = result.columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
+  )
+  const xKey = rowDimensionColumns[0]?.key ?? metricColumns[0]?.key ?? null
 
   if (!xKey || metricColumns.length === 0) {
-    return { xKey: null, metricColumns: [] as string[], data: [] as ChartDatum[] }
+    return {
+      xKey: null,
+      metricColumns: [] as Extract<ReportColumn, { kind: "metric" }>[],
+      data: [] as ChartDatum[],
+    }
   }
 
   const data = result.rows.map((row) => ({
-    label: String(row[xKey] ?? "-"),
-    metrics: Object.fromEntries(
+    x: String(row[xKey] ?? "-"),
+    values: Object.fromEntries(
       metricColumns.map((column) => [
-        column,
-        Number(getChartValue(column, row[column] ?? null) ?? 0),
+        column.key,
+        Number(getChartValue(column, row[column.key] ?? null) ?? 0),
       ]),
     ),
   }))
@@ -73,26 +76,29 @@ const getSeries = (config: ReportConfig, result: ReportQueryResult) => {
   return { xKey, metricColumns, data }
 }
 
-export const ChartSvg = ({ config, result }: ChartSvgProps) => {
+export const ChartSvg = ({ config, result, width }: ChartSvgProps) => {
   const { metricColumns, data } = getSeries(config, result)
+  const svgWidth = width ?? DEFAULT_CHART_WIDTH
 
   if (config.chartType === "table" || metricColumns.length === 0 || data.length === 0) {
     return null
   }
 
-  const chartWidth = CHART_WIDTH - PADDING_LEFT - PADDING_RIGHT
+  const chartWidth = svgWidth - PADDING_LEFT - PADDING_RIGHT
   const chartHeight = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM
   const xScale = scaleBand<string>()
-    .domain(data.map((item) => item.label as string))
+    .domain(data.map((item) => item.x))
     .range([PADDING_LEFT, PADDING_LEFT + chartWidth])
     .padding(0.2)
   const nestedScale = scaleBand<string>()
-    .domain(metricColumns)
+    .domain(metricColumns.map((column) => column.key))
     .range([0, xScale.bandwidth()])
     .padding(0.12)
   const maxValue = Math.max(
     0,
-    ...data.flatMap((item) => metricColumns.map((metric) => Number(item.metrics[metric] ?? 0))),
+    ...data.flatMap((item) =>
+      metricColumns.map((metricColumn) => Number(item.values[metricColumn.key] ?? 0)),
+    ),
   )
   const yScale = scaleLinear()
     .domain([0, maxValue === 0 ? 1 : maxValue])
@@ -102,7 +108,7 @@ export const ChartSvg = ({ config, result }: ChartSvgProps) => {
 
   return (
     <View style={reportStyles.chartContainer}>
-      <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+      <Svg width={svgWidth} height={CHART_HEIGHT}>
         <Line
           x1={PADDING_LEFT}
           y1={PADDING_TOP + chartHeight}
@@ -136,7 +142,7 @@ export const ChartSvg = ({ config, result }: ChartSvgProps) => {
               style={{ fontSize: 8, color: "#64748b" }}
               textAnchor="end"
             >
-              {isMonetaryColumn(metricColumns[0])
+              {isMonetaryColumn(metricColumns[0].metric)
                 ? `$${tick.toLocaleString("en-US", {
                     maximumFractionDigits: 0,
                   })}`
@@ -147,16 +153,16 @@ export const ChartSvg = ({ config, result }: ChartSvgProps) => {
 
         {config.chartType === "bar"
           ? data.flatMap((item) =>
-              metricColumns.map((metric, index) => {
-                const groupX = xScale(item.label as string)
-                const value = Number(item.metrics[metric] ?? 0)
-                const x = (groupX ?? PADDING_LEFT) + (nestedScale(metric) ?? 0)
+              metricColumns.map((metricColumn, index) => {
+                const groupX = xScale(item.x)
+                const value = Number(item.values[metricColumn.key] ?? 0)
+                const x = (groupX ?? PADDING_LEFT) + (nestedScale(metricColumn.key) ?? 0)
                 const y = yScale(value)
                 const height = PADDING_TOP + chartHeight - y
 
                 return (
                   <Rect
-                    key={`${item.label}-${metric}`}
+                    key={`${item.x}-${metricColumn.key}`}
                     x={x}
                     y={y}
                     width={nestedScale.bandwidth()}
@@ -166,20 +172,20 @@ export const ChartSvg = ({ config, result }: ChartSvgProps) => {
                 )
               }),
             )
-          : metricColumns.map((metric, index) => {
-              const path = d3Line<{ label: string }>()
-                .x((item) => (xScale(item.label) ?? PADDING_LEFT) + xScale.bandwidth() / 2)
+          : metricColumns.map((metricColumn, index) => {
+              const path = d3Line<{ x: string }>()
+                .x((item) => (xScale(item.x) ?? PADDING_LEFT) + xScale.bandwidth() / 2)
                 .y((item) =>
                   yScale(
-                    Number(data.find((datum) => datum.label === item.label)?.metrics[metric] ?? 0),
+                    Number(data.find((datum) => datum.x === item.x)?.values[metricColumn.key] ?? 0),
                   ),
-                )(data.map((item) => ({ label: item.label })))
+                )(data.map((item) => ({ x: item.x })))
 
               if (!path) return null
 
               return (
                 <Path
-                  key={metric}
+                  key={metricColumn.key}
                   d={path}
                   stroke={CHART_COLORS[index % CHART_COLORS.length]}
                   strokeWidth={2}
@@ -189,31 +195,31 @@ export const ChartSvg = ({ config, result }: ChartSvgProps) => {
             })}
 
         {data.map((item) => {
-          const x = (xScale(item.label as string) ?? PADDING_LEFT) + xScale.bandwidth() / 2
+          const x = (xScale(item.x) ?? PADDING_LEFT) + xScale.bandwidth() / 2
           return (
             <Text
-              key={item.label as string}
+              key={item.x}
               x={x}
               y={PADDING_TOP + chartHeight + 14}
               style={{ fontSize: 8, color: "#64748b" }}
               textAnchor="middle"
             >
-              {truncateTick(item.label as string)}
+              {truncateTick(item.x)}
             </Text>
           )
         })}
       </Svg>
 
       <View style={reportStyles.legendRow}>
-        {metricColumns.map((metric, index) => (
-          <View key={metric} style={reportStyles.legendItem}>
+        {metricColumns.map((metricColumn, index) => (
+          <View key={metricColumn.key} style={reportStyles.legendItem}>
             <View
               style={[
                 reportStyles.legendSwatch,
                 { backgroundColor: CHART_COLORS[index % CHART_COLORS.length] },
               ]}
             />
-            <Text style={reportStyles.legendLabel}>{getReportColumnLabel(metric)}</Text>
+            <Text style={reportStyles.legendLabel}>{metricColumn.label}</Text>
           </View>
         ))}
       </View>

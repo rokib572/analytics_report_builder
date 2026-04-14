@@ -17,13 +17,15 @@ export type Dimension =
   | "saleDate"
   | "channel"
   | "dayOfWeek"
+  | "year"
   | "week"
   | "month"
   | "customer"
   | "product"
+  | "productCategory"
   | "paymentMethod"
 
-export type OrderLevelDimension = "customer" | "product" | "paymentMethod"
+export type OrderLevelDimension = "customer" | "product" | "productCategory" | "paymentMethod"
 
 export type ComputedDimension = Exclude<
   Dimension,
@@ -31,6 +33,7 @@ export type ComputedDimension = Exclude<
 >
 
 export type ChartType = "bar" | "line" | "table"
+export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders"
 
 export type ReportFilter = {
   dimension: Dimension
@@ -55,8 +58,27 @@ export type ReportQueryInput = ReportConfig & {
   pageSize?: number
 }
 
+export type PivotCoordinate = {
+  values: Array<{ dimension: Dimension; value: string | number }>
+}
+
+export type ReportColumn =
+  | {
+      kind: "dimension"
+      key: string
+      label: string
+      dimension: Dimension
+    }
+  | {
+      kind: "metric"
+      key: string
+      label: string
+      metric: Metric
+      pivot?: PivotCoordinate
+    }
+
 export type ReportQueryResult = {
-  columns: string[]
+  columns: ReportColumn[]
   rows: Record<string, string | number | null>[]
   generatedAt: string
   page: number

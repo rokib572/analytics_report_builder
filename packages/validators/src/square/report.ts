@@ -18,10 +18,12 @@ export const DimensionSchema = z.enum([
   "saleDate",
   "channel",
   "dayOfWeek",
+  "year",
   "week",
   "month",
   "customer",
   "product",
+  "productCategory",
   "paymentMethod",
 ])
 
@@ -50,8 +52,33 @@ export const ReportQuerySchema = ReportConfigSchema.extend({
   pageSize: z.number().int().min(1).max(50_000).optional(),
 })
 
+export const PivotCoordinateSchema = z.object({
+  values: z.array(
+    z.object({
+      dimension: DimensionSchema,
+      value: z.union([z.string(), z.number()]),
+    }),
+  ),
+})
+
+export const ReportColumnSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("dimension"),
+    key: z.string(),
+    label: z.string(),
+    dimension: DimensionSchema,
+  }),
+  z.object({
+    kind: z.literal("metric"),
+    key: z.string(),
+    label: z.string(),
+    metric: MetricSchema,
+    pivot: PivotCoordinateSchema.optional(),
+  }),
+])
+
 export const ReportQueryResultSchema = z.object({
-  columns: z.array(z.string()),
+  columns: z.array(ReportColumnSchema),
   rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
   generatedAt: z.string(),
   page: z.number().int().min(1),

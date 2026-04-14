@@ -4,8 +4,9 @@ import { renderToBuffer } from "@react-pdf/renderer"
 import { stringify } from "csv-stringify/sync"
 import { buildReportQuery } from "@analytics/database"
 import {
+  FIELD_LABELS,
   formatReportCell,
-  getReportColumnLabel,
+  type ReportColumn,
   type ReportConfig,
   type ReportQueryResult,
 } from "@analytics/report-builder"
@@ -38,7 +39,7 @@ const collectReportRows = async (
   config: ReportConfig,
 ): Promise<ReportQueryResult> => {
   let page = 1
-  let columns: string[] = []
+  let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
   const rows: ReportQueryResult["rows"] = []
 
@@ -81,20 +82,61 @@ const collectReportRows = async (
   }
 }
 
-const buildCsv = (result: ReportQueryResult) =>
-  stringify(
-    result.rows.map((row) =>
-      Object.fromEntries(
-        result.columns.map((column) => [column, formatReportCell(column, row[column] ?? null)]),
-      ),
-    ),
-    {
-      header: true,
-      columns: Object.fromEntries(
-        result.columns.map((column) => [column, getReportColumnLabel(column)]),
-      ),
-    },
+const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] => {
+  const dimensionColumns = columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
   )
+  const metricColumns = columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
+  )
+  const pivotMetricColumns = metricColumns.filter((column) => Boolean(column.pivot))
+
+  if (pivotMetricColumns.length === 0) {
+    return [columns.map((column) => column.label)]
+  }
+
+  const pivotDepth = pivotMetricColumns.reduce(
+    (depth, column) => Math.max(depth, column.pivot?.values.length ?? 0),
+    0,
+  )
+  const headerRows = Array.from({ length: pivotDepth + 1 }, () =>
+    Array.from({ length: columns.length }, () => ""),
+  )
+
+  dimensionColumns.forEach((column, index) => {
+    headerRows[0]![index] = column.label
+  })
+
+  pivotMetricColumns.forEach((column) => {
+    const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+    if (columnIndex === -1) return
+
+    column.pivot?.values.forEach(({ dimension, value }, depthIndex) => {
+      headerRows[depthIndex]![columnIndex] = formatReportCell(dimension, value)
+    })
+
+    headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+  })
+
+  metricColumns
+    .filter((column) => !column.pivot)
+    .forEach((column) => {
+      const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+      if (columnIndex === -1) return
+      headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+    })
+
+  return headerRows
+}
+
+const buildCsv = (result: ReportQueryResult) => {
+  const headerRows = buildCsvHeaderRows(result.columns)
+  const dataRows = result.rows.map((row) =>
+    result.columns.map((column) => formatReportCell(column, row[column.key] ?? null)),
+  )
+
+  return stringify([...headerRows, ...dataRows])
+}
 
 const router = new Hono<AuthEnv>()
   .use(requirePermission("reports", "view"))

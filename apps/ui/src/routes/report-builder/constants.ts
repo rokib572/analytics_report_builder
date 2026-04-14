@@ -21,10 +21,12 @@ export const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
   "locationId",
   "saleDate",
   "dayOfWeek",
+  "year",
   "week",
   "month",
   "customer",
   "product",
+  "productCategory",
   "paymentMethod",
 ]
 

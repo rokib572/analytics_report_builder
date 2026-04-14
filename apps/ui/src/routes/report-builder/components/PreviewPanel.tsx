@@ -1,11 +1,13 @@
 import { useMemo } from "react"
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
 import {
+  FIELD_LABELS,
   formatReportCell,
   getChartValue,
-  getReportColumnLabel,
-  isMonetaryColumn,
+  getColumnMetric,
+  isMonetaryReportColumn,
   type ChartType,
+  type ReportColumn,
 } from "@analytics/report-builder"
 import type { ReportQueryResult } from "@analytics/validators"
 import {
@@ -35,8 +37,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { SUPPORTED_DIMENSIONS } from "../constants"
-
 type PreviewPanelProps = {
   result: ReportQueryResult | undefined
   chartType: ChartType
@@ -49,6 +49,15 @@ type PreviewPanelProps = {
 }
 
 type PreviewRow = Record<string, string | number | null>
+type PreviewColumnMeta = {
+  metricColumn?: Extract<ReportColumn, { kind: "metric" }>
+}
+type PivotColumnGroup = {
+  id: string
+  header: string
+  children: Map<string, PivotColumnGroup>
+  leaves: ColumnDef<PreviewRow>[]
+}
 
 const COLORS = [
   "#2563eb",
@@ -64,10 +73,113 @@ const COLORS = [
 const formatAxisValue = (value: string | number): string =>
   typeof value === "number" ? value.toLocaleString("en-US") : value
 
+const isNumericMetricColumn = (column: Extract<ReportColumn, { kind: "metric" }>) =>
+  isMonetaryReportColumn(column) || column.metric === "orderCount"
+
+const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRow>[] => {
+  const rowDimensionColumns = reportColumns.filter(
+    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
+  )
+  const pivotMetricColumns = reportColumns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> =>
+      column.kind === "metric" && Boolean(column.pivot),
+  )
+  const unpivotedMetricColumns = reportColumns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> =>
+      column.kind === "metric" && !column.pivot,
+  )
+
+  const leafColumn = (
+    column: ReportColumn,
+    header: string,
+    metricColumn?: Extract<ReportColumn, { kind: "metric" }>,
+  ): ColumnDef<PreviewRow> => ({
+    accessorKey: column.key,
+    header,
+    meta: metricColumn ? ({ metricColumn } satisfies PreviewColumnMeta) : undefined,
+    cell: ({ row }) => {
+      const value = row.getValue(column.key) as string | number | null
+      const metric = getColumnMetric(column)
+      return (
+        <div
+          className={
+            metricColumn && isNumericMetricColumn(metricColumn)
+              ? "text-right"
+              : metric === "orderCount"
+                ? "text-right"
+                : undefined
+          }
+        >
+          {formatReportCell(column, value)}
+        </div>
+      )
+    },
+  })
+
+  const pivotRoots = new Map<string, PivotColumnGroup>()
+
+  for (const column of pivotMetricColumns) {
+    let siblings = pivotRoots
+
+    column.pivot?.values.forEach(({ dimension, value }, index) => {
+      const path = `${dimension}:${String(value)}:${index}`
+      const existing = siblings.get(path)
+
+      if (existing) {
+        siblings = existing.children
+        return
+      }
+
+      const nextGroup: PivotColumnGroup = {
+        id: path,
+        header: formatReportCell(dimension, value),
+        children: new Map(),
+        leaves: [],
+      }
+
+      siblings.set(path, nextGroup)
+      siblings = nextGroup.children
+    })
+
+    const metricHeader = FIELD_LABELS[column.metric] ?? column.label
+    const parentGroup = column.pivot?.values.length
+      ? column.pivot.values.reduce<PivotColumnGroup | null>(
+          (group, { dimension, value }, index) => {
+            const path = `${dimension}:${String(value)}:${index}`
+            return (group ? group.children : pivotRoots).get(path) ?? null
+          },
+          null,
+        )
+      : null
+
+    if (parentGroup) {
+      parentGroup.leaves.push(leafColumn(column, metricHeader, column))
+    }
+  }
+
+  const materializeGroups = (groups: Map<string, PivotColumnGroup>): ColumnDef<PreviewRow>[] =>
+    [...groups.values()].map((group) => {
+      const nestedChildren = materializeGroups(group.children)
+      return {
+        id: group.id,
+        header: group.header,
+        columns: [...nestedChildren, ...group.leaves],
+      }
+    })
+
+  return [
+    ...rowDimensionColumns.map((column) => leafColumn(column, column.label)),
+    ...materializeGroups(pivotRoots),
+    ...unpivotedMetricColumns.map((column) =>
+      leafColumn(column, FIELD_LABELS[column.metric] ?? column.label, column),
+    ),
+  ]
+}
+
 const transformChartData = (result: ReportQueryResult): Record<string, unknown>[] =>
   result.rows.map((row) =>
     Object.fromEntries(
-      result.columns.map((column) => [column, getChartValue(column, row[column] ?? null)]),
+      result.columns.map((column) => [column.key, getChartValue(column, row[column.key] ?? null)]),
     ),
   )
 
@@ -82,23 +194,7 @@ export const PreviewPanel = ({
   onPreviousPage,
 }: PreviewPanelProps) => {
   const columns = useMemo<ColumnDef<PreviewRow>[]>(
-    () =>
-      result?.columns.map((column) => ({
-        accessorKey: column,
-        header: getReportColumnLabel(column),
-        cell: ({ row }) => {
-          const value = row.getValue(column) as string | number | null
-          return (
-            <div
-              className={
-                isMonetaryColumn(column) || column === "orderCount" ? "text-right" : undefined
-              }
-            >
-              {formatReportCell(column, value)}
-            </div>
-          )
-        },
-      })) ?? [],
+    () => (result ? buildPreviewColumns(result.columns) : []),
     [result],
   )
 
@@ -109,14 +205,17 @@ export const PreviewPanel = ({
   })
 
   const dimensionColumns =
-    result?.columns.filter((column) =>
-      SUPPORTED_DIMENSIONS.includes(column as (typeof SUPPORTED_DIMENSIONS)[number]),
+    result?.columns.filter(
+      (column): column is Extract<ReportColumn, { kind: "dimension" }> =>
+        column.kind === "dimension",
     ) ?? []
 
   const metricColumns =
-    result?.columns.filter((column) => isMonetaryColumn(column) || column === "orderCount") ?? []
+    result?.columns.filter(
+      (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
+    ) ?? []
 
-  const firstDimension = dimensionColumns[0] ?? result?.columns[0]
+  const firstDimension = dimensionColumns[0]?.key ?? metricColumns[0]?.key
   const chartData = result ? transformChartData(result) : []
 
   return (
@@ -161,7 +260,16 @@ export const PreviewPanel = ({
                     {headerGroup.headers.map((header) => (
                       <TableHead
                         key={header.id}
-                        className={isMonetaryColumn(header.column.id) ? "text-right" : undefined}
+                        className={
+                          !header.subHeaders.length &&
+                          (header.column.columnDef.meta as PreviewColumnMeta | undefined)
+                            ?.metricColumn &&
+                          isNumericMetricColumn(
+                            (header.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
+                          )
+                            ? "text-right"
+                            : undefined
+                        }
                       >
                         {header.isPlaceholder
                           ? null
@@ -178,7 +286,11 @@ export const PreviewPanel = ({
                       <TableCell
                         key={cell.id}
                         className={
-                          isMonetaryColumn(cell.column.id) || cell.column.id === "orderCount"
+                          (cell.column.columnDef.meta as PreviewColumnMeta | undefined)
+                            ?.metricColumn &&
+                          isNumericMetricColumn(
+                            (cell.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
+                          )
                             ? "text-right"
                             : undefined
                         }
@@ -225,15 +337,18 @@ export const PreviewPanel = ({
                 <YAxis tickFormatter={formatAxisValue} />
                 <Tooltip
                   formatter={(value, name) =>
-                    formatReportCell(String(name), value as string | number | null)
+                    formatReportCell(
+                      metricColumns.find((column) => column.key === String(name)) ?? String(name),
+                      value as string | number | null,
+                    )
                   }
                 />
                 <Legend />
-                {metricColumns.map((metric, index) => (
+                {metricColumns.map((metricColumn, index) => (
                   <Bar
-                    key={metric}
-                    dataKey={metric}
-                    name={getReportColumnLabel(metric)}
+                    key={metricColumn.key}
+                    dataKey={metricColumn.key}
+                    name={metricColumn.label}
                     fill={COLORS[index % COLORS.length]}
                   />
                 ))}
@@ -274,16 +389,19 @@ export const PreviewPanel = ({
                 <YAxis tickFormatter={formatAxisValue} />
                 <Tooltip
                   formatter={(value, name) =>
-                    formatReportCell(String(name), value as string | number | null)
+                    formatReportCell(
+                      metricColumns.find((column) => column.key === String(name)) ?? String(name),
+                      value as string | number | null,
+                    )
                   }
                 />
                 <Legend />
-                {metricColumns.map((metric, index) => (
+                {metricColumns.map((metricColumn, index) => (
                   <Line
-                    key={metric}
+                    key={metricColumn.key}
                     type="monotone"
-                    dataKey={metric}
-                    name={getReportColumnLabel(metric)}
+                    dataKey={metricColumn.key}
+                    name={metricColumn.label}
                     stroke={COLORS[index % COLORS.length]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
