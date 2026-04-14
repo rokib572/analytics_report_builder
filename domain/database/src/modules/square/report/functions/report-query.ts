@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm"
+import { and, count, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm"
 import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import {
   ensureSupportedDimension,
@@ -11,7 +11,7 @@ import {
   requireBetweenValues,
   serializeReportValue,
   type Dimension,
-  type ReportConfig,
+  type ReportQueryInput,
   type ReportQueryResult,
   type SupportedMetric,
 } from "@analytics/report-builder"
@@ -31,6 +31,9 @@ import type {
 } from "./type"
 
 type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders"
+
+const DEFAULT_REPORT_PAGE_SIZE = 10_000
+const MAX_REPORT_PAGE_SIZE = 50_000
 
 const lineItemGrossSalesSum = sql<bigint>`coalesce(sum(${orderLineItems.grossSalesMoney}), 0)`
 const lineItemDiscountsSum = sql<bigint>`coalesce(sum(${orderLineItems.totalDiscountMoney}), 0)`
@@ -366,7 +369,7 @@ const getDimensionDefinition = (
 export const buildReportQuery = async (
   db: DbClient,
   customerId: string,
-  config: ReportConfig,
+  config: ReportQueryInput,
 ): Promise<ReportQueryResult> => {
   for (const metric of config.metrics) ensureSupportedMetric(metric)
   for (const dimension of [...config.rows, ...config.columns]) ensureSupportedDimension(dimension)
@@ -387,6 +390,12 @@ export const buildReportQuery = async (
   const queryMode = requiresOrderLevelQuery(queryDimensions)
     ? getQueryMode(queryDimensions)
     : "dailySales"
+  const page = Math.max(1, config.page ?? 1)
+  const pageSize = Math.min(
+    MAX_REPORT_PAGE_SIZE,
+    Math.max(1, config.pageSize ?? DEFAULT_REPORT_PAGE_SIZE),
+  )
+  const offset = (page - 1) * pageSize
   const { metricMap, dimensionMap, filterColumns } = getModeConfig(queryMode)
   const selectFields: Record<string, SelectExpression | SQL<bigint | number>> = {}
   const groupByFields: GroupableExpression[] = []
@@ -515,16 +524,28 @@ export const buildReportQuery = async (
     query = query.groupBy(...groupByFields)
   }
 
+  const countPromise =
+    page === 1
+      ? db.select({ totalCount: count() }).from(query.as("report_rows"))
+      : Promise.resolve(null)
+
   if (firstDimension && firstDimension !== "channel") {
     const definition = getDimensionDefinition(dimensionMap, firstDimension)
     query = query.orderBy(sql`${definition.orderBy} asc`)
   }
 
-  const rows = (await query) as Record<string, unknown>[]
+  const rowsPromise = query.limit(pageSize + 1).offset(offset)
+  const [rowResults, countRows] = await Promise.all([rowsPromise, countPromise])
+  const hasMore = rowResults.length > pageSize
+  const visibleRows = hasMore ? rowResults.slice(0, pageSize) : rowResults
+  const totalRows =
+    countRows && countRows[0]
+      ? Number((countRows[0] as { totalCount?: number | string | bigint }).totalCount ?? 0)
+      : undefined
 
   return {
     columns: columnNames,
-    rows: rows.map((row) =>
+    rows: visibleRows.map((row) =>
       Object.fromEntries(
         columnNames.map((column) => [
           column,
@@ -533,5 +554,9 @@ export const buildReportQuery = async (
       ),
     ),
     generatedAt: new Date().toISOString(),
+    page,
+    pageSize,
+    hasMore,
+    ...(totalRows !== undefined ? { totalRows } : {}),
   }
 }

@@ -50,8 +50,17 @@ export type ReportConfig = {
   }
 }
 
+export type ReportQueryInput = ReportConfig & {
+  page?: number
+  pageSize?: number
+}
+
 export type ReportQueryResult = {
   columns: string[]
   rows: Record<string, string | number | null>[]
   generatedAt: string
+  page: number
+  pageSize: number
+  hasMore: boolean
+  totalRows?: number
 }

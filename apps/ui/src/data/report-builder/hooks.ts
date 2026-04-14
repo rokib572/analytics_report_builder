@@ -1,26 +1,60 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type {
   CreateSavedReport,
   ReportConfig,
+  ReportQueryInput,
   ReportQueryResult,
   SavedReport,
 } from "@analytics/validators"
 import { apiClient } from "../../lib/api-client"
 
-// Run a live query with the current report config (called on every canvas change)
-export const useReportQuery = (config: ReportConfig | null) => {
+export const DEFAULT_REPORT_PAGE_SIZE = 10_000
+
+const buildReportQueryInput = (
+  config: ReportConfig,
+  page: number,
+  pageSize: number,
+): ReportQueryInput => ({
+  ...config,
+  page,
+  pageSize,
+})
+
+export const usePagedReportQuery = (
+  config: ReportConfig | null,
+  page: number,
+  pageSize: number,
+) => {
   return useQuery({
-    queryKey: ["report-query", config],
+    queryKey: ["report-query", config, page, pageSize],
     queryFn: async () => {
-      const res = await apiClient.api.reports.query.$post({ json: config! })
+      const res = await apiClient.api.reports.query.$post({
+        json: buildReportQueryInput(config!, page, pageSize),
+      })
       if (!res.ok) throw new Error("Failed to run report query")
       return (await res.json()) as ReportQueryResult
     },
     enabled: !!config && config.metrics.length > 0,
+    placeholderData: (previousData) => previousData,
   })
 }
 
-// Load all saved reports for the current customer
+export const useInfiniteReportQuery = (config: ReportConfig | null, pageSize: number) => {
+  return useInfiniteQuery({
+    queryKey: ["report-query", "infinite", config, pageSize],
+    queryFn: async ({ pageParam }) => {
+      const res = await apiClient.api.reports.query.$post({
+        json: buildReportQueryInput(config!, pageParam, pageSize),
+      })
+      if (!res.ok) throw new Error("Failed to run report query")
+      return (await res.json()) as ReportQueryResult
+    },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    enabled: !!config && config.metrics.length > 0,
+  })
+}
+
 export const useSavedReports = () => {
   return useQuery({
     queryKey: ["saved-reports"],

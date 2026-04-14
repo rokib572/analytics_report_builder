@@ -37,6 +37,7 @@ export const orders = coreSchema.table(
   },
   (t) => [
     index("orders_location_date_idx").on(t.locationId, t.saleDate),
+    index("orders_customer_date_state_idx").on(t.customerId, t.saleDate, t.state),
     index("orders_customer_id_idx").on(t.customerId),
     index("orders_square_customer_id_idx").on(t.squareCustomerId),
   ],

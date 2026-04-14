@@ -32,6 +32,11 @@ export const orderLineItems = coreSchema.table(
   (t) => [
     index("line_items_order_id_idx").on(t.orderId),
     index("line_items_location_date_idx").on(t.locationId, t.saleDate),
+    index("line_items_location_date_catalog_object_idx").on(
+      t.locationId,
+      t.saleDate,
+      t.catalogObjectId,
+    ),
   ],
 )
 
