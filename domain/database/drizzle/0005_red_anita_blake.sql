@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "permissions_unique_idx" ON "auth_data"."permissions" USING btree ("customer_id","user_id","resource","action");
