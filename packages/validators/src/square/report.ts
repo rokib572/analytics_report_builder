@@ -74,6 +74,12 @@ export const CreateSavedReportSchema = z.object({
   config: ReportConfigSchema,
 })
 export const UpdateSavedReportSchema = CreateSavedReportSchema.partial()
+export const ReportExportFormatSchema = z.enum(["csv", "pdf"])
+export const ReportExportSchema = z.object({
+  config: ReportConfigSchema,
+  format: ReportExportFormatSchema,
+  savedReportName: z.string().trim().max(255).optional(),
+})
 
 export type Metric = z.infer<typeof MetricSchema>
 export type Dimension = z.infer<typeof DimensionSchema>
@@ -84,3 +90,5 @@ export type ReportQueryResult = z.infer<typeof ReportQueryResultSchema>
 export type SavedReport = z.infer<typeof SavedReportSchema>
 export type CreateSavedReport = z.infer<typeof CreateSavedReportSchema>
 export type UpdateSavedReport = z.infer<typeof UpdateSavedReportSchema>
+export type ReportExport = z.infer<typeof ReportExportSchema>
+export type ReportExportFormat = z.infer<typeof ReportExportFormatSchema>

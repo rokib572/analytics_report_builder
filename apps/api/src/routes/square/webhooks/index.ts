@@ -15,6 +15,7 @@ import {
 } from "@analytics/data-sync"
 import { verifySquareWebhook } from "@analytics/square"
 import { db } from "../../../lib/db"
+import { getSquareWebhookNotificationUrl } from "../../../lib/square-webhook-url"
 
 type ParsedWebhookEvent = {
   eventId: string
@@ -82,7 +83,13 @@ const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
 const router = new Hono().post("/", async (c) => {
   const requestBody = await c.req.text()
   const signatureHeader = c.req.header("x-square-hmacsha256-signature") ?? ""
-  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL ?? c.req.url
+  const notificationUrl = (() => {
+    try {
+      return getSquareWebhookNotificationUrl()
+    } catch {
+      return c.req.url
+    }
+  })()
 
   let parsedEvent: ParsedWebhookEvent
   try {

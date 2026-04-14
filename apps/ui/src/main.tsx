@@ -20,6 +20,7 @@ import { ConnectRoute } from "./routes/connect"
 import { ReportBuilderRoute } from "./routes/report-builder"
 import { AcceptInviteRoute } from "./routes/accept-invite"
 import { TeamRoute } from "./routes/team"
+import { Toaster } from "./components/toaster"
 
 const App = () => {
   const route = Router.useRoute([
@@ -83,6 +84,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
+      <Toaster />
     </QueryClientProvider>
   </StrictMode>,
 )

@@ -2,6 +2,7 @@ import type { ReportConfig } from "@analytics/report-builder"
 import { Button, Skeleton } from "@analytics/ui-shared"
 import { Trash2 } from "lucide-react"
 import { useDeleteReport, useSavedReports } from "../../../data/report-builder/hooks"
+import { ExportMenu } from "./ExportMenu"
 
 type SavedReportsListProps = {
   onOpen: (config: ReportConfig) => void
@@ -64,6 +65,7 @@ export const SavedReportsList = ({ onOpen }: SavedReportsListProps) => {
             <p className="text-sm text-muted-foreground">Updated {formatDate(report.updatedAt)}</p>
           </div>
           <div className="flex gap-2">
+            <ExportMenu config={report.config} savedReportName={report.name} />
             <Button type="button" variant="outline" onClick={() => onOpen(report.config)}>
               Open
             </Button>

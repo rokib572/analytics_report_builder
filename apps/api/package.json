@@ -11,22 +11,33 @@
     "lint:fix": "eslint . --fix --max-warnings 0"
   },
   "dependencies": {
+    "@react-pdf/renderer": "^4.3.1",
     "@analytics/data-sync": "workspace:*",
     "@analytics/shared-libs": "workspace:*",
     "@analytics/database": "workspace:*",
+    "@analytics/report-builder": "workspace:*",
     "@analytics/square": "workspace:*",
     "@analytics/validators": "workspace:*",
     "@hono/node-server": "latest",
     "@hono/zod-validator": "latest",
     "better-auth": "latest",
+    "csv-stringify": "^6.6.0",
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
     "dotenv": "^17.3.1",
     "hono": "latest",
     "node-cron": "latest",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.1.8",
     "@types/node": "latest",
     "@types/node-cron": "latest",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "dotenv-cli": "^11.0.0",
     "tsx": "latest",
     "typescript": "^5"

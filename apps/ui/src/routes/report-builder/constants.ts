@@ -1,23 +1,10 @@
-import type { Dimension, Metric, ReportConfig, SupportedMetric } from "@analytics/report-builder"
-
-export const FIELD_LABELS: Record<string, string> = {
-  netSales: "Net Sales",
-  grossSales: "Gross Sales",
-  orderCount: "Order Count",
-  storeGrossSales: "Store Gross Sales",
-  totalDiscounts: "Total Discounts",
-  totalTax: "Total Tax",
-  totalTips: "Total Tips",
-  totalCollected: "Total Collected",
-  locationId: "Location",
-  saleDate: "Sale Date",
-  dayOfWeek: "Day of Week",
-  week: "Week",
-  month: "Month",
-  customer: "Customer",
-  product: "Product",
-  paymentMethod: "Payment Method",
-}
+import {
+  FIELD_LABELS,
+  type Dimension,
+  type Metric,
+  type ReportConfig,
+  type SupportedMetric,
+} from "@analytics/report-builder"
 
 export const SUPPORTED_METRICS: SupportedMetric[] = [
   "netSales",
@@ -57,3 +44,5 @@ export const getDefaultDateRange = (): ReportConfig["dateRange"] => {
     to: today.toISOString().slice(0, 10),
   }
 }
+
+export { FIELD_LABELS }
