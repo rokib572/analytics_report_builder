@@ -12,9 +12,11 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.1",
+    "@react-email/components": "^0.5.7",
     "@analytics/data-sync": "workspace:*",
     "@analytics/shared-libs": "workspace:*",
     "@analytics/database": "workspace:*",
+    "@analytics/email": "workspace:*",
     "@analytics/report-builder": "workspace:*",
     "@analytics/square": "workspace:*",
     "@analytics/validators": "workspace:*",

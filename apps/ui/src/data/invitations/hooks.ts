@@ -1,6 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../lib/api-client"
 
+type CreateInvitationResponse = {
+  success: true
+  data: {
+    id: string
+    email: string
+    role: string
+    link: string
+    emailSent: boolean
+  }
+}
+
 export const useInvitations = () =>
   useQuery({
     queryKey: ["invitations"],
@@ -18,13 +29,13 @@ export const useCreateInvitation = () => {
       email: string
       role: "member" | "admin"
       expiresInHours?: number
-    }) => {
+    }): Promise<CreateInvitationResponse> => {
       const res = await apiClient.api.invitations.create.$post({ json: data })
       if (!res.ok) {
         const error = await res.json()
         throw new Error((error as { message?: string }).message ?? "Failed to create invitation")
       }
-      return res.json()
+      return (await res.json()) as CreateInvitationResponse
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["invitations"] })

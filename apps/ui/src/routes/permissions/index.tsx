@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { toast } from "sonner"
 import { z } from "zod"
 import {
   Button,
@@ -61,6 +62,13 @@ export const TeamRoute = () => {
     try {
       const result = await createInvitation.mutateAsync(values)
       setInviteLink(result.data.link)
+      if (result.data.emailSent) {
+        toast.success(`Invitation email sent to ${result.data.email}`)
+      } else {
+        toast.warning(`Invitation created. Copy this link to share: ${result.data.link}`, {
+          duration: 15000,
+        })
+      }
       reset()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send invitation")
