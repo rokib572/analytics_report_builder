@@ -1,12 +1,15 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { toast } from "sonner"
 import type {
   CreateSavedReport,
   ReportConfig,
+  ReportExport,
   ReportQueryInput,
   ReportQueryResult,
   SavedReport,
 } from "@analytics/validators"
-import { apiClient } from "../../lib/api-client"
+import { apiClient, getApiAccountId, getApiCustomerId } from "../../lib/api-client"
+import { downloadBlob } from "../../lib/download"
 
 export const DEFAULT_REPORT_PAGE_SIZE = 10_000
 
@@ -65,6 +68,64 @@ export const useSavedReports = () => {
       return json.data
     },
   })
+}
+
+const getFilenameFromDisposition = (header: string | null, fallback: string) => {
+  if (!header) return fallback
+
+  const match = header.match(/filename="?(?<filename>[^"]+)"?/)
+  return match?.groups?.filename ?? fallback
+}
+
+const getExportErrorMessage = async (response: Response) => {
+  try {
+    const json = (await response.json()) as { message?: string }
+    return json.message ?? "Failed to export report"
+  } catch {
+    return "Failed to export report"
+  }
+}
+
+export const useExportReport = () => {
+  const mutation = useMutation({
+    mutationFn: async (payload: ReportExport) => {
+      const headers = new Headers({ "Content-Type": "application/json" })
+      const customerId = getApiCustomerId()
+      const accountId = getApiAccountId()
+
+      if (customerId) headers.set("X-Customer-Id", customerId)
+      if (accountId) headers.set("X-Account-Id", accountId)
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/export`, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        throw new Error(await getExportErrorMessage(response))
+      }
+
+      const blob = await response.blob()
+      const filename = getFilenameFromDisposition(
+        response.headers.get("Content-Disposition"),
+        `report.${payload.format}`,
+      )
+
+      downloadBlob(blob, filename)
+    },
+  })
+
+  return {
+    ...mutation,
+    exportReport: (payload: ReportExport) =>
+      toast.promise(mutation.mutateAsync(payload), {
+        loading: `Generating ${payload.format.toUpperCase()} export...`,
+        success: `${payload.format.toUpperCase()} export downloaded.`,
+        error: (error) => (error instanceof Error ? error.message : "Failed to export report"),
+      }),
+  }
 }
 
 // Save the current report config

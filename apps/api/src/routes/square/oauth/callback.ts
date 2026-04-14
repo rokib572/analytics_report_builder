@@ -11,6 +11,7 @@ import {
 import { exchangeCodeForToken, createWebhookSubscription } from "@analytics/square"
 import { getBackfillDateRange, runBackfill, syncLocations } from "@analytics/data-sync"
 import { db } from "../../../lib/db"
+import { getSquareWebhookNotificationUrl } from "../../../lib/square-webhook-url"
 
 const SQUARE_APP_NAME = "square"
 
@@ -75,8 +76,8 @@ const callbackRouter = new Hono().get("/", async (context) => {
   }
 
   // Create webhook subscription
-  const notificationUrl = process.env.SQUARE_WEBHOOK_NOTIFICATION_URL!
   try {
+    const notificationUrl = getSquareWebhookNotificationUrl()
     const subscription = await createWebhookSubscription(environment, notificationUrl)
     await updateWebhookSubscription(db, customerId, integrationId, {
       webhookSubscriptionId: subscription.subscriptionId,
@@ -87,6 +88,10 @@ const callbackRouter = new Hono().get("/", async (context) => {
       customerId,
       message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
     })
+
+    return context.redirect(
+      `${uiBaseUrl}/connect?error=Square+webhook+URL+is+invalid.+Set+SQUARE_WEBHOOK_NOTIFICATION_URL+to+a+public+URL+ending+in+%2Fapi%2Fsquare%2Fwebhooks`,
+    )
   }
 
   // Sync locations

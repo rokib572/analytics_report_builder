@@ -15,6 +15,7 @@ import { FieldPanel } from "./components/FieldPanel"
 import { PreviewPanel } from "./components/PreviewPanel"
 import { SaveReportModal } from "./components/SaveReportModal"
 import { SavedReportsList } from "./components/SavedReportsList"
+import { ExportMenu } from "./components/ExportMenu"
 import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
 
 export const ReportBuilderRoute = () => {
@@ -153,6 +154,8 @@ export const ReportBuilderRoute = () => {
   const previewError = isTableChart
     ? (infiniteReportQuery.error ?? null)
     : (pagedReportQuery.error ?? null)
+  const hasUsableConfig =
+    config.metrics.length > 0 && (config.rows.length > 0 || config.columns.length > 0)
 
   return (
     <>
@@ -162,15 +165,18 @@ export const ReportBuilderRoute = () => {
             <TabsTrigger value="builder">Builder</TabsTrigger>
             <TabsTrigger value="my-reports">My Reports</TabsTrigger>
           </TabsList>
-          {activeTab === "builder" && (
-            <Button
-              type="button"
-              onClick={() => setSaveModalOpen(true)}
-              disabled={config.metrics.length === 0}
-            >
-              Save
-            </Button>
-          )}
+          {activeTab === "builder" ? (
+            <div className="flex items-center gap-2">
+              <ExportMenu config={config} disabled={!hasUsableConfig} />
+              <Button
+                type="button"
+                onClick={() => setSaveModalOpen(true)}
+                disabled={config.metrics.length === 0}
+              >
+                Save
+              </Button>
+            </div>
+          ) : null}
         </div>
         <TabsContent value="builder" className="mt-0">
           <DndContext onDragEnd={handleDragEnd}>

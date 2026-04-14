@@ -1,6 +1,12 @@
 import { useMemo } from "react"
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
-import type { ChartType } from "@analytics/report-builder"
+import {
+  formatReportCell,
+  getChartValue,
+  getReportColumnLabel,
+  isMonetaryColumn,
+  type ChartType,
+} from "@analytics/report-builder"
 import type { ReportQueryResult } from "@analytics/validators"
 import {
   Button,
@@ -29,7 +35,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { FIELD_LABELS, SUPPORTED_DIMENSIONS } from "../constants"
+import { SUPPORTED_DIMENSIONS } from "../constants"
 
 type PreviewPanelProps = {
   result: ReportQueryResult | undefined
@@ -44,16 +50,6 @@ type PreviewPanelProps = {
 
 type PreviewRow = Record<string, string | number | null>
 
-const MONETARY_METRICS = new Set([
-  "netSales",
-  "grossSales",
-  "storeGrossSales",
-  "totalDiscounts",
-  "totalTax",
-  "totalTips",
-  "totalCollected",
-])
-
 const COLORS = [
   "#2563eb",
   "#16a34a",
@@ -65,33 +61,15 @@ const COLORS = [
   "#dc2626",
 ]
 
-const formatCurrency = (value: string | number | null): string => {
-  if (value === null) return "$0.00"
-
-  return `$${(Number(value) / 100).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`
-}
-
 const formatAxisValue = (value: string | number): string =>
-  typeof value === "number" ? value.toLocaleString() : value
+  typeof value === "number" ? value.toLocaleString("en-US") : value
 
 const transformChartData = (result: ReportQueryResult): Record<string, unknown>[] =>
   result.rows.map((row) =>
     Object.fromEntries(
-      result.columns.map((column) => [
-        column,
-        MONETARY_METRICS.has(column) ? Number(row[column] ?? 0) / 100 : row[column],
-      ]),
+      result.columns.map((column) => [column, getChartValue(column, row[column] ?? null)]),
     ),
   )
-
-const renderCellValue = (column: string, value: string | number | null) => {
-  if (MONETARY_METRICS.has(column)) return formatCurrency(value)
-  if (column === "orderCount") return value === null ? "0" : String(value)
-  return value ?? "-"
-}
 
 export const PreviewPanel = ({
   result,
@@ -107,12 +85,16 @@ export const PreviewPanel = ({
     () =>
       result?.columns.map((column) => ({
         accessorKey: column,
-        header: FIELD_LABELS[column] ?? column,
+        header: getReportColumnLabel(column),
         cell: ({ row }) => {
           const value = row.getValue(column) as string | number | null
           return (
-            <div className={MONETARY_METRICS.has(column) ? "text-right" : undefined}>
-              {renderCellValue(column, value)}
+            <div
+              className={
+                isMonetaryColumn(column) || column === "orderCount" ? "text-right" : undefined
+              }
+            >
+              {formatReportCell(column, value)}
             </div>
           )
         },
@@ -132,8 +114,7 @@ export const PreviewPanel = ({
     ) ?? []
 
   const metricColumns =
-    result?.columns.filter((column) => MONETARY_METRICS.has(column) || column === "orderCount") ??
-    []
+    result?.columns.filter((column) => isMonetaryColumn(column) || column === "orderCount") ?? []
 
   const firstDimension = dimensionColumns[0] ?? result?.columns[0]
   const chartData = result ? transformChartData(result) : []
@@ -180,9 +161,7 @@ export const PreviewPanel = ({
                     {headerGroup.headers.map((header) => (
                       <TableHead
                         key={header.id}
-                        className={
-                          MONETARY_METRICS.has(header.column.id) ? "text-right" : undefined
-                        }
+                        className={isMonetaryColumn(header.column.id) ? "text-right" : undefined}
                       >
                         {header.isPlaceholder
                           ? null
@@ -198,7 +177,11 @@ export const PreviewPanel = ({
                     {row.getVisibleCells().map((cell) => (
                       <TableCell
                         key={cell.id}
-                        className={MONETARY_METRICS.has(cell.column.id) ? "text-right" : undefined}
+                        className={
+                          isMonetaryColumn(cell.column.id) || cell.column.id === "orderCount"
+                            ? "text-right"
+                            : undefined
+                        }
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
@@ -242,9 +225,7 @@ export const PreviewPanel = ({
                 <YAxis tickFormatter={formatAxisValue} />
                 <Tooltip
                   formatter={(value, name) =>
-                    MONETARY_METRICS.has(String(name))
-                      ? formatCurrency(value as string | number | null)
-                      : String(value)
+                    formatReportCell(String(name), value as string | number | null)
                   }
                 />
                 <Legend />
@@ -252,7 +233,7 @@ export const PreviewPanel = ({
                   <Bar
                     key={metric}
                     dataKey={metric}
-                    name={FIELD_LABELS[metric] ?? metric}
+                    name={getReportColumnLabel(metric)}
                     fill={COLORS[index % COLORS.length]}
                   />
                 ))}
@@ -293,9 +274,7 @@ export const PreviewPanel = ({
                 <YAxis tickFormatter={formatAxisValue} />
                 <Tooltip
                   formatter={(value, name) =>
-                    MONETARY_METRICS.has(String(name))
-                      ? formatCurrency(value as string | number | null)
-                      : String(value)
+                    formatReportCell(String(name), value as string | number | null)
                   }
                 />
                 <Legend />
@@ -304,7 +283,7 @@ export const PreviewPanel = ({
                     key={metric}
                     type="monotone"
                     dataKey={metric}
-                    name={FIELD_LABELS[metric] ?? metric}
+                    name={getReportColumnLabel(metric)}
                     stroke={COLORS[index % COLORS.length]}
                     strokeWidth={2}
                     dot={{ r: 3 }}
