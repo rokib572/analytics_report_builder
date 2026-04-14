@@ -19,7 +19,7 @@ import { IntegrationsRoute } from "./routes/integrations"
 import { ConnectRoute } from "./routes/connect"
 import { ReportBuilderRoute } from "./routes/report-builder"
 import { AcceptInviteRoute } from "./routes/accept-invite"
-import { TeamRoute } from "./routes/team"
+import { TeamRoute } from "./routes/permissions"
 import { Toaster } from "./components/toaster"
 
 const App = () => {

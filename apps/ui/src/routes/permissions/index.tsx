@@ -18,12 +18,14 @@ import {
   TableHeader,
   TableRow,
 } from "@analytics/ui-shared"
+import { useAuth } from "../../lib/auth-context"
 import { useUsers } from "../../data/users/hooks"
 import {
   useInvitations,
   useCreateInvitation,
   useRevokeInvitation,
 } from "../../data/invitations/hooks"
+import { ManagePermissionsDialog } from "./components/manage-permissions-dialog"
 
 const inviteSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -33,11 +35,13 @@ const inviteSchema = z.object({
 type InviteValues = z.infer<typeof inviteSchema>
 
 export const TeamRoute = () => {
+  const { user: currentUser, isSystemAdmin } = useAuth()
   const { data: usersData, isPending: usersLoading } = useUsers()
   const { data: invitationsData, isPending: invitationsLoading } = useInvitations()
   const createInvitation = useCreateInvitation()
   const revokeInvitation = useRevokeInvitation()
   const [showInviteForm, setShowInviteForm] = useState(false)
+  const [permissionsUserId, setPermissionsUserId] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +78,8 @@ export const TeamRoute = () => {
   const users = usersData?.data ?? []
   const invitations = invitationsData?.data ?? []
   const pendingInvitations = invitations.filter((i) => i.status === "pending")
+  const selectedPermissionsUser =
+    users.find((teamUser) => teamUser.id === permissionsUserId) ?? null
 
   return (
     <div className="space-y-6 p-6">
@@ -154,6 +160,7 @@ export const TeamRoute = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -166,6 +173,20 @@ export const TeamRoute = () => {
                     </TableCell>
                     <TableCell>
                       <StatusBadge active={user.isActive} />
+                    </TableCell>
+                    <TableCell>
+                      {(isSystemAdmin || currentUser.role === "owner") &&
+                      user.id !== currentUser.id &&
+                      (user.role === "admin" || user.role === "member") ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setPermissionsUserId(user.id)}
+                        >
+                          Manage permissions
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -221,6 +242,14 @@ export const TeamRoute = () => {
           )}
         </CardContent>
       </Card>
+
+      <ManagePermissionsDialog
+        user={selectedPermissionsUser}
+        open={permissionsUserId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPermissionsUserId(null)
+        }}
+      />
     </div>
   )
 }
