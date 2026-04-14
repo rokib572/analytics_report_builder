@@ -5,7 +5,9 @@ export const fetchAllCatalogObjects = async (
   customerId: string,
 ): Promise<Square.CatalogObject[]> => {
   const squareClient = await createSquareClient(customerId)
-  const response = await squareClient.catalog.list({ types: "ITEM,CATEGORY" })
+  const response = await squareClient.catalog.list({
+    types: "ITEM,CATEGORY,DISCOUNT,TAX,MODIFIER_LIST,MODIFIER",
+  })
 
   const allObjects = response.data || []
 
