@@ -8,6 +8,8 @@ export const getTransporter = (): Transporter => {
 
   const config = loadEmailConfig()
 
+  console.log("Creating new email transporter with config:", { ...config })
+
   cachedTransporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,

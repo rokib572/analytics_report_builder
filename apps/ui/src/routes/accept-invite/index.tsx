@@ -23,6 +23,13 @@ const registerSchema = z.object({
 
 type RegisterValues = z.infer<typeof registerSchema>
 
+type SignupResponse = {
+  token?: string | null
+  user?: {
+    emailVerified?: boolean
+  }
+}
+
 export const AcceptInviteRoute = () => {
   const token = new URLSearchParams(window.location.search).get("token") ?? ""
   const { data: validation, isPending: validating } = useValidateInvitation(token)
@@ -136,10 +143,20 @@ export const AcceptInviteRoute = () => {
       name: values.name,
       email: validation.email,
       password: values.password,
+      callbackURL: `${window.location.origin}/onboarding`,
     })
 
     if (result.error) {
       setError(result.error.message ?? "Registration failed")
+      return
+    }
+
+    const data = result.data as SignupResponse | null | undefined
+    const requiresVerification =
+      (data?.token === null || data?.token === undefined) && data?.user?.emailVerified === false
+
+    if (requiresVerification) {
+      Router.push("VerifyEmailSent", { email: validation.email })
       return
     }
 

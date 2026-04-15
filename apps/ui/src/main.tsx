@@ -8,6 +8,8 @@ import { AuthGuard, GuestGuard, OnboardingGuard, RouteRoleGuard } from "./compon
 import { DashboardLayout } from "./components/dashboard-layout"
 import { LoginRoute } from "./routes/login"
 import { SignupRoute } from "./routes/signup"
+import { VerifyEmailSentRoute } from "./routes/verify-email-sent"
+import { OnboardingRoute } from "./routes/onboarding"
 import { HomeRoute } from "./routes/home"
 import { LocationsRoute } from "./routes/square/locations"
 import { LocationGetRoute } from "./routes/square/locations/get"
@@ -26,7 +28,9 @@ const App = () => {
   const route = Router.useRoute([
     "Login",
     "Signup",
+    "VerifyEmailSent",
     "AcceptInvite",
+    "Onboarding",
     "Home",
     "SquareLocations",
     "SquareLocationGet",
@@ -53,7 +57,21 @@ const App = () => {
         <SignupRoute />
       </GuestGuard>
     )
+  if (route?.name === "VerifyEmailSent")
+    return (
+      <GuestGuard>
+        <VerifyEmailSentRoute />
+      </GuestGuard>
+    )
   if (route?.name === "AcceptInvite") return <AcceptInviteRoute />
+  if (route?.name === "Onboarding")
+    return (
+      <AuthGuard>
+        <DashboardLayout>
+          <OnboardingRoute />
+        </DashboardLayout>
+      </AuthGuard>
+    )
 
   return (
     <AuthGuard>

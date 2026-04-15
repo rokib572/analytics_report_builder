@@ -32,6 +32,7 @@ const meRouter = new Hono<AuthEnv>().get("/", async (context) => {
       email: user.email,
       role: user.role,
       customerId: user.customerId,
+      companyName: customerMap.get(user.customerId)?.companyName ?? "",
     },
     permissions,
     accounts: accountsWithNames,

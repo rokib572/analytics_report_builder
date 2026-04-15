@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { toast } from "sonner"
 import {
   Button,
   Card,
@@ -24,6 +25,8 @@ type LoginValues = z.infer<typeof loginSchema>
 
 export const LoginRoute = () => {
   const [error, setError] = useState<string | null>(null)
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null)
+  const [isResendingVerification, setIsResendingVerification] = useState(false)
 
   const {
     register,
@@ -33,15 +36,38 @@ export const LoginRoute = () => {
     resolver: zodResolver(loginSchema),
   })
 
+  useEffect(() => {
+    const errorCode = new URLSearchParams(window.location.search).get("error")
+
+    if (errorCode === "TOKEN_EXPIRED") {
+      toast.error("That verification link expired. Request a new one and try again.")
+    }
+
+    if (errorCode === "INVALID_TOKEN") {
+      toast.error("That verification link is invalid or has already been used.")
+    }
+  }, [])
+
   const onSubmit = async (values: LoginValues) => {
     setError(null)
+    setPendingVerificationEmail(null)
     const result = await authClient.signIn.email({
       email: values.email,
       password: values.password,
+      callbackURL: `${window.location.origin}/onboarding`,
     })
 
     if (result.error) {
-      setError(result.error.message ?? "Sign in failed")
+      const code = "code" in result.error ? String(result.error.code) : ""
+
+      if (code === "EMAIL_NOT_VERIFIED") {
+        setError("Please verify your email before signing in.")
+        setPendingVerificationEmail(values.email)
+        return
+      }
+
+      const message = result.error.message ?? "Sign in failed"
+      setError(message)
       return
     }
 
@@ -51,6 +77,27 @@ export const LoginRoute = () => {
       return
     }
     Router.replace("Home")
+  }
+
+  const handleResendVerification = async () => {
+    if (!pendingVerificationEmail) return
+
+    setError(null)
+    setIsResendingVerification(true)
+
+    const result = await authClient.sendVerificationEmail({
+      email: pendingVerificationEmail,
+      callbackURL: `${window.location.origin}/onboarding`,
+    })
+
+    setIsResendingVerification(false)
+
+    if (result.error) {
+      setError(result.error.message ?? "Failed to resend verification email")
+      return
+    }
+
+    toast.success("Verification email sent.")
   }
 
   return (
@@ -77,6 +124,18 @@ export const LoginRoute = () => {
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
+            {pendingVerificationEmail && (
+              <button
+                type="button"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+                onClick={handleResendVerification}
+                disabled={isResendingVerification}
+              >
+                {isResendingVerification
+                  ? "Sending verification email..."
+                  : "Resend verification email"}
+              </button>
+            )}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Signing in..." : "Sign In"}

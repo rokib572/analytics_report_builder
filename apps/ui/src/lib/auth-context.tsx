@@ -9,6 +9,7 @@ type AppUser = {
   email: string
   role: string
   customerId: string
+  companyName: string
 }
 
 type Permission = {

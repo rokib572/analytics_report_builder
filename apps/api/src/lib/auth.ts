@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { createElement } from "react"
 import {
   baUser,
   baSession,
@@ -10,7 +11,11 @@ import {
   getPendingInvitationByEmail,
   updateInvitationStatus,
 } from "@analytics/database"
+import { sendEmail } from "@analytics/email"
+import { VerificationEmail } from "../emails/verification-email"
 import { db } from "./db"
+
+const isProduction = process.env.NODE_ENV === "production"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -26,6 +31,37 @@ export const auth = betterAuth({
   trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:5173"],
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: isProduction,
+  },
+  emailVerification: {
+    sendOnSignUp: isProduction,
+    autoSignInAfterVerification: true,
+    expiresIn: 60 * 60,
+    sendVerificationEmail: async ({ user, url }) => {
+      if (!isProduction) {
+        console.info("Verification email skipped (non-production env)", {
+          email: user.email,
+          url,
+        })
+        return
+      }
+
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Verify your email for Analytics",
+          template: createElement(VerificationEmail, {
+            userName: user.name,
+            verifyUrl: url,
+          }),
+        })
+      } catch (error) {
+        console.error("Verification email send failed", {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    },
   },
   account: {
     accountLinking: {

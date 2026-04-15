@@ -10,6 +10,14 @@ export const AuthGuard = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!sessionPending && !session) {
+      const params = new URLSearchParams(window.location.search)
+      const error = params.get("error")
+
+      if (error) {
+        window.location.href = `${Router.Login()}?error=${encodeURIComponent(error)}`
+        return
+      }
+
       Router.replace("Login")
     }
   }, [sessionPending, session])

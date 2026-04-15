@@ -3,7 +3,9 @@ import { createRouter } from "@swan-io/chicane"
 export const Router = createRouter({
   Login: "/login",
   Signup: "/signup",
+  VerifyEmailSent: "/verify-email-sent?:email",
   AcceptInvite: "/accept-invite",
+  Onboarding: "/onboarding",
   Home: "/",
   SquareLocations: "/square/locations",
   SquareLocationGet: "/square/locations/:id",

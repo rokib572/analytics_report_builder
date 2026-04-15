@@ -4,12 +4,21 @@ import { useIntegrations } from "../../data/integrations/hooks"
 import { Router } from "../../router"
 
 export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
-  const { isSystemAdmin } = useAuth()
-  const route = Router.useRoute(["Connect", "Integrations"])
+  const { isSystemAdmin, user } = useAuth()
+  const route = Router.useRoute(["Onboarding", "Connect", "Integrations"])
   const { data, isPending } = useIntegrations()
 
   // System admins don't need integrations
   if (isSystemAdmin) return <>{children}</>
+
+  if (!user.companyName && route?.name !== "Onboarding") {
+    Router.replace("Onboarding")
+    return null
+  }
+
+  if (route?.name === "Onboarding") {
+    return <>{children}</>
+  }
 
   if (isPending) {
     return (
