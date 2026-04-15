@@ -61,10 +61,10 @@ export const TeamRoute = () => {
     setInviteLink(null)
     try {
       const result = await createInvitation.mutateAsync(values)
-      setInviteLink(result.data.link)
       if (result.data.emailSent) {
         toast.success(`Invitation email sent to ${result.data.email}`)
       } else {
+        setInviteLink(result.data.link)
         toast.warning(`Invitation created. Copy this link to share: ${result.data.link}`, {
           duration: 15000,
         })
