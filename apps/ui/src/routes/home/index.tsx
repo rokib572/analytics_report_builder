@@ -1,15 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Skeleton,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@analytics/ui-shared"
+import { Card, CardContent, CardHeader, CardTitle, Skeleton } from "@analytics/ui-shared"
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
 import { useDashboardSummary } from "../../data/sales/hooks"
 import { authClient } from "../../lib/auth-client"
@@ -155,69 +144,43 @@ export const HomeRoute = () => {
           {session?.user?.name ? `Welcome back, ${session.user.name}` : "Dashboard"}
         </h1>
       </div>
-      <Tabs defaultValue="overview" className="space-y-4">
-        <div className="w-full overflow-x-auto pb-2">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="analytics" disabled>
-              Analytics
-            </TabsTrigger>
-            <TabsTrigger value="reports" disabled>
-              Reports
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {kpiCards.map((card) => (
-              <Card key={card.title}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-                  {card.icon}
-                </CardHeader>
-                <CardContent>
-                  {isPending ? (
-                    <>
-                      <Skeleton className="mb-2 h-8 w-28" />
-                      <Skeleton className="h-4 w-36" />
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-2xl font-bold">{card.value}</div>
-                      <p className="text-xs text-muted-foreground">{card.description}</p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-            <Card className="col-span-1 lg:col-span-4">
-              <CardHeader>
-                <CardTitle>Overview</CardTitle>
+      <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kpiCards.map((card) => (
+            <Card key={card.title}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
+                {card.icon}
               </CardHeader>
-              <CardContent className="pl-2">
+              <CardContent>
                 {isPending ? (
-                  <Skeleton className="h-[350px] w-full" />
+                  <>
+                    <Skeleton className="mb-2 h-8 w-28" />
+                    <Skeleton className="h-4 w-36" />
+                  </>
                 ) : (
-                  <OverviewChart data={chartData} />
+                  <>
+                    <div className="text-2xl font-bold">{card.value}</div>
+                    <p className="text-xs text-muted-foreground">{card.description}</p>
+                  </>
                 )}
               </CardContent>
             </Card>
-            <Card className="col-span-1 lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Your latest sync and report activity</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4 text-sm text-muted-foreground">
-                  <p>No recent activity yet. Connect your Square account to get started.</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Monthly Sales</CardTitle>
+          </CardHeader>
+          <CardContent className="pl-2">
+            {isPending ? (
+              <Skeleton className="h-[350px] w-full" />
+            ) : (
+              <OverviewChart data={chartData} />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
