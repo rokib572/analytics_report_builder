@@ -80,6 +80,41 @@ const parseWebhookPayload = (body: string): ParsedWebhookEvent => {
   }
 }
 
+const getWebhookProcessingUpdate = (result: {
+  processed: boolean
+  reason?: string
+}): {
+  processed: boolean
+  processingResult: string
+  processingError: string | null
+  processedAt: Date
+} => {
+  if (result.processed) {
+    return {
+      processed: true,
+      processingResult: "synced",
+      processingError: null,
+      processedAt: new Date(),
+    }
+  }
+
+  if (result.reason === "duplicate") {
+    return {
+      processed: true,
+      processingResult: "duplicate",
+      processingError: null,
+      processedAt: new Date(),
+    }
+  }
+
+  return {
+    processed: true,
+    processingResult: "skipped",
+    processingError: result.reason ?? null,
+    processedAt: new Date(),
+  }
+}
+
 const router = new Hono().post("/", async (c) => {
   const requestBody = await c.req.text()
   const signatureHeader = c.req.header("x-square-hmacsha256-signature") ?? ""
@@ -110,11 +145,13 @@ const router = new Hono().post("/", async (c) => {
 
   // Try per-customer signature key first, fall back to global key
   let perCustomerKey: string | undefined
+  let integrationCustomerId: string | null = null
   if (parsedEvent.merchantId) {
     const merchantIntegration = await getAppIntegrationByMerchantId(db, parsedEvent.merchantId)
     if (merchantIntegration?.webhookSignatureKey) {
       perCustomerKey = merchantIntegration.webhookSignatureKey
     }
+    integrationCustomerId = merchantIntegration?.customerId ?? null
   }
 
   const isValidSignature =
@@ -130,13 +167,19 @@ const router = new Hono().post("/", async (c) => {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
     if (!existing) {
       await createWebhookLog(db, {
+        customerId: integrationCustomerId,
         eventId: parsedEvent.eventId,
         eventType: parsedEvent.eventType,
         merchantId: parsedEvent.merchantId,
         locationId: parsedEvent.locationId,
         orderId: parsedEvent.orderId,
+        paymentId: parsedEvent.paymentId,
+        refundId: parsedEvent.refundId,
         signatureValid: false,
         processed: false,
+        processingResult: null,
+        processingError: null,
+        processedAt: null,
         payload: parsedEvent.payload,
       })
     }
@@ -154,13 +197,19 @@ const router = new Hono().post("/", async (c) => {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
     if (!existing) {
       await createWebhookLog(db, {
+        customerId: integrationCustomerId,
         eventId: parsedEvent.eventId,
         eventType: parsedEvent.eventType,
         merchantId: parsedEvent.merchantId,
         locationId: parsedEvent.locationId,
         orderId: parsedEvent.orderId,
+        paymentId: parsedEvent.paymentId,
+        refundId: parsedEvent.refundId,
         signatureValid: true,
-        processed: false,
+        processed: true,
+        processingResult: "skipped",
+        processingError: "missing_required_reference",
+        processedAt: new Date(),
         payload: parsedEvent.payload,
       })
     }
@@ -173,13 +222,19 @@ const router = new Hono().post("/", async (c) => {
     const existing = await findWebhookLogByEventId(db, parsedEvent.eventId)
     if (!existing) {
       await createWebhookLog(db, {
+        customerId: integrationCustomerId,
         eventId: parsedEvent.eventId,
         eventType: parsedEvent.eventType,
         merchantId: parsedEvent.merchantId,
         locationId: parsedEvent.locationId,
         orderId: parsedEvent.orderId,
+        paymentId: parsedEvent.paymentId,
+        refundId: parsedEvent.refundId,
         signatureValid: true,
-        processed: false,
+        processed: true,
+        processingResult: "skipped",
+        processingError: "location_not_mapped",
+        processedAt: new Date(),
         payload: parsedEvent.payload,
       })
     }
@@ -191,13 +246,19 @@ const router = new Hono().post("/", async (c) => {
   const webhookLog =
     existing ??
     (await createWebhookLog(db, {
+      customerId: location.customerId,
       eventId: parsedEvent.eventId,
       eventType: parsedEvent.eventType,
       merchantId: parsedEvent.merchantId,
       locationId: parsedEvent.locationId,
       orderId: parsedEvent.orderId,
+      paymentId: parsedEvent.paymentId,
+      refundId: parsedEvent.refundId,
       signatureValid: true,
       processed: false,
+      processingResult: null,
+      processingError: null,
+      processedAt: null,
       payload: parsedEvent.payload,
     }))
 
@@ -208,11 +269,15 @@ const router = new Hono().post("/", async (c) => {
       locationId: parsedEvent.locationId,
     })
       .then(async (result) => {
-        if (result.processed) {
-          await updateWebhookLogProcessed(db, webhookLog.id)
-        }
+        await updateWebhookLogProcessed(db, webhookLog.id, getWebhookProcessingUpdate(result))
       })
       .catch((error) => {
+        void updateWebhookLogProcessed(db, webhookLog.id, {
+          processed: true,
+          processingResult: "failed",
+          processingError: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
+          processedAt: new Date(),
+        })
         console.error("[SquareWebhookProcessingError]", {
           eventId: parsedEvent.eventId,
           message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
@@ -228,11 +293,15 @@ const router = new Hono().post("/", async (c) => {
       locationId: parsedEvent.locationId,
     })
       .then(async (result) => {
-        if (result.processed) {
-          await updateWebhookLogProcessed(db, webhookLog.id)
-        }
+        await updateWebhookLogProcessed(db, webhookLog.id, getWebhookProcessingUpdate(result))
       })
       .catch((error) => {
+        void updateWebhookLogProcessed(db, webhookLog.id, {
+          processed: true,
+          processingResult: "failed",
+          processingError: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
+          processedAt: new Date(),
+        })
         console.error("[SquarePaymentWebhookProcessingError]", {
           eventId: parsedEvent.eventId,
           message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
@@ -248,11 +317,15 @@ const router = new Hono().post("/", async (c) => {
       locationId: parsedEvent.locationId,
     })
       .then(async (result) => {
-        if (result.processed) {
-          await updateWebhookLogProcessed(db, webhookLog.id)
-        }
+        await updateWebhookLogProcessed(db, webhookLog.id, getWebhookProcessingUpdate(result))
       })
       .catch((error) => {
+        void updateWebhookLogProcessed(db, webhookLog.id, {
+          processed: true,
+          processingResult: "failed",
+          processingError: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
+          processedAt: new Date(),
+        })
         console.error("[SquareRefundWebhookProcessingError]", {
           eventId: parsedEvent.eventId,
           message: error instanceof Error ? error.message : "UNKNOWN_ERROR",
@@ -268,11 +341,15 @@ const router = new Hono().post("/", async (c) => {
       catalogObjectIds: parsedEvent.inventoryCatalogObjectIds,
     })
       .then(async (result) => {
-        if (result.processed) {
-          await updateWebhookLogProcessed(db, webhookLog.id)
-        }
+        await updateWebhookLogProcessed(db, webhookLog.id, getWebhookProcessingUpdate(result))
       })
       .catch((error) => {
+        void updateWebhookLogProcessed(db, webhookLog.id, {
+          processed: true,
+          processingResult: "failed",
+          processingError: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
+          processedAt: new Date(),
+        })
         console.error("[SquareInventoryWebhookProcessingError]", {
           eventId: parsedEvent.eventId,
           message: error instanceof Error ? error.message : "UNKNOWN_ERROR",

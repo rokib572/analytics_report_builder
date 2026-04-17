@@ -2,6 +2,37 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../../lib/api-client"
 import { useApiScopeKey } from "../../../lib/auth-context"
 
+type SyncOrdersResponse =
+  | {
+      success: true
+      async: true
+      syncLogId: string
+      message: string
+    }
+  | {
+      success: true
+      synced: number
+      unchanged: number
+      skipped: number
+      payments: { synced: number; unchanged: number; skipped: number }
+      refunds: { synced: number; unchanged: number; skipped: number }
+      inventory: {
+        countsSynced: number
+        adjustmentsSynced: number
+        transfersSynced: number
+        unchanged: number
+        skipped: number
+      }
+      aggregated: number
+    }
+
+type SyncCatalogResponse = {
+  success: true
+  synced: number
+  unchanged: number
+  skipped: number
+}
+
 export const useSyncOrders = () => {
   const queryClient = useQueryClient()
   return useMutation({
@@ -10,7 +41,7 @@ export const useSyncOrders = () => {
         json: { type: "orders" as const, ...payload },
       })
       if (!res.ok) throw new Error("Failed to sync orders")
-      return res.json()
+      return (await res.json()) as SyncOrdersResponse
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["orders"] })
@@ -27,7 +58,7 @@ export const useSyncCatalog = () => {
         json: { type: "catalog" },
       })
       if (!res.ok) throw new Error("Failed to sync catalog")
-      return res.json()
+      return (await res.json()) as SyncCatalogResponse
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["catalog"] })

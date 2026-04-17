@@ -17,3 +17,9 @@ export { syncRefunds } from "./square/refunds/sync"
 export { syncInventory } from "./square/inventory/sync"
 export { syncCatalog } from "./square/catalog/sync"
 export { computeContentHash, normalizeJsonValue } from "./utils/content-hash"
+export {
+  capChangedRecordIds,
+  createSyncRecordCollector,
+  type SyncInventoryCollectors,
+  type SyncRecordCollector,
+} from "./utils/sync-collector"

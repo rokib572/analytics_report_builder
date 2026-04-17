@@ -13,6 +13,7 @@ import {
 import type { Square } from "square"
 import { fetchAllCatalogObjects } from "@analytics/square"
 import { computeContentHash } from "../../utils/content-hash"
+import type { SyncRecordCollector } from "../../utils/sync-collector"
 
 const toBigInt = (money?: { amount?: bigint | null }): bigint | null =>
   money?.amount !== undefined && money?.amount !== null ? BigInt(money.amount) : null
@@ -33,6 +34,7 @@ const isCatalogModifier = (obj: Square.CatalogObject): obj is Square.CatalogObje
 export const syncCatalog = async (
   db: DbClient,
   customerId: string,
+  collector?: SyncRecordCollector,
 ): Promise<{ synced: number; unchanged: number; skipped: number }> => {
   const catalogObjects = await fetchAllCatalogObjects(customerId)
 
@@ -68,6 +70,7 @@ export const syncCatalog = async (
 
     if (result) {
       synced++
+      collector?.changed.push(cat.id)
     } else {
       unchanged++
     }
@@ -106,6 +109,7 @@ export const syncCatalog = async (
 
     if (result) {
       synced++
+      collector?.changed.push(discount.id)
     } else {
       unchanged++
     }
@@ -143,6 +147,7 @@ export const syncCatalog = async (
 
     if (result) {
       synced++
+      collector?.changed.push(tax.id)
     } else {
       unchanged++
     }
@@ -176,6 +181,7 @@ export const syncCatalog = async (
 
     if (result) {
       synced++
+      collector?.changed.push(modifierList.id)
     } else {
       unchanged++
     }
@@ -230,6 +236,7 @@ export const syncCatalog = async (
 
     if (result) {
       synced++
+      collector?.changed.push(modifier.id)
     } else {
       unchanged++
     }
@@ -300,6 +307,7 @@ export const syncCatalog = async (
       }
 
       synced++
+      collector?.changed.push(item.id)
     } else {
       unchanged++
     }

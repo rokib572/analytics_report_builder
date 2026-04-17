@@ -12,6 +12,7 @@ import {
 import { batchSearchOrders, detectChannel } from "@analytics/square"
 import type { Square } from "square"
 import { computeContentHash, normalizeJsonValue } from "../../utils/content-hash"
+import type { SyncRecordCollector } from "../../utils/sync-collector"
 
 const toBigInt = (money?: { amount?: bigint | null }): bigint | null =>
   money?.amount !== undefined && money?.amount !== null ? BigInt(money.amount) : null
@@ -32,6 +33,7 @@ export const syncOrders = async (
   startAt: string,
   endAt: string,
   squareLocationIds?: string[],
+  collector?: SyncRecordCollector,
 ): Promise<{ synced: number; unchanged: number; skipped: number }> => {
   const locationMap = await getLocationSquareIdMap(db, customerId)
   const selectedSquareLocationIds = squareLocationIds?.filter((locationId) =>
@@ -204,6 +206,9 @@ export const syncOrders = async (
       }
 
       synced++
+      if (order.id) {
+        collector?.changed.push(order.id)
+      }
     } else {
       unchanged++
     }

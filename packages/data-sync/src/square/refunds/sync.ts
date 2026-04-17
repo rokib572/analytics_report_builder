@@ -6,12 +6,14 @@ import {
 } from "@analytics/database"
 import { listRefunds } from "@analytics/square"
 import { computeRefundContentHash, mapRefundPayload } from "./shared"
+import type { SyncRecordCollector } from "../../utils/sync-collector"
 
 export const syncRefunds = async (
   db: DbClient,
   customerId: string,
   startAt: string,
   endAt: string,
+  collector?: SyncRecordCollector,
 ): Promise<{ synced: number; unchanged: number; skipped: number }> => {
   const locationMap = await getLocationSquareIdMap(db, customerId)
   const squareLocationIds = [...locationMap.keys()]
@@ -51,6 +53,7 @@ export const syncRefunds = async (
 
       if (result) {
         synced++
+        collector?.changed.push(refund.id)
       } else {
         unchanged++
       }

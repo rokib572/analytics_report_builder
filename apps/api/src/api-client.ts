@@ -22,6 +22,8 @@ import manualSyncRouter from "./routes/square/sync/manual"
 import backfillStatusRouter from "./routes/square/sync/backfill-status"
 import webhooksRouter from "./routes/square/webhooks"
 import syncStatusRouter from "./routes/square/sync/status"
+import syncHistoryRouter from "./routes/square/sync/history"
+import webhookHistoryRouter from "./routes/square/sync/webhook-history"
 import reportsRouter from "./routes/square/reports/index"
 import permissionsRouter from "./routes/permissions"
 
@@ -58,6 +60,8 @@ const app = new Hono()
   .route("/api/sync/manual", manualSyncRouter)
   .route("/api/sync/backfill-status", backfillStatusRouter)
   .route("/api/sync/status", syncStatusRouter)
+  .route("/api/sync/history", syncHistoryRouter)
+  .route("/api/sync/webhook-history", webhookHistoryRouter)
   .route("/api/reports", reportsRouter)
 // .route("/api/orders", ordersRouter)
 // .route("/api/webhooks", webhooksRouter)

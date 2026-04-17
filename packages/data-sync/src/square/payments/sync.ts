@@ -1,12 +1,14 @@
 import { type DbClient, getLocationSquareIdMap, upsertPayment } from "@analytics/database"
 import { listPayments } from "@analytics/square"
 import { computePaymentContentHash, mapPaymentPayload } from "./shared"
+import type { SyncRecordCollector } from "../../utils/sync-collector"
 
 export const syncPayments = async (
   db: DbClient,
   customerId: string,
   startAt: string,
   endAt: string,
+  collector?: SyncRecordCollector,
 ): Promise<{ synced: number; unchanged: number; skipped: number }> => {
   const locationMap = await getLocationSquareIdMap(db, customerId)
   const squareLocationIds = [...locationMap.keys()]
@@ -43,6 +45,7 @@ export const syncPayments = async (
 
       if (result) {
         synced++
+        collector?.changed.push(payment.id)
       } else {
         unchanged++
       }

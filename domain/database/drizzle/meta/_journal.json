@@ -15,6 +15,13 @@
       "when": 1776129606260,
       "tag": "0001_perfect_wolverine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776402761479,
+      "tag": "0002_closed_echo",
+      "breakpoints": true
     }
   ]
 }

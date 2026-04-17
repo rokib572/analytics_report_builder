@@ -1,11 +1,21 @@
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useAuth } from "../../../lib/auth-context"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
 import { useSyncLocations } from "../../../data/square/locations/hooks"
 import { useSyncOrders, useSyncCatalog } from "../../../data/square/sync/hooks"
+import {
+  useSyncRunDetail,
+  useSyncRuns,
+  useWebhookHistory,
+} from "../../../data/square/sync/history-hooks"
 import { SyncLocationsContent } from "./contents-location"
 import { SyncOrdersContent } from "./contents-orders"
 import { SyncCatalogContent } from "./contents-catalog"
+import { SyncHistoryContent } from "./contents-sync-history"
+import { SyncRunDetailContent } from "./contents-sync-run-detail"
+import { WebhookHistoryContent } from "./contents-webhook-history"
 import { MAX_SYNC_DAYS, orderSyncSchema } from "./schemas"
 import type { OrderSyncAsyncResult, OrderSyncResult, OrderSyncValues } from "./types"
 
@@ -19,6 +29,14 @@ const ZERO_INVENTORY = {
 }
 
 export const SyncRoute = () => {
+  const { selectedCustomerId, isSystemAdmin } = useAuth()
+  const [activeTab, setActiveTab] = useState("manual")
+  const [syncHistoryPage, setSyncHistoryPage] = useState(1)
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [webhookPage, setWebhookPage] = useState(1)
+  const [webhookEventType, setWebhookEventType] = useState("")
+  const [webhookProcessedFilter, setWebhookProcessedFilter] = useState("all")
+
   const syncLocations = useSyncLocations()
   const [locResult, setLocResult] = useState<{ synced: number; unchanged: number } | null>(null)
   const [locError, setLocError] = useState<string | null>(null)
@@ -42,6 +60,15 @@ export const SyncRoute = () => {
     formState: { errors },
   } = useForm<OrderSyncValues>({
     resolver: zodResolver(orderSyncSchema),
+  })
+  const syncRuns = useSyncRuns({ page: syncHistoryPage, limit: 20 })
+  const syncRunDetail = useSyncRunDetail(selectedRunId)
+  const webhookHistory = useWebhookHistory({
+    page: webhookPage,
+    limit: 20,
+    eventType: webhookEventType.trim() || undefined,
+    processed:
+      webhookProcessedFilter === "all" ? undefined : webhookProcessedFilter === "processed",
   })
 
   const handleSyncLocations = async () => {
@@ -108,33 +135,81 @@ export const SyncRoute = () => {
     <div className="space-y-6 p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Data Sync</h1>
-        <p className="text-muted-foreground">Manually trigger data synchronization from Square.</p>
+        <p className="text-muted-foreground">
+          Manually trigger synchronization and inspect customer sync history.
+        </p>
+        {isSystemAdmin ? (
+          <p className="mt-1 text-sm text-muted-foreground">
+            History and webhook data are shown for the customer selected in the header.
+            {!selectedCustomerId ? " Select a customer to inspect their Square sync data." : null}
+          </p>
+        ) : null}
       </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="manual">Manual Sync</TabsTrigger>
+          <TabsTrigger value="history">Nightly History</TabsTrigger>
+          <TabsTrigger value="webhooks">Webhook History</TabsTrigger>
+        </TabsList>
+        <TabsContent value="manual" className="space-y-6">
+          <SyncLocationsContent
+            onSync={handleSyncLocations}
+            isPending={syncLocations.isPending}
+            result={locResult}
+            error={locError}
+          />
 
-      <SyncLocationsContent
-        onSync={handleSyncLocations}
-        isPending={syncLocations.isPending}
-        result={locResult}
-        error={locError}
-      />
+          <SyncOrdersContent
+            register={register}
+            errors={errors}
+            onSubmit={handleSubmit(handleSyncOrders)}
+            isPending={syncOrders.isPending}
+            result={orderResult}
+            asyncResult={orderAsyncResult}
+            error={orderError}
+            maxDays={MAX_SYNC_DAYS}
+          />
 
-      <SyncOrdersContent
-        register={register}
-        errors={errors}
-        onSubmit={handleSubmit(handleSyncOrders)}
-        isPending={syncOrders.isPending}
-        result={orderResult}
-        asyncResult={orderAsyncResult}
-        error={orderError}
-        maxDays={MAX_SYNC_DAYS}
-      />
-
-      <SyncCatalogContent
-        onSync={handleSyncCatalog}
-        isPending={syncCatalog.isPending}
-        result={catalogResult}
-        error={catalogError}
-      />
+          <SyncCatalogContent
+            onSync={handleSyncCatalog}
+            isPending={syncCatalog.isPending}
+            result={catalogResult}
+            error={catalogError}
+          />
+        </TabsContent>
+        <TabsContent value="history" className="space-y-6">
+          <SyncHistoryContent
+            syncRuns={syncRuns.data?.syncRuns ?? []}
+            totalCount={syncRuns.data?.totalCount ?? 0}
+            page={syncHistoryPage}
+            onPageChange={setSyncHistoryPage}
+            onSelectRun={setSelectedRunId}
+            selectedRunId={selectedRunId}
+            isLoading={syncRuns.isLoading}
+            error={syncRuns.error instanceof Error ? syncRuns.error.message : null}
+          />
+          <SyncRunDetailContent
+            runId={selectedRunId}
+            details={syncRunDetail.data?.details ?? []}
+            isLoading={syncRunDetail.isLoading}
+            error={syncRunDetail.error instanceof Error ? syncRunDetail.error.message : null}
+          />
+        </TabsContent>
+        <TabsContent value="webhooks">
+          <WebhookHistoryContent
+            rows={webhookHistory.data?.webhookLogs ?? []}
+            totalCount={webhookHistory.data?.totalCount ?? 0}
+            page={webhookPage}
+            eventType={webhookEventType}
+            processedFilter={webhookProcessedFilter}
+            onEventTypeChange={setWebhookEventType}
+            onProcessedFilterChange={setWebhookProcessedFilter}
+            onPageChange={setWebhookPage}
+            isLoading={webhookHistory.isLoading}
+            error={webhookHistory.error instanceof Error ? webhookHistory.error.message : null}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
