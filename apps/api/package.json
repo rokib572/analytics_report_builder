@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "dotenv -e ../../.env -- tsx watch --include './src/**' --include '../../domain/**' --include '../../packages/**' src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node --import tsx dist/index.js",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0"
   },
@@ -31,6 +31,7 @@
     "node-cron": "latest",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "tsx": "latest",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -41,7 +42,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "dotenv-cli": "^11.0.0",
-    "tsx": "latest",
     "typescript": "^5"
   }
 }
