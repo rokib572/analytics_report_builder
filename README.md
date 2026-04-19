@@ -33,12 +33,13 @@ Copy `.env.example` to `.env` at the project root and fill in the values.
 
 ### `apps/api`
 
-| Variable             | Required | Description                                                 |
-| -------------------- | -------- | ----------------------------------------------------------- |
-| `DATABASE_URL`       | Yes      | PostgreSQL connection string                                |
-| `PORT`               | No       | API server port (default: `3001`)                           |
-| `BETTER_AUTH_SECRET` | Yes      | Secret key for Better Auth session signing                  |
-| `BETTER_AUTH_URL`    | Yes      | Frontend URL for CORS origin (e.g. `http://localhost:5173`) |
+| Variable             | Required | Description                                                                                                                          |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`       | Yes      | PostgreSQL connection string                                                                                                         |
+| `PORT`               | No       | API server port (default: `3001`)                                                                                                    |
+| `BETTER_AUTH_SECRET` | Yes      | Secret key for Better Auth session signing                                                                                           |
+| `BETTER_AUTH_URL`    | Yes      | Frontend URL for CORS origin (e.g. `http://localhost:5173`)                                                                          |
+| `SYSTEM_ADMINS_JSON` | No       | JSON array of extra system admins for `pnpm db:seed`, e.g. `[{"email":"admin@example.com","name":"Admin","password":"changeme123"}]` |
 
 ### `apps/ui`
 
