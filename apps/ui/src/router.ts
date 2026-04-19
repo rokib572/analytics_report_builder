@@ -6,6 +6,7 @@ export const Router = createRouter({
   VerifyEmailSent: "/verify-email-sent?:email",
   AcceptInvite: "/accept-invite",
   Onboarding: "/onboarding",
+  Profile: "/profile",
   Home: "/",
   SquareLocations: "/square/locations",
   SquareLocationGet: "/square/locations/:id",

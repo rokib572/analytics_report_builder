@@ -72,7 +72,7 @@ export const NavUser = () => {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => Router.push("Profile")}>
               <User />
               Profile
             </DropdownMenuItem>

@@ -30,9 +30,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
   updatedAt: true,
   customerId: true,
 })
+export const updateUserSchema = createInsertSchema(users).partial().omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  customerId: true,
+})
 export const selectUserSchema = createSelectSchema(users).omit({
   betterAuthUserId: true,
 })
 
 export type UserPayload = ReturnType<typeof insertUserSchema.parse>
+export type UserUpdatePayload = ReturnType<typeof updateUserSchema.parse>
 export type UserDto = ReturnType<typeof selectUserSchema.parse>

@@ -10,6 +10,7 @@ import { LoginRoute } from "./routes/login"
 import { SignupRoute } from "./routes/signup"
 import { VerifyEmailSentRoute } from "./routes/verify-email-sent"
 import { OnboardingRoute } from "./routes/onboarding"
+import { ProfileRoute } from "./routes/profile"
 import { HomeRoute } from "./routes/home"
 import { LocationsRoute } from "./routes/square/locations"
 import { LocationGetRoute } from "./routes/square/locations/get"
@@ -31,6 +32,7 @@ const App = () => {
     "VerifyEmailSent",
     "AcceptInvite",
     "Onboarding",
+    "Profile",
     "Home",
     "SquareLocations",
     "SquareLocationGet",
@@ -79,6 +81,7 @@ const App = () => {
         <DashboardLayout>
           <RouteRoleGuard routeName={route?.name}>
             {route?.name === "Home" && <HomeRoute />}
+            {route?.name === "Profile" && <ProfileRoute />}
             {route?.name === "SquareLocations" && <LocationsRoute />}
             {route?.name === "SquareLocationGet" && <LocationGetRoute />}
             {route?.name === "SquareOrders" && <OrdersRoute />}
