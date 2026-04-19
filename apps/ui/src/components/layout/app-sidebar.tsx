@@ -178,11 +178,14 @@ export const AppSidebar = () => {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" onClick={() => Router.push("Home")}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <BarChart3 className="size-4" />
-              </div>
+              <img
+                src="/images/logo/brand-logo.png"
+                alt="AperioBI"
+                className="size-20 rounded-lg object-contain"
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">Analytics</span>
+                <span className="truncate font-semibold">AperioBI</span>
+
                 <span className="truncate text-xs">Report Builder</span>
               </div>
             </SidebarMenuButton>

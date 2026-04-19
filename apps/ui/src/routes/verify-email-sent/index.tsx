@@ -43,7 +43,8 @@ export const VerifyEmailSentRoute = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
+      <img src="/images/logo/logo-v2.png" alt="AperioBI" className="mb-6 h-24 w-auto" />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Check your email</CardTitle>

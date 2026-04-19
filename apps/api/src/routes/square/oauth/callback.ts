@@ -18,7 +18,8 @@ const SQUARE_APP_NAME = "square"
 const callbackRouter = new Hono().get("/", async (context) => {
   const code = context.req.query("code")
   const state = context.req.query("state")
-  const uiBaseUrl = process.env.UI_BASE_URL ?? "http://localhost:5173"
+  const uiBaseUrl =
+    process.env.UI_BASE_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
 
   if (!code || !state) {
     return context.redirect(`${uiBaseUrl}/connect?error=Missing+authorization+code+or+state`)
