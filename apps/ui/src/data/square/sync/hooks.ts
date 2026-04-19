@@ -66,7 +66,7 @@ export const useSyncCatalog = () => {
   })
 }
 
-export const useBackfillStatus = () => {
+export const useBackfillStatus = (enabled = true) => {
   const apiScopeKey = useApiScopeKey()
 
   return useQuery({
@@ -80,5 +80,6 @@ export const useBackfillStatus = () => {
       const status = query.state.data?.backfill?.status
       return status === "pending" || status === "running" ? 10000 : false
     },
+    enabled,
   })
 }
