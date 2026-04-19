@@ -1,4 +1,4 @@
-# Analytics Report Builder
+# AperioBI
 
 Monorepo for building analytics reports with a web UI, API, database layer, and shared packages.
 

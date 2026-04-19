@@ -19,14 +19,14 @@ type VerificationEmailProps = {
 export const VerificationEmail = ({ userName, verifyUrl }: VerificationEmailProps) => (
   <Html>
     <Head />
-    <Preview>Verify your email to continue setting up Analytics.</Preview>
+    <Preview>Verify your email to continue setting up AperioBI.</Preview>
     <Body style={body}>
       <Container style={container}>
         <Section style={card}>
           <Heading style={heading}>Verify your email</Heading>
           <Text style={paragraph}>Hi {userName},</Text>
           <Text style={paragraph}>
-            Confirm your email address to finish setting up your Analytics account.
+            Confirm your email address to finish setting up your AperioBI account.
           </Text>
           <Button href={verifyUrl} style={button}>
             Verify email

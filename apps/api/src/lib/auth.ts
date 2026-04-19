@@ -47,7 +47,7 @@ export const auth = betterAuth({
       try {
         await sendEmail({
           to: user.email,
-          subject: "Reset your Analytics password",
+          subject: "Reset your AperioBI password",
           template: createElement(PasswordResetEmail, {
             userName: user.name,
             resetUrl: url,
@@ -77,7 +77,7 @@ export const auth = betterAuth({
       try {
         await sendEmail({
           to: user.email,
-          subject: "Verify your email for Analytics",
+          subject: "Verify your email for AperioBI",
           template: createElement(VerificationEmail, {
             userName: user.name,
             verifyUrl: url,

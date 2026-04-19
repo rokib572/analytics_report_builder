@@ -27,14 +27,14 @@ const createInvitationRouter = new Hono<AuthEnv>()
     const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:5173"
     const link = `${baseUrl}/accept-invite?token=${invitation.token}`
     const customer = await getCustomer(db, customerId)
-    const customerName = customer?.companyName ?? customer?.name ?? "Analytics"
+    const customerName = customer?.companyName ?? customer?.name ?? "AperioBI"
     let emailSent = false
 
     if (process.env.NODE_ENV === "production") {
       try {
         await sendEmail({
           to: email,
-          subject: `${user.name} invited you to ${customerName} on Analytics`,
+          subject: `${user.name} invited you to ${customerName} on AperioBI`,
           template: (
             <InvitationEmail
               inviterName={user.name}

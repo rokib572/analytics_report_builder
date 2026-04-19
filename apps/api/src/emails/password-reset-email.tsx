@@ -19,14 +19,14 @@ type PasswordResetEmailProps = {
 export const PasswordResetEmail = ({ userName, resetUrl }: PasswordResetEmailProps) => (
   <Html>
     <Head />
-    <Preview>Reset your Analytics password.</Preview>
+    <Preview>Reset your AperioBI password.</Preview>
     <Body style={body}>
       <Container style={container}>
         <Section style={card}>
           <Heading style={heading}>Reset your password</Heading>
           <Text style={paragraph}>Hi {userName},</Text>
           <Text style={paragraph}>
-            We received a request to reset the password for your Analytics account.
+            We received a request to reset the password for your AperioBI account.
           </Text>
           <Button href={resetUrl} style={button}>
             Reset password

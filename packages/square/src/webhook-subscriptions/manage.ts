@@ -36,7 +36,7 @@ export const createWebhookSubscription = async (environment: string, notificatio
   const response = await client.webhooks.subscriptions.create({
     idempotencyKey: crypto.randomUUID(),
     subscription: {
-      name: "Analytics Report Builder",
+      name: "AperioBI",
       notificationUrl,
       eventTypes: WEBHOOK_EVENT_TYPES,
       apiVersion: "2025-01-23",
