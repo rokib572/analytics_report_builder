@@ -9,6 +9,7 @@ import type {
   SavedReport,
 } from "@analytics/validators"
 import { apiClient, getApiAccountId, getApiCustomerId } from "../../lib/api-client"
+import { apiBaseUrl } from "../../lib/api-base-url"
 import { downloadBlob } from "../../lib/download"
 
 export const DEFAULT_REPORT_PAGE_SIZE = 10_000
@@ -96,7 +97,7 @@ export const useExportReport = () => {
       if (customerId) headers.set("X-Customer-Id", customerId)
       if (accountId) headers.set("X-Account-Id", accountId)
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/reports/export`, {
+      const response = await fetch(`${apiBaseUrl}/api/reports/export`, {
         method: "POST",
         credentials: "include",
         headers,

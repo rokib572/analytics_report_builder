@@ -1,5 +1,6 @@
 import { hc } from "hono/client"
 import type { AppType } from "@analytics/api"
+import { apiBaseUrl } from "./api-base-url"
 
 let _selectedCustomerId: string | null = null
 let _selectedAccountId: string | null = localStorage.getItem("selectedAccountId")
@@ -21,7 +22,7 @@ export const setApiAccountId = (id: string | null) => {
 
 export const getApiAccountId = () => _selectedAccountId
 
-export const apiClient = hc<AppType>(import.meta.env.VITE_API_URL, {
+export const apiClient = hc<AppType>(apiBaseUrl, {
   init: { credentials: "include" },
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers)
