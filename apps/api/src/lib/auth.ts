@@ -13,6 +13,7 @@ import {
 } from "@analytics/database"
 import { sendEmail } from "@analytics/email"
 import { VerificationEmail } from "../emails/verification-email"
+import { allowedOrigins } from "./allowed-origins"
 import { db } from "./db"
 
 const isProduction = process.env.NODE_ENV === "production"
@@ -28,7 +29,7 @@ export const auth = betterAuth({
     },
   }),
   basePath: "/api/auth",
-  trustedOrigins: [process.env.BETTER_AUTH_URL ?? "http://localhost:5173"],
+  trustedOrigins: allowedOrigins,
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isProduction,

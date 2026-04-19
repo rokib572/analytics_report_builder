@@ -26,13 +26,14 @@ import syncHistoryRouter from "./routes/square/sync/history"
 import webhookHistoryRouter from "./routes/square/sync/webhook-history"
 import reportsRouter from "./routes/square/reports/index"
 import permissionsRouter from "./routes/permissions"
+import { resolveCorsOrigin } from "./lib/allowed-origins"
 
 const app = new Hono()
   .onError(errorHandler)
   .use(
     "*",
     cors({
-      origin: "http://localhost:5173",
+      origin: resolveCorsOrigin,
       allowHeaders: ["Content-Type", "Authorization", "X-Account-Id", "X-Customer-Id"],
       allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
       credentials: true,
