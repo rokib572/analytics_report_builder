@@ -26,6 +26,8 @@ import { ConnectRoute } from "./routes/connect"
 import { ReportBuilderRoute } from "./routes/report-builder"
 import { AcceptInviteRoute } from "./routes/accept-invite"
 import { TeamRoute } from "./routes/permissions"
+import { HelpRoute } from "./routes/help"
+import { HelpTopicRoute } from "./routes/help/topic"
 import { Toaster } from "./components/toaster"
 
 const App = () => {
@@ -49,6 +51,8 @@ const App = () => {
     "Integrations",
     "Connect",
     "Team",
+    "Help",
+    "HelpTopic",
     "ReportBuilder",
     "ReportBuilderGet",
   ])
@@ -110,6 +114,8 @@ const App = () => {
             {route?.name === "Integrations" && <IntegrationsRoute />}
             {route?.name === "Connect" && <ConnectRoute />}
             {route?.name === "Team" && <TeamRoute />}
+            {route?.name === "Help" && <HelpRoute />}
+            {route?.name === "HelpTopic" && <HelpTopicRoute />}
             {route?.name === "ReportBuilder" && <ReportBuilderRoute />}
             {route?.name === "ReportBuilderGet" && <ReportBuilderRoute />}
             {!route && <p>Not found</p>}

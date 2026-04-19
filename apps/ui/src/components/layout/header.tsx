@@ -1,7 +1,9 @@
 import type { ReactNode } from "react"
-import { Separator, SidebarTrigger } from "@analytics/ui-shared"
+import { Button, Separator, SidebarTrigger } from "@analytics/ui-shared"
+import { HelpCircle } from "lucide-react"
 import { useIntegrations } from "../../data/integrations/hooks"
 import { useBackfillStatus } from "../../data/square/sync/hooks"
+import { Router } from "../../router"
 import { ImpersonationBanner } from "./impersonation-banner"
 
 export const Header = ({ children }: { children?: ReactNode }) => {
@@ -27,6 +29,11 @@ export const Header = ({ children }: { children?: ReactNode }) => {
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
         {children}
+        <Button variant="ghost" size="icon" className="ml-auto" asChild>
+          <a href={Router.Help()} aria-label="Help">
+            <HelpCircle className="size-5" />
+          </a>
+        </Button>
       </header>
     </div>
   )

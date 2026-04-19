@@ -20,6 +20,8 @@ export const Router = createRouter({
   Integrations: "/integrations",
   Connect: "/connect",
   Team: "/team",
+  Help: "/help",
+  HelpTopic: "/help/:topicId",
   ReportBuilder: "/report-builder",
   ReportBuilderGet: "/report-builder/:reportId",
 })
