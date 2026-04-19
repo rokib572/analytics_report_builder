@@ -1,7 +1,5 @@
-import { createContext, useContext, useCallback, useState, type ReactNode } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { createContext, useContext, type ReactNode } from "react"
 import { isAccountAdmin, isSystemAdmin } from "@analytics/validators"
-import { setApiCustomerId, setApiAccountId } from "./api-client"
 
 type AppUser = {
   id: string
@@ -21,22 +19,21 @@ type Permission = {
   allowed: boolean
 }
 
-type Account = {
-  id: string
-  customerId: string
-  role: string
-  customerName: string
+type ImpersonationState = {
+  active: true
+  originalUserId: string
+  originalUserName: string
+  originalRole: string
+  assumedCustomerId: string
+  assumedCustomerName: string
 }
 
 type AuthContextValue = {
   user: AppUser
   permissions: Permission[]
-  accounts: Account[]
+  impersonation: ImpersonationState | null
   isAccountAdmin: boolean
   isSystemAdmin: boolean
-  selectedCustomerId: string | null
-  setSelectedCustomerId: (id: string | null) => void
-  switchAccount: (customerId: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -50,49 +47,29 @@ export const useAuth = () => {
 }
 
 export const useApiScopeKey = () => {
-  const { user, selectedCustomerId } = useAuth()
-  return `${user.customerId}:${selectedCustomerId ?? "self"}`
+  const { user, impersonation } = useAuth()
+  return `${user.customerId}:${impersonation?.assumedCustomerId ?? "self"}`
 }
 
 export const AuthProvider = ({
   user,
   permissions,
-  accounts,
+  impersonation,
   children,
 }: {
   user: AppUser
   permissions: Permission[]
-  accounts: Account[]
+  impersonation: ImpersonationState | null
   children: ReactNode
 }) => {
-  const queryClient = useQueryClient()
-  const [selectedCustomerId, _setSelectedCustomerId] = useState<string | null>(null)
-
-  const setSelectedCustomerId = useCallback(
-    (id: string | null) => {
-      _setSelectedCustomerId(id)
-      setApiCustomerId(id)
-      void queryClient.invalidateQueries()
-    },
-    [queryClient],
-  )
-
-  const switchAccount = useCallback((customerId: string) => {
-    setApiAccountId(customerId)
-    window.location.reload()
-  }, [])
-
   return (
     <AuthContext.Provider
       value={{
         user,
         permissions,
-        accounts,
+        impersonation,
         isAccountAdmin: isAccountAdmin(user.role),
         isSystemAdmin: isSystemAdmin(user.role),
-        selectedCustomerId,
-        setSelectedCustomerId,
-        switchAccount,
       }}
     >
       {children}

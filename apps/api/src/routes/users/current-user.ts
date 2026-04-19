@@ -14,7 +14,7 @@ const UpdateCurrentUserSchema = z.object({
 const meRouter = new Hono<AuthEnv>()
   .get("/", async (context) => {
     const user = context.get("user")
-    const accounts = context.get("accounts")
+    const impersonation = context.get("impersonation")
 
     // Owner/admin/system_admin have full access — no need to fetch permissions
     const permissions =
@@ -22,16 +22,8 @@ const meRouter = new Hono<AuthEnv>()
         ? []
         : await listPermissions(db, user.customerId, user.id)
 
-    // Fetch customer names for all accounts
-    const customerIds = accounts.map((a) => a.customerId)
-    const customerRecords = await getCustomersByIds(db, customerIds)
+    const customerRecords = await getCustomersByIds(db, [user.customerId])
     const customerMap = new Map(customerRecords.map((c) => [c.id, c]))
-
-    const accountsWithNames = accounts.map((a) => ({
-      ...a,
-      customerName:
-        customerMap.get(a.customerId)?.companyName ?? customerMap.get(a.customerId)?.name ?? "",
-    }))
 
     return context.json({
       user: {
@@ -43,7 +35,7 @@ const meRouter = new Hono<AuthEnv>()
         companyName: customerMap.get(user.customerId)?.companyName ?? "",
       },
       permissions,
-      accounts: accountsWithNames,
+      impersonation,
     })
   })
   .patch("/", zValidator("json", UpdateCurrentUserSchema), async (context) => {

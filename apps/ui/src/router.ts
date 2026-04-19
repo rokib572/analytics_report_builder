@@ -9,6 +9,7 @@ export const Router = createRouter({
   AcceptInvite: "/accept-invite",
   Onboarding: "/onboarding",
   Profile: "/profile",
+  AdminCustomers: "/admin/customers",
   Home: "/",
   SquareLocations: "/square/locations",
   SquareLocationGet: "/square/locations/:id",

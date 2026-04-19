@@ -1,13 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { apiClient, getApiAccountId } from "../../lib/api-client"
+import { apiClient, getAssumedCustomerId } from "../../lib/api-client"
 import { authClient } from "../../lib/auth-client"
 
 export const useCurrentUser = () =>
   useQuery({
-    queryKey: ["current-user", getApiAccountId() ?? "default"],
+    queryKey: ["current-user", getAssumedCustomerId() ?? "self"],
     queryFn: async () => {
       const res = await apiClient.api["current-user"].$get()
-      if (!res.ok) throw new Error("Failed to fetch current user")
+      if (!res.ok) {
+        const error = (await res.json()) as { message?: string }
+        throw new Error(error.message ?? "Failed to fetch current user")
+      }
       return res.json()
     },
   })

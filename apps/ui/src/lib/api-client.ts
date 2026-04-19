@@ -2,35 +2,25 @@ import { hc } from "hono/client"
 import type { AppType } from "@analytics/api"
 import { apiBaseUrl } from "./api-base-url"
 
-let _selectedCustomerId: string | null = null
-let _selectedAccountId: string | null = localStorage.getItem("selectedAccountId")
+let _assumedCustomerId: string | null = localStorage.getItem("assumedCustomerId")
 
-export const setApiCustomerId = (id: string | null) => {
-  _selectedCustomerId = id
-}
-
-export const getApiCustomerId = () => _selectedCustomerId
-
-export const setApiAccountId = (id: string | null) => {
-  _selectedAccountId = id
+export const setAssumedCustomerId = (id: string | null) => {
+  _assumedCustomerId = id
   if (id) {
-    localStorage.setItem("selectedAccountId", id)
+    localStorage.setItem("assumedCustomerId", id)
   } else {
-    localStorage.removeItem("selectedAccountId")
+    localStorage.removeItem("assumedCustomerId")
   }
 }
 
-export const getApiAccountId = () => _selectedAccountId
+export const getAssumedCustomerId = () => _assumedCustomerId
 
 export const apiClient = hc<AppType>(apiBaseUrl, {
   init: { credentials: "include" },
   fetch: (input: RequestInfo | URL, init?: RequestInit) => {
     const headers = new Headers(init?.headers)
-    if (_selectedCustomerId) {
-      headers.set("X-Customer-Id", _selectedCustomerId)
-    }
-    if (_selectedAccountId) {
-      headers.set("X-Account-Id", _selectedAccountId)
+    if (_assumedCustomerId) {
+      headers.set("X-Assume-Customer-Id", _assumedCustomerId)
     }
     return fetch(input, { ...init, headers })
   },

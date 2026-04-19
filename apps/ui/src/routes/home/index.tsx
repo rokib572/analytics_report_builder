@@ -174,7 +174,7 @@ export const HomeRoute = () => {
           </CardHeader>
           <CardContent className="pl-2">
             {isPending ? (
-              <Skeleton className="h-[350px] w-full" />
+              <Skeleton className="h-87.5 w-full" />
             ) : (
               <OverviewChart data={chartData} />
             )}

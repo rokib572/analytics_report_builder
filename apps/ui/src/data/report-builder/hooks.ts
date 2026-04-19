@@ -8,7 +8,7 @@ import type {
   ReportQueryResult,
   SavedReport,
 } from "@analytics/validators"
-import { apiClient, getApiAccountId, getApiCustomerId } from "../../lib/api-client"
+import { apiClient, getAssumedCustomerId } from "../../lib/api-client"
 import { apiBaseUrl } from "../../lib/api-base-url"
 import { downloadBlob } from "../../lib/download"
 
@@ -91,11 +91,9 @@ export const useExportReport = () => {
   const mutation = useMutation({
     mutationFn: async (payload: ReportExport) => {
       const headers = new Headers({ "Content-Type": "application/json" })
-      const customerId = getApiCustomerId()
-      const accountId = getApiAccountId()
+      const assumedCustomerId = getAssumedCustomerId()
 
-      if (customerId) headers.set("X-Customer-Id", customerId)
-      if (accountId) headers.set("X-Account-Id", accountId)
+      if (assumedCustomerId) headers.set("X-Assume-Customer-Id", assumedCustomerId)
 
       const response = await fetch(`${apiBaseUrl}/api/reports/export`, {
         method: "POST",

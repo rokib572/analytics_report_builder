@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Building2,
   Home,
   Link2,
   Plug,
@@ -37,6 +38,7 @@ type RouteName =
   | "Integrations"
   | "Connect"
   | "Team"
+  | "AdminCustomers"
   | "ReportBuilder"
 
 type NavItem = {
@@ -68,6 +70,12 @@ const coreNavItems: NavItem[] = [
     icon: Users,
     route: "Team",
     roles: ["owner", "admin", "system_admin"],
+  },
+  {
+    label: "Customers",
+    icon: Building2,
+    route: "AdminCustomers",
+    roles: ["system_admin"],
   },
 ]
 
@@ -115,6 +123,7 @@ export const AppSidebar = () => {
     "Integrations",
     "Connect",
     "Team",
+    "AdminCustomers",
     "ReportBuilder",
     "ReportBuilderGet",
   ])

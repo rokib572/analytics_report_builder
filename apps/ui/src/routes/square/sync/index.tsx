@@ -29,7 +29,7 @@ const ZERO_INVENTORY = {
 }
 
 export const SyncRoute = () => {
-  const { selectedCustomerId, isSystemAdmin } = useAuth()
+  const { impersonation, isSystemAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState("manual")
   const [syncHistoryPage, setSyncHistoryPage] = useState(1)
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
@@ -140,8 +140,9 @@ export const SyncRoute = () => {
         </p>
         {isSystemAdmin ? (
           <p className="mt-1 text-sm text-muted-foreground">
-            History and webhook data are shown for the customer selected in the header.
-            {!selectedCustomerId ? " Select a customer to inspect their Square sync data." : null}
+            {impersonation?.active
+              ? `History and webhook data are shown for ${impersonation.assumedCustomerName}.`
+              : "Assume a customer from the Customers page to inspect their Square sync data."}
           </p>
         ) : null}
       </div>

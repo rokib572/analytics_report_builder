@@ -34,7 +34,7 @@ const app = new Hono()
     "*",
     cors({
       origin: resolveCorsOrigin,
-      allowHeaders: ["Content-Type", "Authorization", "X-Account-Id", "X-Customer-Id"],
+      allowHeaders: ["Content-Type", "Authorization", "X-Assume-Customer-Id"],
       allowMethods: ["POST", "GET", "OPTIONS", "PUT", "DELETE"],
       credentials: true,
     }),

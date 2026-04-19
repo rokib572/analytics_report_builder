@@ -47,3 +47,22 @@ export const getUserByEmail = async (
 
   return user ?? null
 }
+
+export const getActiveOwnerByCustomerId = async (
+  db: DbClient,
+  query: { customerId: string },
+): Promise<UserDto | null> => {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.customerId, query.customerId),
+        eq(users.role, "owner"),
+        eq(users.isActive, true),
+      ),
+    )
+    .limit(1)
+
+  return user ?? null
+}

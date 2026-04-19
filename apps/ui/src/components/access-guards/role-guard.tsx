@@ -17,6 +17,7 @@ const routeRoles: Record<string, UserRole[]> = {
   Integrations: ["owner", "admin"],
   Connect: ["owner", "admin"],
   Team: ["owner", "admin", "system_admin"],
+  AdminCustomers: ["system_admin"],
   SquareSync: ["system_admin"],
 }
 

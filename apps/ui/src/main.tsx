@@ -13,6 +13,7 @@ import { SignupRoute } from "./routes/signup"
 import { VerifyEmailSentRoute } from "./routes/verify-email-sent"
 import { OnboardingRoute } from "./routes/onboarding"
 import { ProfileRoute } from "./routes/profile"
+import { AdminCustomersRoute } from "./routes/admin-customers"
 import { HomeRoute } from "./routes/home"
 import { LocationsRoute } from "./routes/square/locations"
 import { LocationGetRoute } from "./routes/square/locations/get"
@@ -37,6 +38,7 @@ const App = () => {
     "AcceptInvite",
     "Onboarding",
     "Profile",
+    "AdminCustomers",
     "Home",
     "SquareLocations",
     "SquareLocationGet",
@@ -98,6 +100,7 @@ const App = () => {
           <RouteRoleGuard routeName={route?.name}>
             {route?.name === "Home" && <HomeRoute />}
             {route?.name === "Profile" && <ProfileRoute />}
+            {route?.name === "AdminCustomers" && <AdminCustomersRoute />}
             {route?.name === "SquareLocations" && <LocationsRoute />}
             {route?.name === "SquareLocationGet" && <LocationGetRoute />}
             {route?.name === "SquareOrders" && <OrdersRoute />}
