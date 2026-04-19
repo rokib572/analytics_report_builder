@@ -9,7 +9,7 @@ import { OnboardingFormSchema } from "./schemas"
 import type { OnboardingFormValues } from "./types"
 
 export const OnboardingRoute = () => {
-  const { user } = useAuth()
+  const { isSystemAdmin, user } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -28,10 +28,15 @@ export const OnboardingRoute = () => {
   })
 
   useEffect(() => {
+    if (isSystemAdmin) {
+      Router.replace("Home")
+      return
+    }
+
     if (user.companyName) {
       Router.replace("Connect")
     }
-  }, [user.companyName])
+  }, [isSystemAdmin, user.companyName])
 
   const onSubmit = async (values: OnboardingFormValues) => {
     setError(null)
@@ -48,7 +53,7 @@ export const OnboardingRoute = () => {
     Router.push("Connect")
   }
 
-  if (user.companyName) {
+  if (isSystemAdmin || user.companyName) {
     return null
   }
 

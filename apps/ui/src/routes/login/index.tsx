@@ -124,6 +124,15 @@ export const LoginRoute = () => {
               )}
             </div>
 
+            <p className="text-sm">
+              <a
+                href={Router.ForgotPassword()}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </a>
+            </p>
+
             {error && <p className="text-sm text-destructive">{error}</p>}
             {pendingVerificationEmail && (
               <button

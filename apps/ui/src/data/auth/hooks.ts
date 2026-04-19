@@ -51,3 +51,39 @@ export const useChangePassword = () =>
       return result.data
     },
   })
+
+export const useForgotPassword = () =>
+  useMutation({
+    mutationFn: async (payload: { email: string; redirectTo: string }) => {
+      const result = await authClient.requestPasswordReset(payload)
+
+      if (result.error) {
+        throw new Error(result.error.message ?? "Failed to send reset link")
+      }
+
+      return result.data
+    },
+  })
+
+export const useResetPassword = () =>
+  useMutation({
+    mutationFn: async (payload: { newPassword: string; token: string }) => {
+      const result = await authClient.resetPassword(payload)
+
+      if (result.error) {
+        const code = "code" in result.error ? String(result.error.code) : ""
+
+        if (code === "INVALID_TOKEN") {
+          throw new Error("This reset link is invalid or has already been used.")
+        }
+
+        if (code === "TOKEN_EXPIRED") {
+          throw new Error("This reset link has expired. Request a new one and try again.")
+        }
+
+        throw new Error(result.error.message ?? "Failed to reset password")
+      }
+
+      return result.data
+    },
+  })

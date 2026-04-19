@@ -12,6 +12,7 @@ import {
   updateInvitationStatus,
 } from "@analytics/database"
 import { sendEmail } from "@analytics/email"
+import { PasswordResetEmail } from "../emails/password-reset-email"
 import { VerificationEmail } from "../emails/verification-email"
 import { allowedOrigins } from "./allowed-origins"
 import { db } from "./db"
@@ -33,6 +34,32 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: isProduction,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    sendResetPassword: async ({ user, url }) => {
+      if (!isProduction) {
+        console.info("Reset password email skipped (non-production env)", {
+          email: user.email,
+          url,
+        })
+        return
+      }
+
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: "Reset your Analytics password",
+          template: createElement(PasswordResetEmail, {
+            userName: user.name,
+            resetUrl: url,
+          }),
+        })
+      } catch (error) {
+        console.error("Reset password email send failed", {
+          email: user.email,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    },
   },
   emailVerification: {
     sendOnSignUp: isProduction,

@@ -7,6 +7,8 @@ import { Router } from "./router"
 import { AuthGuard, GuestGuard, OnboardingGuard, RouteRoleGuard } from "./components/access-guards"
 import { DashboardLayout } from "./components/dashboard-layout"
 import { LoginRoute } from "./routes/login"
+import { ForgotPasswordRoute } from "./routes/forgot-password"
+import { ResetPasswordRoute } from "./routes/reset-password"
 import { SignupRoute } from "./routes/signup"
 import { VerifyEmailSentRoute } from "./routes/verify-email-sent"
 import { OnboardingRoute } from "./routes/onboarding"
@@ -29,6 +31,8 @@ const App = () => {
   const route = Router.useRoute([
     "Login",
     "Signup",
+    "ForgotPassword",
+    "ResetPassword",
     "VerifyEmailSent",
     "AcceptInvite",
     "Onboarding",
@@ -57,6 +61,18 @@ const App = () => {
     return (
       <GuestGuard>
         <SignupRoute />
+      </GuestGuard>
+    )
+  if (route?.name === "ForgotPassword")
+    return (
+      <GuestGuard>
+        <ForgotPasswordRoute />
+      </GuestGuard>
+    )
+  if (route?.name === "ResetPassword")
+    return (
+      <GuestGuard>
+        <ResetPasswordRoute />
       </GuestGuard>
     )
   if (route?.name === "VerifyEmailSent")
