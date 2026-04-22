@@ -34,8 +34,17 @@ const getSquareOAuthConfig = (environment: string) => {
 export const buildAuthorizeUrl = (state: string, environment: string) => {
   const { clientId } = getSquareOAuthConfig(environment)
   const baseUrl = getBaseUrl(environment)
-  const scopes = SQUARE_SCOPES.join("+")
-  return `${baseUrl}/oauth2/authorize?client_id=${clientId}&scope=${scopes}&session=false&state=${state}`
+  const params = new URLSearchParams({
+    client_id: clientId,
+    scope: SQUARE_SCOPES.join(" "),
+    state,
+  })
+
+  if (environment === "production") {
+    params.set("session", "false")
+  }
+
+  return `${baseUrl}/oauth2/authorize?${params.toString()}`
 }
 
 export const exchangeCodeForToken = async (code: string, environment: string) => {
