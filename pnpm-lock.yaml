@@ -442,6 +442,9 @@ importers:
       "@analytics/database":
         specifier: workspace:*
         version: link:../../domain/database
+      "@analytics/square":
+        specifier: workspace:*
+        version: link:../../packages/square
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1

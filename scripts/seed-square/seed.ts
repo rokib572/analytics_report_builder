@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { type Square, SquareClient, SquareEnvironment } from "square"
+import { getSquareEnvironment } from "@analytics/square"
 import {
   CATALOG_ITEMS,
   CATEGORIES,
@@ -32,7 +33,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const listLocations = async (client: SquareClient) => {
   const response = await client.locations.list()
   const locations = (response.locations ?? []).filter((l) => l.id && l.status !== "INACTIVE")
-  if (locations.length === 0) throw new Error("No active locations found in Square sandbox account")
+  if (locations.length === 0)
+    throw new Error("No active locations found in the configured Square account")
   return locations
 }
 
@@ -447,9 +449,12 @@ const main = async () => {
     process.exit(1)
   }
 
-  const client = new SquareClient({ token, environment: SquareEnvironment.Sandbox })
+  const environment = getSquareEnvironment()
+  const squareEnvironment =
+    environment === "production" ? SquareEnvironment.Production : SquareEnvironment.Sandbox
+  const client = new SquareClient({ token, environment: squareEnvironment })
 
-  console.log("Seeding Square sandbox data...\n")
+  console.log(`Seeding Square ${environment} data...\n`)
 
   const locations = await listLocations(client)
   console.log(`Using ${locations.length} location(s): ${locations.map((l) => l.name).join(", ")}\n`)
