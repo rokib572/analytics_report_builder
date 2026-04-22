@@ -1,7 +1,6 @@
 import { writeFileSync } from "node:fs"
 import { resolve } from "node:path"
 import { type Square, SquareClient, SquareEnvironment } from "square"
-import { getSquareEnvironment } from "@analytics/square"
 import {
   CATALOG_ITEMS,
   CATEGORIES,
@@ -25,6 +24,11 @@ const randomInt = (min: number, max: number): number =>
 const pickRandom = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const getSquareEnvironment = () => {
+  const env = process.env.SQUARE_ENVIRONMENT ?? "sandbox"
+  return env === "production" ? "production" : "sandbox"
+}
 
 // ---------------------------------------------------------------------------
 // Step 1: List locations
