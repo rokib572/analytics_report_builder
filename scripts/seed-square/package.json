@@ -3,13 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "seed": "tsx seed.ts"
+    "seed": "tsx seed.ts",
+    "backdate": "tsx backdate.ts"
   },
   "dependencies": {
+    "@analytics/database": "workspace:*",
+    "@analytics/data-sync": "workspace:*",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "0.45.1",
     "square": "^44.0.0"
   },
   "devDependencies": {
-    "tsx": "latest",
-    "@types/node": "latest"
+    "@types/node": "latest",
+    "tsx": "latest"
   }
 }
