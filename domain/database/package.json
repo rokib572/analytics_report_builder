@@ -7,6 +7,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate && tsx src/db/seed.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:square": "tsx src/db/seed-square.ts",
     "db:studio": "drizzle-kit studio",
     "lint": "eslint . --max-warnings 0"
   },
