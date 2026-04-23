@@ -2,6 +2,7 @@ import {
   type DbClient,
   getLocationSquareIdMap,
   upsertOrder,
+  upsertChannelBySourceName,
   deleteOrderLineItemsByOrderId,
   bulkInsertOrderLineItems,
   bulkInsertOrderFulfillments,
@@ -89,10 +90,13 @@ export const syncOrders = async (
     const orderTaxMap = getOrderTaxMap(order)
 
     const saleDate = order.createdAt.split("T")[0]
+    const sourceName = order.source?.name ?? null
+    const channel = sourceName ? await upsertChannelBySourceName(db, customerId, sourceName) : null
 
     const result = await upsertOrder(db, customerId, {
       squareId: order.id,
       locationId: internalLocationId,
+      channelId: channel?.id ?? null,
       saleDate,
       state: order.state ?? "COMPLETED",
       totalMoney: toBigInt(order.totalMoney),
@@ -103,7 +107,7 @@ export const syncOrders = async (
       netAmounts: (normalizeJsonValue(order.netAmounts) as Record<string, unknown> | null) ?? null,
       returnAmounts:
         (normalizeJsonValue(order.returnAmounts) as Record<string, unknown> | null) ?? null,
-      sourceName: order.source?.name ?? null,
+      sourceName,
       squareCustomerId: order.customerId ?? null,
       ticketName: order.ticketName ?? null,
       closedAt: order.closedAt ? new Date(order.closedAt) : null,

@@ -17,13 +17,14 @@ export const SUPPORTED_METRICS: SupportedMetric[] = [
   "totalCollected",
 ]
 
-export const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
+export const SUPPORTED_DIMENSIONS: Dimension[] = [
   "locationId",
   "saleDate",
   "dayOfWeek",
   "year",
   "week",
   "month",
+  "channel",
   "customer",
   "product",
   "productCategory",
@@ -33,8 +34,8 @@ export const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
 export const isSupportedMetricValue = (value: string): value is Metric =>
   SUPPORTED_METRICS.includes(value as SupportedMetric)
 
-export const isSupportedDimension = (value: string): value is Exclude<Dimension, "channel"> =>
-  SUPPORTED_DIMENSIONS.includes(value as Exclude<Dimension, "channel">)
+export const isSupportedDimension = (value: string): value is Dimension =>
+  SUPPORTED_DIMENSIONS.includes(value as Dimension)
 
 export const getDefaultDateRange = (): ReportConfig["dateRange"] => {
   const today = new Date()

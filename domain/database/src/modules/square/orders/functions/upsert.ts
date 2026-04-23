@@ -16,6 +16,7 @@ export const upsertOrder = async (
       target: orders.squareId,
       set: {
         locationId: sql`excluded.location_id`,
+        channelId: sql`excluded.channel_id`,
         saleDate: sql`excluded.sale_date`,
         state: sql`excluded.state`,
         totalMoney: sql`excluded.total_money`,
