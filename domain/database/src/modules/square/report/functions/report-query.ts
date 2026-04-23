@@ -23,6 +23,7 @@ import {
 } from "@analytics/report-builder"
 import { DomainError } from "@analytics/shared-libs"
 import type { DbClient } from "../../../../db/client"
+import { channels } from "../../channels/schema"
 import { dailySales } from "../../daily-sales/schema"
 import { catalogCategories } from "../../catalog-categories/schema"
 import { catalogItems } from "../../catalog-items/schema"
@@ -68,6 +69,7 @@ const customerNameExpr = sql<string>`
 const productCategoryNameExpr = sql<string>`coalesce(${catalogCategories.name}, 'Uncategorized')`
 
 const locationNameExpr = sql<string>`coalesce(${locations.name}, 'Unknown')`
+const channelNameExpr = sql<string>`coalesce(${channels.displayName}, 'Unassigned')`
 
 const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
   netSales: {
@@ -212,8 +214,8 @@ const getTemporalExpressions = (saleDateColumn: AnyPgColumn) => {
 const buildDimensionMap = (
   locationColumn: AnyPgColumn,
   saleDateColumn: AnyPgColumn,
-  extraDimensions: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> = {},
-): Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> => {
+  extraDimensions: Partial<Record<Dimension, DimensionDefinition>> = {},
+): Partial<Record<Dimension, DimensionDefinition>> => {
   const {
     dayOfWeekSortExpr,
     dayOfWeekNameExpr,
@@ -305,26 +307,33 @@ const ordersDimensionMap = buildDimensionMap(orders.locationId, orders.saleDate,
     groupBy: customerNameExpr,
     orderBy: customerNameExpr,
   },
+  channel: {
+    select: channelNameExpr,
+    groupBy: [orders.channelId, channels.displayName],
+    orderBy: channelNameExpr,
+    filterBy: orders.channelId,
+  },
 })
 
-const dailySalesFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+const dailySalesFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: dailySales.locationId,
   saleDate: dailySales.saleDate,
 }
-const lineItemsFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+const lineItemsFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: orderLineItems.locationId,
   saleDate: orderLineItems.saleDate,
   product: orderLineItems.name,
   productCategory: catalogCategories.name,
 }
-const tendersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+const tendersFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: orderTenders.locationId,
   saleDate: orders.saleDate,
   paymentMethod: orderTenders.type,
 }
-const ordersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
+const ordersFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: orders.locationId,
   saleDate: orders.saleDate,
+  channel: orders.channelId,
 }
 
 const buildExpressionCondition = (
@@ -371,8 +380,8 @@ const getModeConfig = (
   mode: QueryMode,
 ): {
   metricMap: Record<SupportedMetric, MetricDefinition>
-  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>
-  filterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>>
+  dimensionMap: Partial<Record<Dimension, DimensionDefinition>>
+  filterColumns: Partial<Record<Dimension, AnyPgColumn>>
 } => {
   switch (mode) {
     case "lineItems":
@@ -403,8 +412,8 @@ const getModeConfig = (
 }
 
 const getDimensionDefinition = (
-  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>,
-  dimension: Exclude<Dimension, "channel">,
+  dimensionMap: Partial<Record<Dimension, DimensionDefinition>>,
+  dimension: Dimension,
 ) => {
   const definition = dimensionMap[dimension]
 
@@ -475,8 +484,6 @@ export const buildReportQuery = async (
   const flatColumns: ReportColumn[] = []
 
   for (const dimension of dimensions) {
-    if (dimension === "channel") continue
-
     const definition = getDimensionDefinition(dimensionMap, dimension)
     selectFields[dimension] = definition.select
     groupByFields.push(
@@ -525,15 +532,6 @@ export const buildReportQuery = async (
   ]
 
   for (const filter of config.filters) {
-    if (filter.dimension === "channel") {
-      throw DomainError.makeError({
-        code: "BAD_REQUEST",
-        message: `Dimension ${filter.dimension} is not supported in filters`,
-        clientSafeMessage: `Dimension "${filter.dimension}" is not supported yet.`,
-        additionalContext: { dimension: filter.dimension },
-      })
-    }
-
     const filterColumn = filterColumns[filter.dimension]
 
     if (filterColumn) {
@@ -619,6 +617,7 @@ export const buildReportQuery = async (
               .select(selectFields as never)
               .from(orders)
               .innerJoin(locations, eq(orders.locationId, locations.id))
+              .leftJoin(channels, eq(orders.channelId, channels.id))
               .leftJoin(
                 squareCustomers,
                 and(
@@ -638,7 +637,7 @@ export const buildReportQuery = async (
       ? db.select({ totalCount: count() }).from(query.as("report_rows"))
       : Promise.resolve(null)
 
-  if (firstDimension && firstDimension !== "channel") {
+  if (firstDimension) {
     const definition = getDimensionDefinition(dimensionMap, firstDimension)
     query = query.orderBy(sql`${definition.orderBy} asc`)
   }

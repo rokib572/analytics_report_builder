@@ -30,6 +30,7 @@ export const FIELD_LABELS: Record<string, string> = {
   product: "Product",
   productCategory: "Product Category",
   paymentMethod: "Payment Method",
+  channel: "Channel",
 }
 
 export const isMonetaryColumn = (column: string) => MONETARY_COLUMNS.has(column)

@@ -13,7 +13,7 @@ import type {
 import { formatReportColumn } from "./format"
 
 const unsupportedMetrics = new Set<Metric>(["uberGrossSales", "uberBogoRecoverable"])
-const unsupportedDimensions = new Set<Dimension>(["channel"])
+const unsupportedDimensions = new Set<Dimension>([])
 const orderLevelDimensions = new Set<OrderLevelDimension>([
   "customer",
   "product",
@@ -53,6 +53,7 @@ export const isComputedDimension = (dimension: Dimension): dimension is Computed
   !orderLevelDimensions.has(dimension as OrderLevelDimension)
 
 export const requiresOrderLevelQuery = (dimensions: Dimension[]): boolean =>
+  dimensions.includes("channel") ||
   dimensions.some((dimension) => orderLevelDimensions.has(dimension as OrderLevelDimension))
 
 export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
@@ -62,7 +63,7 @@ export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
 export const getQueryMode = (dimensions: Dimension[]): QueryMode => {
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
   if (dimensions.includes("paymentMethod")) return "tenders"
-  if (dimensions.includes("customer")) return "orders"
+  if (dimensions.includes("customer") || dimensions.includes("channel")) return "orders"
   return "dailySales"
 }
 
