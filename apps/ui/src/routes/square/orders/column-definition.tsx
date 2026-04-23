@@ -5,7 +5,7 @@ import type { Order } from "../../../data/square/orders/hooks"
 const formatCurrency = (cents: string | bigint | null): string =>
   cents !== null && cents !== undefined ? `$${(Number(cents) / 100).toFixed(2)}` : "—"
 
-export const columns: ColumnDef<Order, unknown>[] = [
+export const buildColumns = (locationNames: Map<string, string>): ColumnDef<Order, unknown>[] => [
   {
     accessorKey: "saleDate",
     header: "Date",
@@ -14,7 +14,10 @@ export const columns: ColumnDef<Order, unknown>[] = [
   {
     accessorKey: "locationId",
     header: "Location",
-    cell: ({ row }) => <span className="font-mono text-xs">{row.getValue("locationId")}</span>,
+    cell: ({ row }) => {
+      const locationId = row.getValue<string>("locationId")
+      return <span>{locationNames.get(locationId) ?? locationId}</span>
+    },
   },
   {
     accessorKey: "state",

@@ -67,6 +67,8 @@ const customerNameExpr = sql<string>`
 
 const productCategoryNameExpr = sql<string>`coalesce(${catalogCategories.name}, 'Uncategorized')`
 
+const locationNameExpr = sql<string>`coalesce(${locations.name}, 'Unknown')`
+
 const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
   netSales: {
     select: sql<bigint>`coalesce(sum(${dailySales.netSales}), 0)`,
@@ -225,9 +227,10 @@ const buildDimensionMap = (
 
   return {
     locationId: {
-      select: locationColumn,
-      groupBy: locationColumn,
-      orderBy: locationColumn,
+      select: locationNameExpr,
+      groupBy: [locationColumn, locations.name],
+      orderBy: locations.name,
+      filterBy: locationColumn,
     },
     saleDate: {
       select: saleDateColumn,
@@ -489,8 +492,6 @@ export const buildReportQuery = async (
       ...column,
       label: formatReportColumn(column),
     })
-
-    if (dimension === "locationId") groupByFields.push(locations.name)
   }
 
   for (const metric of config.metrics) {

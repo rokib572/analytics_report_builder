@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
 import { useLocations } from "../../../data/square/locations/hooks"
 import { useOrders } from "../../../data/square/orders/hooks"
 import { Router } from "../../../router"
-import { columns } from "./column-definition"
+import { buildColumns } from "./column-definition"
 
 export const OrdersRoute = () => {
   const [pagination, setPagination] = useState<PaginationState>({ page: 1, limit: 10 })
@@ -25,10 +25,16 @@ export const OrdersRoute = () => {
     dateTo: filters.dateTo,
   })
   const { data: locationsData } = useLocations({ page: 1, limit: 100, search: "" })
-  const locationOptions = (locationsData?.locations ?? []).map((location) => ({
+  const locations = locationsData?.locations ?? []
+  const locationOptions = locations.map((location) => ({
     label: location.name,
     value: location.id,
   }))
+  const locationNames = useMemo(
+    () => new Map(locations.map((location) => [location.id, location.name])),
+    [locations],
+  )
+  const columns = useMemo(() => buildColumns(locationNames), [locationNames])
 
   return (
     <div className="space-y-6 p-6">
