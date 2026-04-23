@@ -22,6 +22,13 @@
       "when": 1776402761479,
       "tag": "0002_closed_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776958736890,
+      "tag": "0003_yummy_psynapse",
+      "breakpoints": true
     }
   ]
 }

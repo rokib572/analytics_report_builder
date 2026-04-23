@@ -1,5 +1,6 @@
 export * from "./create"
 export * from "./update"
+export * from "./update-opened-at"
 export * from "./list"
 export * from "./get"
 export * from "./upsert"

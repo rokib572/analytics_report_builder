@@ -8,6 +8,7 @@ export const LocationSchema = z.object({
   address: z.unknown().nullable(),
   status: z.string(),
   timezone: z.string().nullable(),
+  openedAt: z.string().nullable(),
   contentHash: z.string(),
   syncedAt: z.string().nullable(),
 })
@@ -18,5 +19,13 @@ export const listSquareLocationQuerySchema = z.object({
   search: z.string().trim().default(""), // search by location name, optional, defaults to empty string (no search)
 })
 
+export const updateLocationOpenedAtSchema = z.object({
+  openedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "openedAt must be an ISO date (YYYY-MM-DD)")
+    .nullable(),
+})
+
 export type Location = z.infer<typeof LocationSchema>
 export type ListSquareLocationQuery = z.infer<typeof listSquareLocationQuerySchema>
+export type UpdateLocationOpenedAtPayload = z.infer<typeof updateLocationOpenedAtSchema>

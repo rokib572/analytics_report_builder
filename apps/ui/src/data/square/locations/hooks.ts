@@ -56,3 +56,20 @@ export const useSyncLocations = () => {
     },
   })
 }
+
+export const useUpdateLocationOpenedAt = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, openedAt }: { id: string; openedAt: string | null }) => {
+      const res = await apiClient.api.square.locations[":id"]["opened-at"].$patch({
+        param: { id },
+        json: { openedAt },
+      })
+      if (!res.ok) throw new Error("Failed to update opened date")
+      return res.json()
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["locations"] })
+    },
+  })
+}

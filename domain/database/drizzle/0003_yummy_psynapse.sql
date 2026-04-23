@@ -1,0 +1,1 @@
+ALTER TABLE "core_data"."locations" ADD COLUMN "opened_at" date;

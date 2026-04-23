@@ -1,4 +1,4 @@
-import { varchar, jsonb, timestamp, index } from "drizzle-orm/pg-core"
+import { varchar, jsonb, timestamp, date, index } from "drizzle-orm/pg-core"
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { z } from "zod"
 import { coreSchema, primaryKey, foreignKey } from "../../../db/base"
@@ -16,6 +16,7 @@ export const locations = coreSchema.table(
     address: jsonb("address").$type<Record<string, unknown> | null>(),
     status: varchar("status", { length: 50 }).notNull(),
     timezone: varchar("timezone", { length: 100 }),
+    openedAt: date("opened_at"),
     contentHash: varchar("content_hash", { length: 64 }).notNull(),
     syncedAt: timestamp("synced_at"),
   },

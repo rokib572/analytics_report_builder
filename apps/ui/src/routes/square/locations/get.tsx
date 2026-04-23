@@ -1,5 +1,6 @@
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@analytics/ui-shared"
-import { useLocation } from "../../../data/square/locations/hooks"
+import { useState } from "react"
+import { Button, Card, CardContent, CardHeader, CardTitle, Input } from "@analytics/ui-shared"
+import { useLocation, useUpdateLocationOpenedAt } from "../../../data/square/locations/hooks"
 import { Router } from "../../../router"
 
 const formatFullAddress = (address: unknown): string => {
@@ -84,9 +85,45 @@ export const LocationGetRoute = () => {
               label="Last Synced"
               value={location.syncedAt ? new Date(location.syncedAt).toLocaleString() : "—"}
             />
+            <OpenedAtEditor id={location.id} openedAt={location.openedAt ?? null} />
           </dl>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+const toInputDate = (value: string | null): string => {
+  if (!value) return ""
+  return value.slice(0, 10)
+}
+
+const OpenedAtEditor = ({ id, openedAt }: { id: string; openedAt: string | null }) => {
+  const mutation = useUpdateLocationOpenedAt()
+  const [draft, setDraft] = useState(toInputDate(openedAt))
+  const persisted = toInputDate(openedAt)
+  const isDirty = draft !== persisted
+
+  const onSave = () => {
+    mutation.mutate({ id, openedAt: draft === "" ? null : draft })
+  }
+
+  return (
+    <div>
+      <dt className="text-sm font-medium text-muted-foreground">Opened Date</dt>
+      <dd className="mt-1 flex items-center gap-2">
+        <Input
+          type="date"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          className="max-w-50"
+          aria-label="Opened date"
+        />
+        <Button size="sm" onClick={onSave} disabled={!isDirty || mutation.isPending}>
+          {mutation.isPending ? "Saving..." : "Save"}
+        </Button>
+        {mutation.isError ? <span className="text-xs text-red-600">Save failed</span> : null}
+      </dd>
     </div>
   )
 }
