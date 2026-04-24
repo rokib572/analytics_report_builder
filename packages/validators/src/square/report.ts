@@ -17,9 +17,12 @@ export const MetricSchema = z.enum([
   "costPerLaborHour",
   "templateLaborHours",
   "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
   "wasteItems",
   "wasteCost",
   "wasteCostPctOfSales",
+  "unitsSold",
 ])
 
 export const DimensionSchema = z.enum([
@@ -36,6 +39,8 @@ export const DimensionSchema = z.enum([
   "paymentMethod",
   "jobTitle",
 ])
+
+export const LocationAttributeSchema = z.enum(["daysOpen", "dateOpened"])
 
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])
 
@@ -66,6 +71,15 @@ export const ReportConfigSchema = z.object({
     to: z.string(),
   }),
   comparisons: ReportComparisonsSchema.optional(),
+  locationAttributes: z.array(LocationAttributeSchema).optional(),
+  inlineYtdMetrics: z.array(MetricSchema).optional(),
+  channelBreakdownMetrics: z.array(MetricSchema).optional(),
+  locationAgePartition: z
+    .object({
+      enabled: z.literal(true),
+      thresholdDays: z.number().int().min(1).max(365),
+    })
+    .optional(),
 })
 
 export const ReportQuerySchema = ReportConfigSchema.extend({
@@ -95,6 +109,13 @@ export const ReportColumnSchema = z.discriminatedUnion("kind", [
     label: z.string(),
     metric: MetricSchema,
     pivot: PivotCoordinateSchema.optional(),
+    breakdownGroup: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal("attribute"),
+    key: z.string(),
+    label: z.string(),
+    attribute: LocationAttributeSchema,
   }),
 ])
 
@@ -114,6 +135,15 @@ export const ReportSummaryRowSchema = z.object({
   values: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
 })
 
+export const ReportSectionKeySchema = z.enum(["mature", "new"])
+
+export const ReportSectionSchema = z.object({
+  key: ReportSectionKeySchema,
+  label: z.string(),
+  rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
+  summaryRows: z.array(ReportSummaryRowSchema).optional(),
+})
+
 export const ReportQueryResultSchema = z.object({
   columns: z.array(ReportColumnSchema),
   rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
@@ -123,6 +153,7 @@ export const ReportQueryResultSchema = z.object({
   hasMore: z.boolean(),
   totalRows: z.number().int().min(0).optional(),
   summaryRows: z.array(ReportSummaryRowSchema).optional(),
+  sections: z.array(ReportSectionSchema).optional(),
 })
 
 export const SavedReportSchema = z.object({
@@ -148,6 +179,7 @@ export const ReportExportSchema = z.object({
 
 export type Metric = z.infer<typeof MetricSchema>
 export type Dimension = z.infer<typeof DimensionSchema>
+export type LocationAttribute = z.infer<typeof LocationAttributeSchema>
 export type ChartType = z.infer<typeof ChartTypeSchema>
 export type ReportConfig = z.infer<typeof ReportConfigSchema>
 export type ReportQueryInput = z.infer<typeof ReportQuerySchema>

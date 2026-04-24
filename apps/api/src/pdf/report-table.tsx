@@ -1,3 +1,4 @@
+import type { ReactElement } from "react"
 import { Text, View } from "@react-pdf/renderer"
 import {
   FIELD_LABELS,
@@ -6,6 +7,8 @@ import {
   isMonetaryReportColumn,
   type ReportColumn,
   type ReportQueryResult,
+  type ReportSection,
+  type ReportSummaryRow,
 } from "@analytics/report-builder"
 import { reportStyles } from "./styles"
 
@@ -82,6 +85,147 @@ const getPivotHeaderRows = (metricColumns: Extract<ReportColumn, { kind: "metric
   }
 }
 
+type RowRendererContext = {
+  columns: ReportColumn[]
+  columnWidth: string
+}
+
+const renderDataRow = (
+  { columns, columnWidth }: RowRendererContext,
+  row: Record<string, string | number | null>,
+  key: string,
+  isLastDataRow: boolean,
+) => (
+  <View
+    key={key}
+    style={[reportStyles.tableRow, ...(isLastDataRow ? [reportStyles.tableRowLast] : [])]}
+    wrap={false}
+  >
+    {columns.map((column, columnIndex) => (
+      <View
+        key={`${key}-${column.key}`}
+        style={[
+          reportStyles.tableCell,
+          { width: columnWidth },
+          ...(columnIndex === columns.length - 1 ? [reportStyles.tableCellLast] : []),
+        ]}
+      >
+        <Text
+          style={[
+            reportStyles.tableCellText,
+            ...(column.kind === "metric" && isNumericMetricColumn(column)
+              ? [reportStyles.alignRight]
+              : []),
+          ]}
+        >
+          {formatReportCell(column, row[column.key] ?? null)}
+        </Text>
+      </View>
+    ))}
+  </View>
+)
+
+const renderSummaryRow = (
+  { columns, columnWidth }: RowRendererContext,
+  summaryRow: ReportSummaryRow,
+  key: string,
+  isLastSummaryRow: boolean,
+) => {
+  const firstDimensionColumnIndex = columns.findIndex((candidate) => candidate.kind === "dimension")
+  const labelColumnIndex = firstDimensionColumnIndex >= 0 ? firstDimensionColumnIndex : 0
+
+  return (
+    <View
+      key={key}
+      style={[
+        reportStyles.tableSummaryRow,
+        ...(isLastSummaryRow ? [reportStyles.tableRowLast] : []),
+      ]}
+      wrap={false}
+    >
+      {columns.map((column, columnIndex) => {
+        const isLastColumn = columnIndex === columns.length - 1
+        const isLabelCell = columnIndex === labelColumnIndex && column.kind !== "metric"
+        const summaryValue =
+          column.kind === "metric"
+            ? formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null)
+            : isLabelCell
+              ? summaryRow.label
+              : ""
+        return (
+          <View
+            key={`${key}-${column.key}`}
+            style={[
+              reportStyles.tableCell,
+              { width: columnWidth },
+              ...(isLastColumn ? [reportStyles.tableCellLast] : []),
+            ]}
+          >
+            <Text
+              style={[
+                reportStyles.tableSummaryCellText,
+                ...(column.kind === "metric" && isNumericMetricColumn(column)
+                  ? [reportStyles.alignRight]
+                  : []),
+              ]}
+            >
+              {summaryValue}
+            </Text>
+          </View>
+        )
+      })}
+    </View>
+  )
+}
+
+const renderSectionLabelRow = (sectionKey: string, label: string) => (
+  <View key={`section-${sectionKey}-label`} style={reportStyles.tableSectionLabel} wrap={false}>
+    <Text style={reportStyles.tableSectionLabelText}>{label}</Text>
+  </View>
+)
+
+const renderSectionBlocks = (context: RowRendererContext, sections: ReportSection[]) =>
+  sections.flatMap((section, sectionIndex) => {
+    const isLastSection = sectionIndex === sections.length - 1
+    const summaryRows = section.summaryRows ?? []
+    const dataBlock = section.rows.map((row, rowIndex) =>
+      renderDataRow(
+        context,
+        row,
+        `section-${section.key}-row-${rowIndex}`,
+        isLastSection && rowIndex === section.rows.length - 1 && summaryRows.length === 0,
+      ),
+    )
+    const summaryBlock = summaryRows.map((summaryRow, summaryIndex) =>
+      renderSummaryRow(
+        context,
+        summaryRow,
+        `section-${section.key}-summary-${summaryRow.kind}`,
+        isLastSection && summaryIndex === summaryRows.length - 1,
+      ),
+    )
+    return [renderSectionLabelRow(section.key, section.label), ...dataBlock, ...summaryBlock]
+  })
+
+type BreakdownSpan = { label: string; startIndex: number; length: number }
+
+const buildBreakdownSpans = (columns: ReportColumn[]): BreakdownSpan[] => {
+  const spans: BreakdownSpan[] = []
+  let current: BreakdownSpan | null = null
+
+  columns.forEach((column, index) => {
+    const label = column.kind === "metric" ? (column.breakdownGroup ?? null) : null
+    if (label !== null && current && current.label === label) {
+      current.length += 1
+      return
+    }
+    if (current) spans.push(current)
+    current = label !== null ? { label, startIndex: index, length: 1 } : null
+  })
+  if (current) spans.push(current)
+  return spans
+}
+
 export const ReportTable = ({ result }: ReportTableProps) => {
   const columnWidth = `${100 / Math.max(result.columns.length, 1)}%`
   const rowDimensionColumns = result.columns.filter(
@@ -91,16 +235,15 @@ export const ReportTable = ({ result }: ReportTableProps) => {
     (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
   )
   const pivotMetricColumns = metricColumns.filter((column) => Boolean(column.pivot))
-  const plainMetricColumns = metricColumns.filter((column) => !column.pivot)
-  const {
-    rows: pivotHeaderRows,
-    leafMetrics,
-    maxPivotDepth,
-  } = getPivotHeaderRows(pivotMetricColumns)
-  const hasNestedHeaders = pivotMetricColumns.length > 0 && maxPivotDepth > 0
-  const metricHeaderRow = leafMetrics.length > 0 ? leafMetrics : plainMetricColumns
+  const { rows: pivotHeaderRows, maxPivotDepth } = getPivotHeaderRows(pivotMetricColumns)
+  const breakdownSpans = buildBreakdownSpans(result.columns)
+  const hasBreakdownGroups = breakdownSpans.length > 0
+  const hasNestedHeaders =
+    (pivotMetricColumns.length > 0 && maxPivotDepth > 0) || hasBreakdownGroups
 
-  if (result.rows.length === 0) {
+  const rowContext: RowRendererContext = { columns: result.columns, columnWidth }
+
+  if (result.rows.length === 0 && (!result.sections || result.sections.length === 0)) {
     return <Text style={reportStyles.emptyState}>No data found for the selected criteria.</Text>
   }
 
@@ -109,7 +252,7 @@ export const ReportTable = ({ result }: ReportTableProps) => {
       {hasNestedHeaders ? (
         [
           ...pivotHeaderRows.map((headerRow, rowIndex) => (
-            <View key={`header-group-${rowIndex}`} style={reportStyles.tableHeader} fixed>
+            <View key={`pivot-header-${rowIndex}`} style={reportStyles.tableHeader} fixed>
               {rowDimensionColumns.map((column, columnIndex) => (
                 <View
                   key={`${rowIndex}-${column.key}`}
@@ -143,40 +286,89 @@ export const ReportTable = ({ result }: ReportTableProps) => {
               })}
             </View>
           )),
+          ...(hasBreakdownGroups
+            ? [
+                <View key="breakdown-groups" style={reportStyles.tableHeader} fixed>
+                  {(() => {
+                    const cells: ReactElement[] = []
+                    const showDimLabels = pivotHeaderRows.length === 0
+                    let columnIndex = 0
+                    while (columnIndex < result.columns.length) {
+                      const span = breakdownSpans.find((s) => s.startIndex === columnIndex)
+                      if (span) {
+                        const isLast = span.startIndex + span.length === result.columns.length
+                        cells.push(
+                          <View
+                            key={`breakdown-span-${columnIndex}`}
+                            style={[
+                              reportStyles.tableCell,
+                              {
+                                width: `${(span.length * 100) / result.columns.length}%`,
+                              },
+                              ...(isLast ? [reportStyles.tableCellLast] : []),
+                            ]}
+                          >
+                            <Text style={reportStyles.tableHeaderText}>{span.label}</Text>
+                          </View>,
+                        )
+                        columnIndex += span.length
+                        continue
+                      }
+                      const column = result.columns[columnIndex]!
+                      const isLast = columnIndex === result.columns.length - 1
+                      const cellText =
+                        showDimLabels && column.kind === "dimension" ? column.label : ""
+                      cells.push(
+                        <View
+                          key={`breakdown-gap-${columnIndex}`}
+                          style={[
+                            reportStyles.tableCell,
+                            { width: columnWidth },
+                            ...(isLast ? [reportStyles.tableCellLast] : []),
+                          ]}
+                        >
+                          <Text style={reportStyles.tableHeaderText}>{cellText}</Text>
+                        </View>,
+                      )
+                      columnIndex += 1
+                    }
+                    return cells
+                  })()}
+                </View>,
+              ]
+            : []),
           <View key="header-metrics" style={reportStyles.tableHeader} fixed>
-            {rowDimensionColumns.map((column, columnIndex) => (
-              <View
-                key={`metric-row-${column.key}`}
-                style={[
-                  reportStyles.tableCell,
-                  { width: columnWidth },
-                  ...(columnIndex === result.columns.length - 1 && metricHeaderRow.length === 0
-                    ? [reportStyles.tableCellLast]
-                    : []),
-                ]}
-              >
-                <Text style={reportStyles.tableHeaderText} />
-              </View>
-            ))}
-            {metricHeaderRow.map((column, index) => (
-              <View
-                key={column.key}
-                style={[
-                  reportStyles.tableCell,
-                  { width: columnWidth },
-                  ...(index === metricHeaderRow.length - 1 ? [reportStyles.tableCellLast] : []),
-                ]}
-              >
-                <Text
+            {result.columns.map((column, index) => {
+              const isLast = index === result.columns.length - 1
+              const label =
+                column.kind === "metric"
+                  ? column.pivot
+                    ? (FIELD_LABELS[column.metric] ?? column.label)
+                    : column.label || (FIELD_LABELS[column.metric] ?? column.metric)
+                  : column.kind === "attribute"
+                    ? column.label
+                    : ""
+              const alignRight = column.kind === "metric" && isNumericMetricColumn(column)
+              return (
+                <View
+                  key={`leaf-${column.key}`}
                   style={[
-                    reportStyles.tableHeaderText,
-                    ...(isNumericMetricColumn(column) ? [reportStyles.alignRight] : []),
+                    reportStyles.tableCell,
+                    { width: columnWidth },
+                    ...(isLast ? [reportStyles.tableCellLast] : []),
                   ]}
                 >
-                  {FIELD_LABELS[column.metric] ?? column.label}
-                </Text>
-              </View>
-            ))}
+                  <Text
+                    style={[
+                      reportStyles.tableHeaderText,
+                      ...(alignRight ? [reportStyles.alignRight] : []),
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </View>
+              )
+            })}
           </View>,
         ]
       ) : (
@@ -193,8 +385,7 @@ export const ReportTable = ({ result }: ReportTableProps) => {
               <Text
                 style={[
                   reportStyles.tableHeaderText,
-                  ...(column.kind === "metric" &&
-                  (isMonetaryReportColumn(column) || column.metric === "orderCount")
+                  ...(column.kind === "metric" && isNumericMetricColumn(column)
                     ? [reportStyles.alignRight]
                     : []),
                 ]}
@@ -205,97 +396,27 @@ export const ReportTable = ({ result }: ReportTableProps) => {
           ))}
         </View>
       )}
-      {result.rows.map((row, rowIndex) => {
-        const isLastDataRow =
-          rowIndex === result.rows.length - 1 &&
-          (!result.summaryRows || result.summaryRows.length === 0)
-        return (
-          <View
-            key={`row-${rowIndex}`}
-            style={[reportStyles.tableRow, ...(isLastDataRow ? [reportStyles.tableRowLast] : [])]}
-            wrap={false}
-          >
-            {result.columns.map((column, columnIndex) => (
-              <View
-                key={`${rowIndex}-${column.key}`}
-                style={[
-                  reportStyles.tableCell,
-                  { width: columnWidth },
-                  ...(columnIndex === result.columns.length - 1
-                    ? [reportStyles.tableCellLast]
-                    : []),
-                ]}
-              >
-                <Text
-                  style={[
-                    reportStyles.tableCellText,
-                    ...(column.kind === "metric" &&
-                    (isMonetaryReportColumn(column) || column.metric === "orderCount")
-                      ? [reportStyles.alignRight]
-                      : []),
-                  ]}
-                >
-                  {formatReportCell(column, row[column.key] ?? null)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )
-      })}
-      {result.summaryRows?.map((summaryRow, summaryIndex) => {
-        const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
-        const firstDimensionColumnIndex = result.columns.findIndex(
-          (candidate) => candidate.kind === "dimension",
-        )
-        const labelColumnIndex = firstDimensionColumnIndex >= 0 ? firstDimensionColumnIndex : 0
-        return (
-          <View
-            key={`summary-${summaryRow.kind}`}
-            style={[
-              reportStyles.tableSummaryRow,
-              ...(isLastSummaryRow ? [reportStyles.tableRowLast] : []),
-            ]}
-            wrap={false}
-          >
-            {result.columns.map((column, columnIndex) => {
-              const isLastColumn = columnIndex === result.columns.length - 1
-              const isLabelCell = columnIndex === labelColumnIndex && column.kind !== "metric"
-              const summaryValue =
-                column.kind === "metric"
-                  ? formatSummaryCell(
-                      summaryRow.kind,
-                      column,
-                      summaryRow.values[column.key] ?? null,
-                    )
-                  : isLabelCell
-                    ? summaryRow.label
-                    : ""
-              return (
-                <View
-                  key={`${summaryRow.kind}-${column.key}`}
-                  style={[
-                    reportStyles.tableCell,
-                    { width: columnWidth },
-                    ...(isLastColumn ? [reportStyles.tableCellLast] : []),
-                  ]}
-                >
-                  <Text
-                    style={[
-                      reportStyles.tableSummaryCellText,
-                      ...(column.kind === "metric" &&
-                      (isMonetaryReportColumn(column) || column.metric === "orderCount")
-                        ? [reportStyles.alignRight]
-                        : []),
-                    ]}
-                  >
-                    {summaryValue}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
-        )
-      })}
+      {result.sections && result.sections.length > 0 ? (
+        renderSectionBlocks(rowContext, result.sections)
+      ) : (
+        <>
+          {result.rows.map((row, rowIndex) => {
+            const isLastDataRow =
+              rowIndex === result.rows.length - 1 &&
+              (!result.summaryRows || result.summaryRows.length === 0)
+            return renderDataRow(rowContext, row, `row-${rowIndex}`, isLastDataRow)
+          })}
+          {result.summaryRows?.map((summaryRow, summaryIndex) => {
+            const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
+            return renderSummaryRow(
+              rowContext,
+              summaryRow,
+              `summary-${summaryRow.kind}`,
+              isLastSummaryRow,
+            )
+          })}
+        </>
+      )}
     </View>
   )
 }

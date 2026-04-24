@@ -27,6 +27,7 @@ const lineItemGrossSalesSum = sql<bigint>`coalesce(sum(${orderLineItems.grossSal
 const lineItemDiscountsSum = sql<bigint>`coalesce(sum(${orderLineItems.totalDiscountMoney}), 0)`
 const lineItemTaxSum = sql<bigint>`coalesce(sum(${orderLineItems.totalTaxMoney}), 0)`
 const lineItemTotalSum = sql<bigint>`coalesce(sum(${orderLineItems.totalMoney}), 0)`
+const lineItemQuantitySum = sql<number>`coalesce(sum(nullif(${orderLineItems.quantity}, '')::numeric), 0)`
 
 const tenderAmountSum = sql<bigint>`coalesce(sum(${orderTenders.amountMoney}), 0)`
 const tenderTipSum = sql<bigint>`coalesce(sum(${orderTenders.tipMoney}), 0)`
@@ -141,6 +142,9 @@ export const lineItemsMetricMap: Partial<Record<SupportedMetric, MetricDefinitio
   },
   totalCollected: {
     select: lineItemTotalSum,
+  },
+  unitsSold: {
+    select: lineItemQuantitySum,
   },
 }
 

@@ -8,6 +8,7 @@ import {
   isComputedDimension,
   isDerivedLaborMetric,
   isDerivedWasteMetric,
+  isLineItemMetric,
   isScheduledMetric,
   isSharedDimension,
   isSupportedMetric,
@@ -17,6 +18,7 @@ import {
   mergeReportDimensions,
   getQueryMode,
   requiresLaborQuery,
+  requiresLineItemsQuery,
   requiresMultiQueryDispatch,
   requiresOrderLevelQuery,
   requiresScheduledQuery,
@@ -43,9 +45,15 @@ import { orderLineItems } from "../../order-line-items/schema"
 import { orderTenders } from "../../order-tenders/schema"
 import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
+import { appendChannelBreakdownColumns } from "./append-channel-breakdown-columns"
+import { appendInlineYtdColumns } from "./append-ytd-columns"
+import { appendLaborHourVariancePercentMetric } from "./append-labor-hour-variance-percent-metric"
+import { appendPayrollPctOfSalesMetric } from "./append-payroll-pct-of-sales-metric"
 import { buildColumnCondition } from "./build-column-condition"
 import { buildExpressionCondition } from "./build-expression-condition"
+import { computeLocationAgeSections } from "./compute-location-age-sections"
 import { computeSummaryRows } from "./compute-summary-rows"
+import { enrichLocationAttributes } from "./enrich-location-attributes"
 import { getDimensionDefinition } from "./get-dimension-definition"
 import { getModeConfig } from "./get-mode-config"
 import type { GroupableExpression, SelectExpression } from "./type"
@@ -104,6 +112,7 @@ export const buildReportQuery = async (
     requiresWasteQuery(config.metrics) ||
     requiresScheduledQuery(config.metrics) ||
     requiresLaborQuery(config.metrics, queryDimensions) ||
+    requiresLineItemsQuery(config.metrics) ||
     requiresOrderLevelQuery(queryDimensions)
       ? getQueryMode(config.metrics, queryDimensions)
       : "dailySales"
@@ -349,7 +358,7 @@ export const buildReportQuery = async (
     ? await computeSummaryRows(db, customerId, config, config.comparisons!)
     : []
 
-  return {
+  const baseResult: ReportQueryResult = {
     columns,
     rows,
     generatedAt: new Date().toISOString(),
@@ -363,6 +372,17 @@ export const buildReportQuery = async (
         : {}),
     ...(summaryRows.length > 0 ? { summaryRows } : {}),
   }
+
+  const withChannelBreakdown = await appendChannelBreakdownColumns(
+    db,
+    customerId,
+    config,
+    baseResult,
+  )
+  const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
+  const enriched = await enrichLocationAttributes(db, customerId, config, withYtd)
+  const sections = await computeLocationAgeSections(db, customerId, config, enriched)
+  return sections ? { ...enriched, sections } : enriched
 }
 
 const stringifyKeyPart = (value: string | number | null) =>
@@ -427,20 +447,20 @@ const mergeReportResults = (
   }
 }
 
-const SALES_ONLY_DIMENSIONS = new Set<Dimension>([
-  "channel",
-  "customer",
-  "product",
-  "productCategory",
-  "paymentMethod",
-])
+const ORDERS_ONLY_DIMENSIONS = new Set<Dimension>(["channel", "customer", "paymentMethod"])
+const LINEITEMS_ONLY_DIMENSIONS = new Set<Dimension>(["product", "productCategory"])
 const LABOR_ONLY_DIMENSIONS = new Set<Dimension>(["jobTitle"])
+const SALES_ONLY_DIMENSIONS = new Set<Dimension>([
+  ...ORDERS_ONLY_DIMENSIONS,
+  ...LINEITEMS_ONLY_DIMENSIONS,
+])
 
 const splitMetricsBySource = (metrics: Metric[]) => {
   const sales: Metric[] = []
   const timecard: Metric[] = []
   const scheduled: Metric[] = []
   const waste: Metric[] = []
+  const lineItems: Metric[] = []
   const derivedLabor: Metric[] = []
   const derivedWaste: Metric[] = []
 
@@ -455,12 +475,14 @@ const splitMetricsBySource = (metrics: Metric[]) => {
       timecard.push(metric)
     } else if (isWasteQueryMetric(metric)) {
       waste.push(metric)
+    } else if (isLineItemMetric(metric)) {
+      lineItems.push(metric)
     } else {
       sales.push(metric)
     }
   }
 
-  return { sales, timecard, scheduled, waste, derivedLabor, derivedWaste }
+  return { sales, timecard, scheduled, waste, lineItems, derivedLabor, derivedWaste }
 }
 
 const stripUnrequestedMetricColumns = (
@@ -469,7 +491,7 @@ const stripUnrequestedMetricColumns = (
 ): ReportQueryResult => {
   const requestedSet = new Set<Metric>(requestedMetrics)
   const keepColumns = result.columns.filter(
-    (column) => column.kind === "dimension" || requestedSet.has(column.metric),
+    (column) => column.kind !== "metric" || requestedSet.has(column.metric),
   )
   const keepKeys = new Set(keepColumns.map((column) => column.key))
   const newRows = result.rows.map((row) =>
@@ -482,6 +504,9 @@ const stripUnrequestedMetricColumns = (
 const REPORTED_METRIC: Metric = "reportedLaborHours"
 const TEMPLATE_METRIC: Metric = "templateLaborHours"
 const VARIANCE_METRIC: Metric = "laborHourVariance"
+const VARIANCE_PERCENT_METRIC: Metric = "laborHourVariancePercent"
+const PAYROLL_METRIC: Metric = "estimatedPayrollAfterTax"
+const PAYROLL_PCT_METRIC: Metric = "payrollPctOfSales"
 const WASTE_COST_METRIC: Metric = "wasteCost"
 const NET_SALES_METRIC: Metric = "netSales"
 const WASTE_COST_PCT_METRIC: Metric = "wasteCostPctOfSales"
@@ -604,14 +629,21 @@ const runMixedReportQuery = async (
 
   const groups = splitMetricsBySource(config.metrics)
   const wantsVariance = groups.derivedLabor.includes(VARIANCE_METRIC)
+  const wantsVariancePercent = groups.derivedLabor.includes(VARIANCE_PERCENT_METRIC)
+  const wantsPayrollPct = groups.derivedLabor.includes(PAYROLL_PCT_METRIC)
   const wantsWastePct = groups.derivedWaste.includes(WASTE_COST_PCT_METRIC)
+  const needsReported = wantsVariance || wantsVariancePercent
+  const needsTemplate = wantsVariance || wantsVariancePercent
+  const needsPayroll = wantsPayrollPct
+  const needsNetSalesForPct = wantsWastePct || wantsPayrollPct
 
-  const timecardMetrics =
-    wantsVariance && !groups.timecard.includes(REPORTED_METRIC)
-      ? [...groups.timecard, REPORTED_METRIC]
-      : groups.timecard
+  const timecardMetrics = [
+    ...groups.timecard,
+    ...(needsReported && !groups.timecard.includes(REPORTED_METRIC) ? [REPORTED_METRIC] : []),
+    ...(needsPayroll && !groups.timecard.includes(PAYROLL_METRIC) ? [PAYROLL_METRIC] : []),
+  ]
   const scheduledMetrics =
-    wantsVariance && !groups.scheduled.includes(TEMPLATE_METRIC)
+    needsTemplate && !groups.scheduled.includes(TEMPLATE_METRIC)
       ? [...groups.scheduled, TEMPLATE_METRIC]
       : groups.scheduled
   const wasteMetrics =
@@ -619,17 +651,25 @@ const runMixedReportQuery = async (
       ? [...groups.waste, WASTE_COST_METRIC]
       : groups.waste
   const salesMetrics =
-    wantsWastePct && !groups.sales.includes(NET_SALES_METRIC)
+    needsNetSalesForPct && !groups.sales.includes(NET_SALES_METRIC)
       ? [...groups.sales, NET_SALES_METRIC]
       : groups.sales
 
-  const salesColumns = config.columns.filter((dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension))
+  const salesColumns = config.columns.filter(
+    (dimension) =>
+      !LABOR_ONLY_DIMENSIONS.has(dimension) && !LINEITEMS_ONLY_DIMENSIONS.has(dimension),
+  )
   const laborColumns = config.columns.filter((dimension) => !SALES_ONLY_DIMENSIONS.has(dimension))
   const wasteColumns = config.columns.filter(
     (dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension) && !SALES_ONLY_DIMENSIONS.has(dimension),
   )
+  const lineItemsColumns = config.columns.filter(
+    (dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension) && !ORDERS_ONLY_DIMENSIONS.has(dimension),
+  )
   const salesFilters = config.filters.filter(
-    (filter) => !LABOR_ONLY_DIMENSIONS.has(filter.dimension),
+    (filter) =>
+      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) &&
+      !LINEITEMS_ONLY_DIMENSIONS.has(filter.dimension),
   )
   const laborFilters = config.filters.filter(
     (filter) => !SALES_ONLY_DIMENSIONS.has(filter.dimension),
@@ -638,10 +678,18 @@ const runMixedReportQuery = async (
     (filter) =>
       !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !SALES_ONLY_DIMENSIONS.has(filter.dimension),
   )
+  const lineItemsFilters = config.filters.filter(
+    (filter) =>
+      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !ORDERS_ONLY_DIMENSIONS.has(filter.dimension),
+  )
 
   const subConfigBase: ReportQueryInput = {
     ...config,
     comparisons: undefined,
+    locationAttributes: undefined,
+    inlineYtdMetrics: undefined,
+    channelBreakdownMetrics: undefined,
+    locationAgePartition: undefined,
     page: 1,
   }
 
@@ -686,6 +734,16 @@ const runMixedReportQuery = async (
       }),
     )
   }
+  if (groups.lineItems.length > 0) {
+    queries.push(
+      buildReportQuery(db, customerId, {
+        ...subConfigBase,
+        metrics: groups.lineItems,
+        columns: lineItemsColumns,
+        filters: lineItemsFilters,
+      }),
+    )
+  }
 
   const results = await Promise.all(queries)
   const [firstResult, ...remainingResults] = results
@@ -698,24 +756,46 @@ const runMixedReportQuery = async (
     merged = appendLaborHourVarianceMetric(merged)
   }
 
+  if (wantsVariancePercent) {
+    merged = appendLaborHourVariancePercentMetric(merged)
+  }
+
+  if (wantsPayrollPct) {
+    merged = appendPayrollPctOfSalesMetric(merged)
+  }
+
   if (wantsWastePct) {
     merged = appendWasteCostPctOfSalesMetric(merged)
   }
 
-  const shouldStripVariance =
-    wantsVariance &&
-    (!groups.timecard.includes(REPORTED_METRIC) || !groups.scheduled.includes(TEMPLATE_METRIC))
-  const shouldStripWastePct =
-    wantsWastePct &&
-    (!groups.waste.includes(WASTE_COST_METRIC) || !groups.sales.includes(NET_SALES_METRIC))
+  const injectedReported = needsReported && !groups.timecard.includes(REPORTED_METRIC)
+  const injectedTemplate = needsTemplate && !groups.scheduled.includes(TEMPLATE_METRIC)
+  const injectedPayroll = needsPayroll && !groups.timecard.includes(PAYROLL_METRIC)
+  const injectedNetSales = needsNetSalesForPct && !groups.sales.includes(NET_SALES_METRIC)
+  const injectedWasteCost = wantsWastePct && !groups.waste.includes(WASTE_COST_METRIC)
 
-  if (shouldStripVariance || shouldStripWastePct) {
+  const shouldStripInjected =
+    injectedReported || injectedTemplate || injectedPayroll || injectedNetSales || injectedWasteCost
+
+  if (shouldStripInjected) {
     merged = stripUnrequestedMetricColumns(merged, config.metrics)
   }
 
-  if (!config.comparisons) return merged
+  const withSummary = config.comparisons
+    ? await (async () => {
+        const summaryRows = await computeSummaryRows(db, customerId, config, config.comparisons!)
+        return summaryRows.length > 0 ? { ...merged, summaryRows } : merged
+      })()
+    : merged
 
-  const summaryRows = await computeSummaryRows(db, customerId, config, config.comparisons)
-
-  return summaryRows.length > 0 ? { ...merged, summaryRows } : merged
+  const withChannelBreakdown = await appendChannelBreakdownColumns(
+    db,
+    customerId,
+    config,
+    withSummary,
+  )
+  const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
+  const enriched = await enrichLocationAttributes(db, customerId, config, withYtd)
+  const sections = await computeLocationAgeSections(db, customerId, config, enriched)
+  return sections ? { ...enriched, sections } : enriched
 }

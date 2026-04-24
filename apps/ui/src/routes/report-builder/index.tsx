@@ -3,6 +3,7 @@ import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
+  type LocationAttribute,
   type ReportConfig,
 } from "@analytics/report-builder"
 import { ReportConfigSchema } from "@analytics/validators"
@@ -17,6 +18,7 @@ import {
 import { ReportCanvas } from "./components/ReportCanvas"
 import { ComparisonsPanel } from "./components/ComparisonsPanel"
 import { FieldPanel } from "./components/FieldPanel"
+import { PresetPicker } from "./components/PresetPicker"
 import { PreviewPanel } from "./components/PreviewPanel"
 import { SaveReportModal } from "./components/SaveReportModal"
 import { SavedReportsList } from "./components/SavedReportsList"
@@ -194,6 +196,7 @@ export const ReportBuilderRoute = () => {
           </TabsList>
           {activeTab === "builder" ? (
             <div className="flex items-center gap-2">
+              <PresetPicker currentConfig={config} onApply={setConfig} />
               <ExportMenu config={config} disabled={!hasUsableConfig} />
               <Button
                 type="button"
@@ -211,6 +214,13 @@ export const ReportBuilderRoute = () => {
               <FieldPanel
                 activeMetrics={config.metrics}
                 activeDimensions={[...config.rows, ...config.columns]}
+                activeLocationAttributes={config.locationAttributes ?? []}
+                onLocationAttributesChange={(next: LocationAttribute[]) =>
+                  setConfig((current) => ({
+                    ...current,
+                    locationAttributes: next.length > 0 ? next : undefined,
+                  }))
+                }
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <ReportCanvas config={config} onConfigChange={setConfig} />

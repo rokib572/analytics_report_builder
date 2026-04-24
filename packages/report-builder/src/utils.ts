@@ -3,6 +3,7 @@ import type {
   ComputedDimension,
   Dimension,
   LaborMetric,
+  LineItemsMetric,
   Metric,
   OrderLevelDimension,
   PivotCoordinate,
@@ -29,6 +30,8 @@ const laborMetrics = new Set<LaborMetric>([
   "costPerLaborHour",
   "templateLaborHours",
   "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
 ])
 const timecardMetrics = new Set<LaborMetric>([
   "reportedLaborHours",
@@ -37,10 +40,15 @@ const timecardMetrics = new Set<LaborMetric>([
   "costPerLaborHour",
 ])
 const scheduledMetrics = new Set<LaborMetric>(["templateLaborHours"])
-const derivedLaborMetrics = new Set<LaborMetric>(["laborHourVariance"])
+const derivedLaborMetrics = new Set<LaborMetric>([
+  "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
+])
 const wasteMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost", "wasteCostPctOfSales"])
 const wasteQueryMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost"])
 const derivedWasteMetrics = new Set<WasteMetric>(["wasteCostPctOfSales"])
+const lineItemMetrics = new Set<LineItemsMetric>(["unitsSold"])
 
 export const isLaborMetric = (metric: Metric): metric is LaborMetric =>
   laborMetrics.has(metric as LaborMetric)
@@ -62,6 +70,11 @@ export const isWasteQueryMetric = (metric: Metric): boolean =>
 
 export const isDerivedWasteMetric = (metric: Metric): boolean =>
   derivedWasteMetrics.has(metric as WasteMetric)
+
+export const isLineItemMetric = (metric: Metric): metric is LineItemsMetric =>
+  lineItemMetrics.has(metric as LineItemsMetric)
+
+export const requiresLineItemsQuery = (metrics: Metric[]): boolean => metrics.some(isLineItemMetric)
 
 export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
   metrics.some(isTimecardMetric) || dimensions.includes("jobTitle")
@@ -115,6 +128,7 @@ export const getQueryMode = (metrics: Metric[], dimensions: Dimension[]): QueryM
   if (requiresWasteQuery(metrics)) return "waste"
   if (requiresScheduledQuery(metrics)) return "scheduled"
   if (requiresLaborQuery(metrics, dimensions)) return "labor"
+  if (requiresLineItemsQuery(metrics)) return "lineItems"
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
   if (dimensions.includes("paymentMethod")) return "tenders"
   if (dimensions.includes("customer") || dimensions.includes("channel")) return "orders"
@@ -142,6 +156,7 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
   let hasTimecard = false
   let hasScheduled = false
   let hasWaste = false
+  let hasLineItems = false
   let hasDerived = false
 
   for (const metric of metrics) {
@@ -161,11 +176,19 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
       hasWaste = true
       continue
     }
+    if (isLineItemMetric(metric)) {
+      hasLineItems = true
+      continue
+    }
     hasSales = true
   }
 
   const sourceCount =
-    (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0) + (hasWaste ? 1 : 0)
+    (hasSales ? 1 : 0) +
+    (hasTimecard ? 1 : 0) +
+    (hasScheduled ? 1 : 0) +
+    (hasWaste ? 1 : 0) +
+    (hasLineItems ? 1 : 0)
   return hasDerived || sourceCount > 1
 }
 

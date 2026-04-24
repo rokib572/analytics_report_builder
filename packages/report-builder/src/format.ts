@@ -1,4 +1,4 @@
-import type { Metric, ReportColumn, ReportSummaryKind } from "./types"
+import type { LocationAttribute, Metric, ReportColumn, ReportSummaryKind } from "./types"
 
 const MONETARY_COLUMNS = new Set([
   "netSales",
@@ -20,9 +20,13 @@ const HOUR_COLUMNS = new Set([
   "laborHourVariance",
 ])
 
-const PERCENT_COLUMNS = new Set(["wasteCostPctOfSales"])
+const PERCENT_COLUMNS = new Set([
+  "wasteCostPctOfSales",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
+])
 
-const COUNT_COLUMNS = new Set(["wasteItems"])
+const COUNT_COLUMNS = new Set(["wasteItems", "unitsSold"])
 
 export const FIELD_LABELS: Record<string, string> = {
   netSales: "Net Sales",
@@ -39,9 +43,14 @@ export const FIELD_LABELS: Record<string, string> = {
   costPerLaborHour: "Cost per Labor Hour",
   templateLaborHours: "Template Labor Hours",
   laborHourVariance: "Labor Hour Variance",
+  laborHourVariancePercent: "Labor Hour Variance %",
+  payrollPctOfSales: "Payroll % of Sales",
   wasteItems: "Waste Items",
   wasteCost: "Waste Cost",
   wasteCostPctOfSales: "Waste % of Sales",
+  unitsSold: "Units Sold",
+  daysOpen: "Days Open",
+  dateOpened: "Date Opened",
   locationId: "Location",
   locationName: "Location Name",
   saleDate: "Sale Date",
@@ -69,6 +78,9 @@ export const getReportColumnLabel = (column: string) => FIELD_LABELS[column] ?? 
 
 export const getColumnMetric = (column: ReportColumn): Metric | null =>
   column.kind === "metric" ? column.metric : null
+
+export const getColumnAttribute = (column: ReportColumn): LocationAttribute | null =>
+  column.kind === "attribute" ? column.attribute : null
 
 export const isMonetaryReportColumn = (column: ReportColumn) => {
   const metric = getColumnMetric(column)
@@ -117,6 +129,10 @@ export const formatReportColumn = (column: ReportColumn): string => {
     return FIELD_LABELS[column.dimension] ?? column.label
   }
 
+  if (column.kind === "attribute") {
+    return FIELD_LABELS[column.attribute] ?? column.label
+  }
+
   if (!column.pivot) {
     return FIELD_LABELS[column.metric] ?? column.label
   }
@@ -135,6 +151,17 @@ export function formatReportCell(
   value: string | number | null,
 ): string
 export function formatReportCell(column: string | ReportColumn, value: string | number | null) {
+  const attribute = typeof column === "string" ? null : getColumnAttribute(column)
+
+  if (attribute === "daysOpen") {
+    if (value === null) return "-"
+    return Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 })
+  }
+
+  if (attribute === "dateOpened") {
+    return value === null ? "-" : String(value)
+  }
+
   const metric = typeof column === "string" ? (column as Metric | string) : getColumnMetric(column)
 
   if (metric && isMonetaryColumn(metric)) return formatCurrency(value)

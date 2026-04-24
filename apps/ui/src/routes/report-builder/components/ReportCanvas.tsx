@@ -3,11 +3,18 @@ import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
 import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
+  isDerivedLaborMetric,
+  isDerivedWasteMetric,
+  isLaborMetric,
+  isLineItemMetric,
+  isWasteMetric,
+  type Metric,
   type ReportConfig,
 } from "@analytics/report-builder"
 import {
   Badge,
   Button,
+  Checkbox,
   cn,
   Input,
   Label,
@@ -82,6 +89,35 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
     config.rows,
     config.columns,
   )
+  const inlineYtdMetrics = config.inlineYtdMetrics ?? []
+  const channelBreakdownMetrics = config.channelBreakdownMetrics ?? []
+
+  const toggleInlineYtdMetric = (metric: Metric) => {
+    const next = inlineYtdMetrics.includes(metric)
+      ? inlineYtdMetrics.filter((item) => item !== metric)
+      : [...inlineYtdMetrics, metric]
+    onConfigChange({
+      ...config,
+      inlineYtdMetrics: next.length > 0 ? next : undefined,
+    })
+  }
+
+  const toggleChannelBreakdownMetric = (metric: Metric) => {
+    const next = channelBreakdownMetrics.includes(metric)
+      ? channelBreakdownMetrics.filter((item) => item !== metric)
+      : [...channelBreakdownMetrics, metric]
+    onConfigChange({
+      ...config,
+      channelBreakdownMetrics: next.length > 0 ? next : undefined,
+    })
+  }
+
+  const isChannelBreakdownEligible = (metric: Metric): boolean =>
+    !isLaborMetric(metric) &&
+    !isWasteMetric(metric) &&
+    !isLineItemMetric(metric) &&
+    !isDerivedLaborMetric(metric) &&
+    !isDerivedWasteMetric(metric)
 
   const updateFilter = (
     index: number,
@@ -139,6 +175,143 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
           {hasPivotModeConflict
             ? "Rows and columns must use dimensions from the same query mode when pivoting."
             : "Product and Payment Method cannot be used in the same report."}
+        </div>
+      )}
+
+      <div className="space-y-2 rounded-md border border-border bg-background p-3">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="split-by-location-age">Split by Location Age</Label>
+          <span className="text-xs text-muted-foreground">
+            Partitions rows into Mature vs New stores with per-section totals.
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="split-by-location-age"
+              checked={Boolean(config.locationAgePartition?.enabled)}
+              onCheckedChange={(checked) =>
+                onConfigChange({
+                  ...config,
+                  locationAgePartition: checked
+                    ? {
+                        enabled: true,
+                        thresholdDays: config.locationAgePartition?.thresholdDays ?? 30,
+                      }
+                    : undefined,
+                })
+              }
+            />
+            <Label htmlFor="split-by-location-age" className="cursor-pointer font-normal">
+              Enabled
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="location-age-threshold" className="font-normal">
+              New-store threshold (days):
+            </Label>
+            <Input
+              id="location-age-threshold"
+              type="number"
+              min={1}
+              max={365}
+              className="w-24"
+              value={config.locationAgePartition?.thresholdDays ?? 30}
+              onChange={(event) => {
+                const next = Number(event.target.value)
+                if (!Number.isFinite(next) || next < 1) return
+                onConfigChange({
+                  ...config,
+                  locationAgePartition: {
+                    enabled: true,
+                    thresholdDays: Math.min(365, Math.max(1, Math.round(next))),
+                  },
+                })
+              }}
+              disabled={!config.locationAgePartition?.enabled}
+            />
+          </div>
+        </div>
+        {config.locationAgePartition?.enabled && !config.rows.includes("locationId") && (
+          <p className="text-xs text-muted-foreground">Only applies when rows include Location.</p>
+        )}
+      </div>
+
+      {config.metrics.length > 0 && (
+        <div className="space-y-2 rounded-md border border-border bg-background p-3">
+          <div className="flex items-center justify-between">
+            <Label>Inline YTD Columns</Label>
+            <span className="text-xs text-muted-foreground">
+              Adds a paired Year-to-Date column next to the selected metric.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {config.metrics.map((metric) => {
+              const checkboxId = `ytd-toggle-${metric}`
+              return (
+                <div
+                  key={metric}
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
+                >
+                  <Checkbox
+                    id={checkboxId}
+                    checked={inlineYtdMetrics.includes(metric)}
+                    onCheckedChange={() => toggleInlineYtdMetric(metric)}
+                  />
+                  <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                    YTD {FIELD_LABELS[metric] ?? metric}
+                  </Label>
+                </div>
+              )
+            })}
+          </div>
+          {config.rows.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              YTD columns only apply when at least one row dimension is selected.
+            </p>
+          )}
+        </div>
+      )}
+
+      {config.metrics.length > 0 && (
+        <div className="space-y-2 rounded-md border border-border bg-background p-3">
+          <div className="flex items-center justify-between">
+            <Label>Break down by channel</Label>
+            <span className="text-xs text-muted-foreground">
+              Emits one column per synced channel plus a grand-total column for the selected metric.
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {config.metrics.map((metric) => {
+              const checkboxId = `channel-breakdown-toggle-${metric}`
+              const eligible = isChannelBreakdownEligible(metric)
+              return (
+                <div
+                  key={metric}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm",
+                    !eligible && "opacity-60",
+                  )}
+                  title={
+                    eligible ? undefined : "Not supported for labor, waste, or line-item metrics"
+                  }
+                >
+                  <Checkbox
+                    id={checkboxId}
+                    checked={eligible && channelBreakdownMetrics.includes(metric)}
+                    onCheckedChange={() => {
+                      if (!eligible) return
+                      toggleChannelBreakdownMetric(metric)
+                    }}
+                    disabled={!eligible}
+                  />
+                  <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                    {FIELD_LABELS[metric] ?? metric}
+                  </Label>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 

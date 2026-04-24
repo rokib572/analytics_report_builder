@@ -1,5 +1,11 @@
 import { useMemo } from "react"
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+  type Column,
+  type ColumnDef,
+} from "@tanstack/react-table"
 import {
   FIELD_LABELS,
   formatReportCell,
@@ -9,6 +15,7 @@ import {
   isMonetaryReportColumn,
   type ChartType,
   type ReportColumn,
+  type ReportSection,
 } from "@analytics/report-builder"
 import type { ReportQueryResult } from "@analytics/validators"
 import {
@@ -80,6 +87,9 @@ const isNumericMetricColumn = (column: Extract<ReportColumn, { kind: "metric" }>
 const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRow>[] => {
   const rowDimensionColumns = reportColumns.filter(
     (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
+  )
+  const attributeColumns = reportColumns.filter(
+    (column): column is Extract<ReportColumn, { kind: "attribute" }> => column.kind === "attribute",
   )
   const pivotMetricColumns = reportColumns.filter(
     (column): column is Extract<ReportColumn, { kind: "metric" }> =>
@@ -168,13 +178,125 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
       }
     })
 
+  const groupedUnpivotedColumns: ColumnDef<PreviewRow>[] = []
+  let cursor = 0
+  while (cursor < unpivotedMetricColumns.length) {
+    const current = unpivotedMetricColumns[cursor]!
+    if (!current.breakdownGroup) {
+      groupedUnpivotedColumns.push(
+        leafColumn(
+          current,
+          current.label || (FIELD_LABELS[current.metric] ?? current.metric),
+          current,
+        ),
+      )
+      cursor += 1
+      continue
+    }
+    const groupLabel = current.breakdownGroup
+    const members: Extract<ReportColumn, { kind: "metric" }>[] = []
+    while (
+      cursor < unpivotedMetricColumns.length &&
+      unpivotedMetricColumns[cursor]!.breakdownGroup === groupLabel
+    ) {
+      members.push(unpivotedMetricColumns[cursor]!)
+      cursor += 1
+    }
+    groupedUnpivotedColumns.push({
+      id: `breakdown-group-${groupLabel}-${members[0]!.key}`,
+      header: groupLabel,
+      columns: members.map((member) =>
+        leafColumn(member, member.label || (FIELD_LABELS[member.metric] ?? member.metric), member),
+      ),
+    })
+  }
+
   return [
     ...rowDimensionColumns.map((column) => leafColumn(column, column.label)),
-    ...materializeGroups(pivotRoots),
-    ...unpivotedMetricColumns.map((column) =>
-      leafColumn(column, FIELD_LABELS[column.metric] ?? column.label, column),
+    ...attributeColumns.map((column) =>
+      leafColumn(column, column.label || (FIELD_LABELS[column.attribute] ?? column.attribute)),
     ),
+    ...materializeGroups(pivotRoots),
+    ...groupedUnpivotedColumns,
   ]
+}
+
+type SectionBodyProps = {
+  section: ReportSection
+  leafColumns: Column<PreviewRow, unknown>[]
+}
+
+const SectionBody = ({ section, leafColumns }: SectionBodyProps) => {
+  const columnCount = leafColumns.length
+
+  return (
+    <>
+      <TableRow className="bg-muted font-semibold">
+        <TableCell colSpan={columnCount || 1}>{section.label}</TableCell>
+      </TableRow>
+      {section.rows.length === 0 ? (
+        <TableRow>
+          <TableCell colSpan={columnCount || 1} className="text-sm text-muted-foreground">
+            No rows in this section.
+          </TableCell>
+        </TableRow>
+      ) : (
+        section.rows.map((row, rowIndex) => (
+          <TableRow key={`${section.key}-${rowIndex}`}>
+            {leafColumns.map((leafColumn) => {
+              const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
+              const metricColumnForCell = leafMeta?.metricColumn
+              const cellKey = leafColumn.id
+              const rawValue = row[cellKey] ?? null
+              return (
+                <TableCell
+                  key={`${section.key}-${rowIndex}-${cellKey}`}
+                  className={
+                    metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
+                      ? "text-right"
+                      : undefined
+                  }
+                >
+                  {metricColumnForCell
+                    ? formatReportCell(metricColumnForCell, rawValue)
+                    : rawValue === null
+                      ? "-"
+                      : String(rawValue)}
+                </TableCell>
+              )
+            })}
+          </TableRow>
+        ))
+      )}
+      {section.summaryRows?.map((summaryRow) => (
+        <TableRow key={`${section.key}-${summaryRow.kind}`} className="bg-muted/50 font-semibold">
+          {leafColumns.map((leafColumn, leafIndex) => {
+            const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
+            const metricColumnForCell = leafMeta?.metricColumn
+            const cellKey = leafColumn.id
+            const metricCellValue = metricColumnForCell
+              ? (summaryRow.values[cellKey] ?? null)
+              : null
+            const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
+            return (
+              <TableCell
+                key={`${section.key}-${summaryRow.kind}-${cellKey}`}
+                className={
+                  metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
+                    ? "text-right"
+                    : undefined
+                }
+              >
+                {metricColumnForCell
+                  ? formatSummaryCell(summaryRow.kind, metricColumnForCell, metricCellValue)
+                  : labelCellValue}
+              </TableCell>
+            )
+          })}
+        </TableRow>
+      ))}
+    </>
+  )
 }
 
 const transformChartData = (result: ReportQueryResult): Record<string, unknown>[] =>
@@ -219,6 +341,12 @@ export const PreviewPanel = ({
   const firstDimension = dimensionColumns[0]?.key ?? metricColumns[0]?.key
   const chartData = result ? transformChartData(result) : []
 
+  const hasSectionsEnabled = (result?.sections?.length ?? 0) > 0
+  const overallSummaryHasContent = (result?.summaryRows?.length ?? 0) > 0
+  const hasDisplayableContent = Boolean(
+    result && (result.rows.length > 0 || hasSectionsEnabled || overallSummaryHasContent),
+  )
+
   return (
     <Card>
       <CardHeader>
@@ -246,13 +374,13 @@ export const PreviewPanel = ({
 
         {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
 
-        {!isLoading && !error && result && result.rows.length === 0 ? (
+        {!isLoading && !error && result && !hasDisplayableContent ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground">
             No data found for the selected criteria
           </div>
         ) : null}
 
-        {!isLoading && !error && result && result.rows.length > 0 && chartType === "table" ? (
+        {!isLoading && !error && result && hasDisplayableContent && chartType === "table" ? (
           <div className="space-y-4">
             <Table>
               <TableHeader>
@@ -281,64 +409,77 @@ export const PreviewPanel = ({
                 ))}
               </TableHeader>
               <TableBody>
-                {table.getRowModel().rows.map((row) => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={
-                          (cell.column.columnDef.meta as PreviewColumnMeta | undefined)
-                            ?.metricColumn &&
-                          isNumericMetricColumn(
-                            (cell.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
-                          )
-                            ? "text-right"
-                            : undefined
-                        }
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-                {result.summaryRows && result.summaryRows.length > 0
-                  ? result.summaryRows.map((summaryRow) => (
-                      <TableRow
-                        key={`summary-${summaryRow.kind}`}
-                        className="bg-muted/50 font-semibold"
-                      >
-                        {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
-                          const leafMeta = leafColumn.columnDef.meta as
-                            | PreviewColumnMeta
-                            | undefined
-                          const metricColumnForCell = leafMeta?.metricColumn
-                          const cellKey = leafColumn.id
-                          const metricCellValue = metricColumnForCell
-                            ? (summaryRow.values[cellKey] ?? null)
-                            : null
-                          const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
-                          return (
-                            <TableCell
-                              key={`${summaryRow.kind}-${cellKey}`}
-                              className={
-                                metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
-                                  ? "text-right"
-                                  : undefined
-                              }
-                            >
-                              {metricColumnForCell
-                                ? formatSummaryCell(
-                                    summaryRow.kind,
-                                    metricColumnForCell,
-                                    metricCellValue,
-                                  )
-                                : labelCellValue}
-                            </TableCell>
-                          )
-                        })}
+                {result.sections && result.sections.length > 0 ? (
+                  result.sections.map((section) => (
+                    <SectionBody
+                      key={section.key}
+                      section={section}
+                      leafColumns={table.getVisibleLeafColumns()}
+                    />
+                  ))
+                ) : (
+                  <>
+                    {table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell
+                            key={cell.id}
+                            className={
+                              (cell.column.columnDef.meta as PreviewColumnMeta | undefined)
+                                ?.metricColumn &&
+                              isNumericMetricColumn(
+                                (cell.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
+                              )
+                                ? "text-right"
+                                : undefined
+                            }
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    ))
-                  : null}
+                    ))}
+                    {result.summaryRows && result.summaryRows.length > 0
+                      ? result.summaryRows.map((summaryRow) => (
+                          <TableRow
+                            key={`summary-${summaryRow.kind}`}
+                            className="bg-muted/50 font-semibold"
+                          >
+                            {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
+                              const leafMeta = leafColumn.columnDef.meta as
+                                | PreviewColumnMeta
+                                | undefined
+                              const metricColumnForCell = leafMeta?.metricColumn
+                              const cellKey = leafColumn.id
+                              const metricCellValue = metricColumnForCell
+                                ? (summaryRow.values[cellKey] ?? null)
+                                : null
+                              const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
+                              return (
+                                <TableCell
+                                  key={`${summaryRow.kind}-${cellKey}`}
+                                  className={
+                                    metricColumnForCell &&
+                                    isNumericMetricColumn(metricColumnForCell)
+                                      ? "text-right"
+                                      : undefined
+                                  }
+                                >
+                                  {metricColumnForCell
+                                    ? formatSummaryCell(
+                                        summaryRow.kind,
+                                        metricColumnForCell,
+                                        metricCellValue,
+                                      )
+                                    : labelCellValue}
+                                </TableCell>
+                              )
+                            })}
+                          </TableRow>
+                        ))
+                      : null}
+                  </>
+                )}
               </TableBody>
             </Table>
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

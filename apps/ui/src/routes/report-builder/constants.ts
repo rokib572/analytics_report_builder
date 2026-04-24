@@ -15,14 +15,17 @@ export const SALES_METRICS: SupportedMetric[] = [
   "totalTax",
   "totalTips",
   "totalCollected",
+  "unitsSold",
 ]
 
 export const LABOR_METRICS: SupportedMetric[] = [
   "reportedLaborHours",
   "templateLaborHours",
   "laborHourVariance",
+  "laborHourVariancePercent",
   "reportedTrainingHours",
   "estimatedPayrollAfterTax",
+  "payrollPctOfSales",
   "costPerLaborHour",
 ]
 
@@ -40,6 +43,10 @@ export const METRIC_GROUPS: Array<{ label: string; metrics: SupportedMetric[] }>
   { label: "Waste", metrics: WASTE_METRICS },
 ]
 
+// `channel` is intentionally omitted from the user-draggable dimension list.
+// Channel-awareness is surfaced as a per-metric "Break down by channel" toggle
+// (see ReportCanvas). `channel` remains a valid internal Dimension — preset
+// filters and the channel-breakdown sub-query still reference it.
 export const SUPPORTED_DIMENSIONS: Dimension[] = [
   "locationId",
   "saleDate",
@@ -47,7 +54,6 @@ export const SUPPORTED_DIMENSIONS: Dimension[] = [
   "year",
   "week",
   "month",
-  "channel",
   "customer",
   "product",
   "productCategory",

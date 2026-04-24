@@ -43,6 +43,7 @@ const collectReportRows = async (
   let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
   let summaryRows: ReportQueryResult["summaryRows"]
+  let sections: ReportQueryResult["sections"]
   const rows: ReportQueryResult["rows"] = []
 
   while (true) {
@@ -56,6 +57,7 @@ const collectReportRows = async (
       columns = pageResult.columns
       generatedAt = pageResult.generatedAt
       summaryRows = pageResult.summaryRows
+      sections = pageResult.sections
     }
 
     rows.push(...pageResult.rows)
@@ -79,6 +81,7 @@ const collectReportRows = async (
         hasMore: false,
         totalRows: rows.length,
         ...(summaryRows && summaryRows.length > 0 ? { summaryRows } : {}),
+        ...(sections && sections.length > 0 ? { sections } : {}),
       }
     }
 
@@ -90,12 +93,16 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
   const dimensionColumns = columns.filter(
     (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
   )
+  const attributeColumns = columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "attribute" }> => column.kind === "attribute",
+  )
   const metricColumns = columns.filter(
     (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
   )
   const pivotMetricColumns = metricColumns.filter((column) => Boolean(column.pivot))
+  const hasBreakdownGroups = metricColumns.some((column) => Boolean(column.breakdownGroup))
 
-  if (pivotMetricColumns.length === 0) {
+  if (pivotMetricColumns.length === 0 && !hasBreakdownGroups) {
     return [columns.map((column) => column.label)]
   }
 
@@ -103,12 +110,22 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
     (depth, column) => Math.max(depth, column.pivot?.values.length ?? 0),
     0,
   )
-  const headerRows = Array.from({ length: pivotDepth + 1 }, () =>
+  const headerRowCount = Math.max(1, pivotDepth) + 1
+  const headerRows = Array.from({ length: headerRowCount }, () =>
     Array.from({ length: columns.length }, () => ""),
   )
+  const leafRowIndex = headerRowCount - 1
 
-  dimensionColumns.forEach((column, index) => {
-    headerRows[0]![index] = column.label
+  dimensionColumns.forEach((column) => {
+    const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+    if (columnIndex === -1) return
+    headerRows[0]![columnIndex] = column.label
+  })
+
+  attributeColumns.forEach((column) => {
+    const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+    if (columnIndex === -1) return
+    headerRows[leafRowIndex]![columnIndex] = column.label
   })
 
   pivotMetricColumns.forEach((column) => {
@@ -119,7 +136,7 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
       headerRows[depthIndex]![columnIndex] = formatReportCell(dimension, value)
     })
 
-    headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+    headerRows[leafRowIndex]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
   })
 
   metricColumns
@@ -127,37 +144,88 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
     .forEach((column) => {
       const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
       if (columnIndex === -1) return
-      headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+      headerRows[leafRowIndex]![columnIndex] =
+        column.label || (FIELD_LABELS[column.metric] ?? column.metric)
     })
+
+  // Emit breakdown-group parent headers on the top row across the span of each group.
+  if (hasBreakdownGroups) {
+    let groupStart: number | null = null
+    let currentGroup: string | null = null
+    const flushGroup = (endExclusive: number) => {
+      if (currentGroup === null || groupStart === null) return
+      headerRows[0]![groupStart] = currentGroup
+      for (let i = groupStart + 1; i < endExclusive; i += 1) {
+        headerRows[0]![i] = ""
+      }
+    }
+
+    columns.forEach((column, columnIndex) => {
+      const group = column.kind === "metric" ? (column.breakdownGroup ?? null) : null
+      if (group !== currentGroup) {
+        flushGroup(columnIndex)
+        currentGroup = group
+        groupStart = group !== null ? columnIndex : null
+      }
+    })
+    flushGroup(columns.length)
+  }
 
   return headerRows
 }
 
-const buildCsvSummaryRows = (result: ReportQueryResult): string[][] => {
-  if (!result.summaryRows || result.summaryRows.length === 0) return []
+const buildCsvSummaryRowsFrom = (
+  columns: ReportQueryResult["columns"],
+  summaryRows: ReportQueryResult["summaryRows"],
+): string[][] => {
+  if (!summaryRows || summaryRows.length === 0) return []
 
-  const dimensionColumns = result.columns.filter(
-    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
-  )
-  const metricColumns = result.columns.filter(
-    (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
-  )
+  const labelColumnIndex = columns.findIndex((column) => column.kind === "dimension")
 
-  return result.summaryRows.map((summaryRow) => {
-    const dimensionCells = dimensionColumns.map((_, index) => (index === 0 ? summaryRow.label : ""))
-    const metricCells = metricColumns.map((column) =>
-      formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null),
-    )
-    return [...dimensionCells, ...metricCells]
-  })
+  return summaryRows.map((summaryRow) =>
+    columns.map((column, columnIndex) => {
+      if (column.kind === "metric") {
+        return formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null)
+      }
+      if (column.kind === "dimension" && columnIndex === labelColumnIndex) {
+        return summaryRow.label
+      }
+      return ""
+    }),
+  )
+}
+
+const buildCsvDataRows = (
+  columns: ReportQueryResult["columns"],
+  rows: ReportQueryResult["rows"],
+): string[][] =>
+  rows.map((row) => columns.map((column) => formatReportCell(column, row[column.key] ?? null)))
+
+const buildCsvSectionLabelRow = (
+  columns: ReportQueryResult["columns"],
+  label: string,
+): string[] => {
+  const cells = columns.map(() => "")
+  cells[0] = label
+  return cells
 }
 
 const buildCsv = (result: ReportQueryResult) => {
   const headerRows = buildCsvHeaderRows(result.columns)
-  const dataRows = result.rows.map((row) =>
-    result.columns.map((column) => formatReportCell(column, row[column.key] ?? null)),
-  )
-  const summaryCsvRows = buildCsvSummaryRows(result)
+
+  if (result.sections && result.sections.length > 0) {
+    const allRows: string[][] = [...headerRows]
+    result.sections.forEach((section, sectionIndex) => {
+      if (sectionIndex > 0) allRows.push(result.columns.map(() => ""))
+      allRows.push(buildCsvSectionLabelRow(result.columns, section.label))
+      allRows.push(...buildCsvDataRows(result.columns, section.rows))
+      allRows.push(...buildCsvSummaryRowsFrom(result.columns, section.summaryRows))
+    })
+    return stringify(allRows)
+  }
+
+  const dataRows = buildCsvDataRows(result.columns, result.rows)
+  const summaryCsvRows = buildCsvSummaryRowsFrom(result.columns, result.summaryRows)
 
   return stringify([...headerRows, ...dataRows, ...summaryCsvRows])
 }
