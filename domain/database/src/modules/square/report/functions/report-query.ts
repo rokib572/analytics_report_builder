@@ -4,6 +4,7 @@ import {
   ensureSupportedDimension,
   ensureSupportedMetric,
   formatReportColumn,
+  getCompingCutoffDate,
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
   isComputedDimension,
@@ -14,11 +15,17 @@ import {
   requiresOrderLevelQuery,
   requireBetweenValues,
   serializeReportValue,
+  shiftRangeBack1Year,
+  shiftRangeBack7Days,
+  yearToDateRange,
   type Dimension,
   type QueryMode,
   type ReportColumn,
+  type ReportComparisons,
   type ReportQueryInput,
   type ReportQueryResult,
+  type ReportSummaryKind,
+  type ReportSummaryRow,
   type SupportedMetric,
 } from "@analytics/report-builder"
 import { DomainError } from "@analytics/shared-libs"
@@ -429,6 +436,229 @@ const getDimensionDefinition = (
   return definition
 }
 
+const resolveCompingLocationIds = async (
+  db: DbClient,
+  customerId: string,
+  rangeFromDate: string,
+): Promise<string[]> => {
+  const cutoffDate = getCompingCutoffDate(rangeFromDate)
+  const customerClause = eq(locations.customerId, customerId)
+  const openedOnOrBeforeCutoff = lte(locations.openedAt, cutoffDate)
+  const rows = await db
+    .select({ id: locations.id })
+    .from(locations)
+    .where(and(customerClause, openedOnOrBeforeCutoff))
+  return rows.map((row) => row.id)
+}
+
+const SUMMARY_LABELS: Record<ReportSummaryKind, string> = {
+  total: "Total",
+  comping: "Comping",
+  previousPeriod: "Previous Period",
+  yearOverYear: "Year Over Year",
+  yearToDate: "Year To Date",
+  changePercent: "Change %",
+  yearOverYearChangePercent: "Year Over Year Change %",
+}
+
+const extractSummaryValues = (
+  result: ReportQueryResult,
+): Record<string, string | number | null> => {
+  if (result.rows.length === 0) return {}
+
+  const firstRow = result.rows[0]
+  if (!firstRow) return {}
+
+  const values: Record<string, string | number | null> = {}
+  for (const column of result.columns) {
+    if (column.kind === "metric") {
+      values[column.key] = firstRow[column.key] ?? null
+    }
+  }
+  return values
+}
+
+const computeChangePercentValues = (
+  laterValues: Record<string, string | number | null>,
+  earlierValues: Record<string, string | number | null>,
+): Record<string, string | number | null> => {
+  const percentValues: Record<string, string | number | null> = {}
+  const allKeys = new Set([...Object.keys(laterValues), ...Object.keys(earlierValues)])
+
+  for (const key of allKeys) {
+    const laterNumeric = Number(laterValues[key] ?? 0)
+    const earlierNumeric = Number(earlierValues[key] ?? 0)
+
+    if (earlierNumeric === 0) {
+      percentValues[key] = null
+      continue
+    }
+
+    percentValues[key] = ((laterNumeric - earlierNumeric) / earlierNumeric) * 100
+  }
+
+  return percentValues
+}
+
+const buildSummaryQueryConfig = (
+  baseConfig: ReportQueryInput,
+  overrides: {
+    dateRange?: { from: string; to: string }
+    restrictedLocationIds?: string[]
+  },
+): ReportQueryInput => {
+  const additionalFilters = overrides.restrictedLocationIds
+    ? [
+        {
+          dimension: "locationId" as Dimension,
+          operator: "in" as const,
+          value: overrides.restrictedLocationIds,
+        },
+      ]
+    : []
+
+  return {
+    ...baseConfig,
+    rows: [],
+    page: 1,
+    pageSize: MAX_REPORT_PAGE_SIZE,
+    dateRange: overrides.dateRange ?? baseConfig.dateRange,
+    filters: [...baseConfig.filters, ...additionalFilters],
+    comparisons: undefined,
+  }
+}
+
+const computeSummaryRows = async (
+  db: DbClient,
+  customerId: string,
+  config: ReportQueryInput,
+  comparisons: ReportComparisons,
+): Promise<ReportSummaryRow[]> => {
+  const needsTotalSummary =
+    Boolean(comparisons.total) ||
+    Boolean(comparisons.includeChangePercent) ||
+    Boolean(comparisons.includeYearOverYearChangePercent)
+  const needsPreviousPeriodSummary =
+    Boolean(comparisons.previousPeriod) || Boolean(comparisons.includeChangePercent)
+  const needsYearOverYearSummary =
+    Boolean(comparisons.yearOverYear) || Boolean(comparisons.includeYearOverYearChangePercent)
+  const needsYearToDateSummary = Boolean(comparisons.yearToDate)
+  const needsCompingSummary = Boolean(comparisons.compingOnly)
+
+  const anySummaryRequested =
+    needsTotalSummary ||
+    needsPreviousPeriodSummary ||
+    needsYearOverYearSummary ||
+    needsYearToDateSummary ||
+    needsCompingSummary
+
+  if (!anySummaryRequested) return []
+
+  const compingLocationIds = needsCompingSummary
+    ? await resolveCompingLocationIds(db, customerId, config.dateRange.from)
+    : []
+
+  const totalPromise = needsTotalSummary
+    ? buildReportQuery(db, customerId, buildSummaryQueryConfig(config, {}))
+    : Promise.resolve(null)
+  const previousPeriodPromise = needsPreviousPeriodSummary
+    ? buildReportQuery(
+        db,
+        customerId,
+        buildSummaryQueryConfig(config, {
+          dateRange: shiftRangeBack7Days(config.dateRange),
+        }),
+      )
+    : Promise.resolve(null)
+  const yearOverYearPromise = needsYearOverYearSummary
+    ? buildReportQuery(
+        db,
+        customerId,
+        buildSummaryQueryConfig(config, {
+          dateRange: shiftRangeBack1Year(config.dateRange),
+        }),
+      )
+    : Promise.resolve(null)
+  const yearToDatePromise = needsYearToDateSummary
+    ? buildReportQuery(
+        db,
+        customerId,
+        buildSummaryQueryConfig(config, { dateRange: yearToDateRange(config.dateRange) }),
+      )
+    : Promise.resolve(null)
+  const compingPromise =
+    needsCompingSummary && compingLocationIds.length > 0
+      ? buildReportQuery(
+          db,
+          customerId,
+          buildSummaryQueryConfig(config, { restrictedLocationIds: compingLocationIds }),
+        )
+      : Promise.resolve(null)
+
+  const [totalResult, previousPeriodResult, yearOverYearResult, yearToDateResult, compingResult] =
+    await Promise.all([
+      totalPromise,
+      previousPeriodPromise,
+      yearOverYearPromise,
+      yearToDatePromise,
+      compingPromise,
+    ])
+
+  const totalValues = totalResult ? extractSummaryValues(totalResult) : {}
+  const previousPeriodValues = previousPeriodResult
+    ? extractSummaryValues(previousPeriodResult)
+    : {}
+  const yearOverYearValues = yearOverYearResult ? extractSummaryValues(yearOverYearResult) : {}
+  const yearToDateValues = yearToDateResult ? extractSummaryValues(yearToDateResult) : {}
+  const compingValues = compingResult ? extractSummaryValues(compingResult) : {}
+
+  const summaryRows: ReportSummaryRow[] = []
+
+  if (comparisons.total && totalResult) {
+    summaryRows.push({ kind: "total", label: SUMMARY_LABELS.total, values: totalValues })
+  }
+  if (comparisons.compingOnly) {
+    summaryRows.push({ kind: "comping", label: SUMMARY_LABELS.comping, values: compingValues })
+  }
+  if (comparisons.previousPeriod && previousPeriodResult) {
+    summaryRows.push({
+      kind: "previousPeriod",
+      label: SUMMARY_LABELS.previousPeriod,
+      values: previousPeriodValues,
+    })
+  }
+  if (comparisons.yearOverYear && yearOverYearResult) {
+    summaryRows.push({
+      kind: "yearOverYear",
+      label: SUMMARY_LABELS.yearOverYear,
+      values: yearOverYearValues,
+    })
+  }
+  if (comparisons.yearToDate && yearToDateResult) {
+    summaryRows.push({
+      kind: "yearToDate",
+      label: SUMMARY_LABELS.yearToDate,
+      values: yearToDateValues,
+    })
+  }
+  if (comparisons.includeChangePercent && totalResult && previousPeriodResult) {
+    summaryRows.push({
+      kind: "changePercent",
+      label: SUMMARY_LABELS.changePercent,
+      values: computeChangePercentValues(totalValues, previousPeriodValues),
+    })
+  }
+  if (comparisons.includeYearOverYearChangePercent && totalResult && yearOverYearResult) {
+    summaryRows.push({
+      kind: "yearOverYearChangePercent",
+      label: SUMMARY_LABELS.yearOverYearChangePercent,
+      values: computeChangePercentValues(totalValues, yearOverYearValues),
+    })
+  }
+
+  return summaryRows
+}
+
 export const buildReportQuery = async (
   db: DbClient,
   customerId: string,
@@ -662,6 +892,11 @@ export const buildReportQuery = async (
   )
   const { columns, rows } = pivotReportResult(config, flatColumns, flatRows)
 
+  const shouldComputeSummaryRows = config.comparisons && (isPivotedReport || page === 1)
+  const summaryRows = shouldComputeSummaryRows
+    ? await computeSummaryRows(db, customerId, config, config.comparisons!)
+    : []
+
   return {
     columns,
     rows,
@@ -674,5 +909,6 @@ export const buildReportQuery = async (
       : totalRows !== undefined
         ? { totalRows }
         : {}),
+    ...(summaryRows.length > 0 ? { summaryRows } : {}),
   }
 }

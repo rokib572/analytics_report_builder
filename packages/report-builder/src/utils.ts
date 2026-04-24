@@ -263,3 +263,81 @@ export const serializeReportValue = (value: unknown): string | number | null => 
   if (value instanceof Date) return value.toISOString()
   return typeof value === "string" || typeof value === "number" ? value : String(value)
 }
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
+const DAYS_IN_WEEK = 7
+
+const parseIsoDate = (isoDateString: string): Date => {
+  const [year, month, day] = isoDateString.split("-").map(Number)
+
+  if (!year || !month || !day) {
+    throw DomainError.makeError({
+      code: "BAD_REQUEST",
+      message: `Invalid date value: ${isoDateString}`,
+      clientSafeMessage: "Date range contains an invalid value.",
+      additionalContext: { value: isoDateString },
+    })
+  }
+
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+const formatIsoDate = (date: Date): string => {
+  const year = date.getUTCFullYear().toString().padStart(4, "0")
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, "0")
+  const day = date.getUTCDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+export type DateRange = { from: string; to: string }
+
+export const shiftRangeBack7Days = (range: DateRange): DateRange => {
+  const fromDate = parseIsoDate(range.from)
+  const toDate = parseIsoDate(range.to)
+  const weekInMilliseconds = DAYS_IN_WEEK * MILLISECONDS_PER_DAY
+  return {
+    from: formatIsoDate(new Date(fromDate.getTime() - weekInMilliseconds)),
+    to: formatIsoDate(new Date(toDate.getTime() - weekInMilliseconds)),
+  }
+}
+
+export const shiftRangeBack1Year = (range: DateRange): DateRange => {
+  const fromDate = parseIsoDate(range.from)
+  const toDate = parseIsoDate(range.to)
+  const shiftedFromDate = new Date(
+    Date.UTC(fromDate.getUTCFullYear() - 1, fromDate.getUTCMonth(), fromDate.getUTCDate()),
+  )
+  const shiftedToDate = new Date(
+    Date.UTC(toDate.getUTCFullYear() - 1, toDate.getUTCMonth(), toDate.getUTCDate()),
+  )
+  return { from: formatIsoDate(shiftedFromDate), to: formatIsoDate(shiftedToDate) }
+}
+
+export const yearToDateRange = (range: DateRange): DateRange => {
+  const toDate = parseIsoDate(range.to)
+  const startOfYearDate = new Date(Date.UTC(toDate.getUTCFullYear(), 0, 1))
+  return { from: formatIsoDate(startOfYearDate), to: range.to }
+}
+
+export const getCompingCutoffDate = (rangeFromDate: string): string => {
+  const rangeStartDate = parseIsoDate(rangeFromDate)
+  const cutoffDate = new Date(
+    Date.UTC(
+      rangeStartDate.getUTCFullYear() - 1,
+      rangeStartDate.getUTCMonth(),
+      rangeStartDate.getUTCDate(),
+    ),
+  )
+  return formatIsoDate(cutoffDate)
+}
+
+export const isCompingLocation = (
+  openedAt: string | Date | null | undefined,
+  rangeFromDate: string,
+): boolean => {
+  if (!openedAt) return false
+
+  const openedDate = typeof openedAt === "string" ? parseIsoDate(openedAt.slice(0, 10)) : openedAt
+  const cutoffDate = parseIsoDate(getCompingCutoffDate(rangeFromDate))
+  return openedDate.getTime() <= cutoffDate.getTime()
+}
