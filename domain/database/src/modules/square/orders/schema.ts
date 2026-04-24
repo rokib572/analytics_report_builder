@@ -2,6 +2,7 @@ import { varchar, bigint, jsonb, timestamp, date, index } from "drizzle-orm/pg-c
 import { createInsertSchema, createSelectSchema } from "drizzle-zod"
 import { coreSchema, foreignKey, primaryKey } from "../../../db/base"
 import { customers } from "../../customers/schema"
+import { channels } from "../channels/schema"
 import { locations } from "../locations/schema"
 
 export const orders = coreSchema.table(
@@ -14,6 +15,7 @@ export const orders = coreSchema.table(
     locationId: foreignKey("location_id")
       .notNull()
       .references(() => locations.id),
+    channelId: foreignKey("channel_id").references(() => channels.id),
     squareId: varchar("square_id", { length: 255 }).notNull().unique(),
     saleDate: date("sale_date").notNull(),
     state: varchar("state", { length: 50 }).notNull(),
@@ -40,6 +42,7 @@ export const orders = coreSchema.table(
     index("orders_customer_date_state_idx").on(t.customerId, t.saleDate, t.state),
     index("orders_customer_id_idx").on(t.customerId),
     index("orders_square_customer_id_idx").on(t.squareCustomerId),
+    index("orders_channel_id_idx").on(t.channelId),
   ],
 )
 

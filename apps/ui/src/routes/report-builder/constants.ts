@@ -6,7 +6,7 @@ import {
   type SupportedMetric,
 } from "@analytics/report-builder"
 
-export const SUPPORTED_METRICS: SupportedMetric[] = [
+export const SALES_METRICS: SupportedMetric[] = [
   "netSales",
   "grossSales",
   "orderCount",
@@ -17,24 +17,42 @@ export const SUPPORTED_METRICS: SupportedMetric[] = [
   "totalCollected",
 ]
 
-export const SUPPORTED_DIMENSIONS: Exclude<Dimension, "channel">[] = [
+export const LABOR_METRICS: SupportedMetric[] = [
+  "reportedLaborHours",
+  "templateLaborHours",
+  "laborHourVariance",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+]
+
+export const SUPPORTED_METRICS: SupportedMetric[] = [...SALES_METRICS, ...LABOR_METRICS]
+
+export const METRIC_GROUPS: Array<{ label: string; metrics: SupportedMetric[] }> = [
+  { label: "Sales", metrics: SALES_METRICS },
+  { label: "Labor", metrics: LABOR_METRICS },
+]
+
+export const SUPPORTED_DIMENSIONS: Dimension[] = [
   "locationId",
   "saleDate",
   "dayOfWeek",
   "year",
   "week",
   "month",
+  "channel",
   "customer",
   "product",
   "productCategory",
   "paymentMethod",
+  "jobTitle",
 ]
 
 export const isSupportedMetricValue = (value: string): value is Metric =>
   SUPPORTED_METRICS.includes(value as SupportedMetric)
 
-export const isSupportedDimension = (value: string): value is Exclude<Dimension, "channel"> =>
-  SUPPORTED_DIMENSIONS.includes(value as Exclude<Dimension, "channel">)
+export const isSupportedDimension = (value: string): value is Dimension =>
+  SUPPORTED_DIMENSIONS.includes(value as Dimension)
 
 export const getDefaultDateRange = (): ReportConfig["dateRange"] => {
   const today = new Date()

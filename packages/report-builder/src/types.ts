@@ -9,6 +9,20 @@ export type Metric =
   | "totalTax"
   | "totalTips"
   | "totalCollected"
+  | "reportedLaborHours"
+  | "reportedTrainingHours"
+  | "estimatedPayrollAfterTax"
+  | "costPerLaborHour"
+  | "templateLaborHours"
+  | "laborHourVariance"
+
+export type LaborMetric =
+  | "reportedLaborHours"
+  | "reportedTrainingHours"
+  | "estimatedPayrollAfterTax"
+  | "costPerLaborHour"
+  | "templateLaborHours"
+  | "laborHourVariance"
 
 export type SupportedMetric = Exclude<Metric, "uberGrossSales" | "uberBogoRecoverable">
 
@@ -24,21 +38,33 @@ export type Dimension =
   | "product"
   | "productCategory"
   | "paymentMethod"
+  | "jobTitle"
 
 export type OrderLevelDimension = "customer" | "product" | "productCategory" | "paymentMethod"
+export type LaborLevelDimension = "jobTitle"
 
 export type ComputedDimension = Exclude<
   Dimension,
-  "locationId" | "saleDate" | "channel" | OrderLevelDimension
+  "locationId" | "saleDate" | "channel" | OrderLevelDimension | LaborLevelDimension
 >
 
 export type ChartType = "bar" | "line" | "table"
-export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders"
+export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders" | "labor" | "scheduled"
 
 export type ReportFilter = {
   dimension: Dimension
   operator: "eq" | "in" | "between"
   value: string | string[]
+}
+
+export type ReportComparisons = {
+  total?: boolean
+  previousPeriod?: boolean
+  yearOverYear?: boolean
+  yearToDate?: boolean
+  compingOnly?: boolean
+  includeChangePercent?: boolean
+  includeYearOverYearChangePercent?: boolean
 }
 
 export type ReportConfig = {
@@ -51,6 +77,7 @@ export type ReportConfig = {
     from: string
     to: string
   }
+  comparisons?: ReportComparisons
 }
 
 export type ReportQueryInput = ReportConfig & {
@@ -77,6 +104,21 @@ export type ReportColumn =
       pivot?: PivotCoordinate
     }
 
+export type ReportSummaryKind =
+  | "total"
+  | "comping"
+  | "previousPeriod"
+  | "yearOverYear"
+  | "yearToDate"
+  | "changePercent"
+  | "yearOverYearChangePercent"
+
+export type ReportSummaryRow = {
+  kind: ReportSummaryKind
+  label: string
+  values: Record<string, string | number | null>
+}
+
 export type ReportQueryResult = {
   columns: ReportColumn[]
   rows: Record<string, string | number | null>[]
@@ -85,4 +127,5 @@ export type ReportQueryResult = {
   pageSize: number
   hasMore: boolean
   totalRows?: number
+  summaryRows?: ReportSummaryRow[]
 }

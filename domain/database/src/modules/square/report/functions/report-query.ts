@@ -1,5 +1,4 @@
-import { and, count, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm"
-import type { AnyPgColumn } from "drizzle-orm/pg-core"
+import { and, count, eq, gte, lte, sql, type SQL } from "drizzle-orm"
 import {
   ensureSupportedDimension,
   ensureSupportedMetric,
@@ -7,418 +6,46 @@ import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
   isComputedDimension,
+  isDerivedLaborMetric,
+  isScheduledMetric,
+  isSharedDimension,
   isSupportedMetric,
+  isTimecardMetric,
   pivotReportResult,
   mergeReportDimensions,
   getQueryMode,
+  requiresLaborQuery,
+  requiresMultiQueryDispatch,
   requiresOrderLevelQuery,
-  requireBetweenValues,
+  requiresScheduledQuery,
   serializeReportValue,
   type Dimension,
-  type QueryMode,
+  type Metric,
   type ReportColumn,
   type ReportQueryInput,
   type ReportQueryResult,
-  type SupportedMetric,
 } from "@analytics/report-builder"
 import { DomainError } from "@analytics/shared-libs"
 import type { DbClient } from "../../../../db/client"
+import { channels } from "../../channels/schema"
 import { dailySales } from "../../daily-sales/schema"
 import { catalogCategories } from "../../catalog-categories/schema"
 import { catalogItems } from "../../catalog-items/schema"
 import { catalogItemVariations } from "../../catalog-item-variations/schema"
+import { laborScheduledShifts } from "../../labor-scheduled-shifts/schema"
+import { laborTimecards } from "../../labor-timecards/schema"
 import { locations } from "../../locations/schema"
 import { orderLineItems } from "../../order-line-items/schema"
 import { orderTenders } from "../../order-tenders/schema"
 import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
-import type {
-  DimensionDefinition,
-  GroupableExpression,
-  MetricDefinition,
-  SelectExpression,
-} from "./type"
-
-const DEFAULT_REPORT_PAGE_SIZE = 10_000
-const MAX_REPORT_PAGE_SIZE = 50_000
-const PIVOT_SOURCE_ROW_MULTIPLIER = 50
-
-const lineItemGrossSalesSum = sql<bigint>`coalesce(sum(${orderLineItems.grossSalesMoney}), 0)`
-const lineItemDiscountsSum = sql<bigint>`coalesce(sum(${orderLineItems.totalDiscountMoney}), 0)`
-const lineItemTaxSum = sql<bigint>`coalesce(sum(${orderLineItems.totalTaxMoney}), 0)`
-const lineItemTotalSum = sql<bigint>`coalesce(sum(${orderLineItems.totalMoney}), 0)`
-
-const tenderAmountSum = sql<bigint>`coalesce(sum(${orderTenders.amountMoney}), 0)`
-const tenderTipSum = sql<bigint>`coalesce(sum(${orderTenders.tipMoney}), 0)`
-
-const orderTotalSum = sql<bigint>`coalesce(sum(${orders.totalMoney}), 0)`
-const orderTaxSum = sql<bigint>`coalesce(sum(${orders.totalTaxMoney}), 0)`
-const orderDiscountsSum = sql<bigint>`coalesce(sum(${orders.totalDiscountMoney}), 0)`
-const orderTipSum = sql<bigint>`coalesce(sum(${orders.totalTipMoney}), 0)`
-const orderGrossSalesExpr = sql<bigint>`${orderTotalSum} - ${orderTaxSum} - ${orderTipSum} + ${orderDiscountsSum}`
-const orderNetSalesExpr = sql<bigint>`${orderTotalSum} - ${orderTaxSum} - ${orderTipSum}`
-
-const customerNameExpr = sql<string>`
-  coalesce(
-    nullif(trim(concat_ws(' ', ${squareCustomers.givenName}, ${squareCustomers.familyName})), ''),
-    'Unknown'
-  )
-`
-
-const productCategoryNameExpr = sql<string>`coalesce(${catalogCategories.name}, 'Uncategorized')`
-
-const locationNameExpr = sql<string>`coalesce(${locations.name}, 'Unknown')`
-
-const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
-  netSales: {
-    select: sql<bigint>`coalesce(sum(${dailySales.netSales}), 0)`,
-  },
-  grossSales: {
-    select: sql<bigint>`coalesce(sum(${dailySales.grossSales}), 0)`,
-  },
-  orderCount: {
-    select: sql<number>`coalesce(sum(${dailySales.orderCount}), 0)`,
-  },
-  storeGrossSales: {
-    select: sql<bigint>`coalesce(sum(${dailySales.storeGrossSales}), 0)`,
-  },
-  totalDiscounts: {
-    select: sql<bigint>`coalesce(sum(${dailySales.totalDiscounts}), 0)`,
-  },
-  totalTax: {
-    select: sql<bigint>`coalesce(sum(${dailySales.totalTax}), 0)`,
-  },
-  totalTips: {
-    select: sql<bigint>`coalesce(sum(${dailySales.totalTips}), 0)`,
-  },
-  totalCollected: {
-    select: sql<bigint>`coalesce(sum(${dailySales.totalCollected}), 0)`,
-  },
-}
-
-const lineItemsMetricMap: Record<SupportedMetric, MetricDefinition> = {
-  netSales: {
-    select: sql<bigint>`${lineItemGrossSalesSum} - ${lineItemDiscountsSum}`,
-  },
-  grossSales: {
-    select: lineItemGrossSalesSum,
-  },
-  orderCount: {
-    select: sql<number>`count(distinct ${orderLineItems.orderId})`,
-  },
-  storeGrossSales: {
-    select: lineItemGrossSalesSum,
-  },
-  totalDiscounts: {
-    select: lineItemDiscountsSum,
-  },
-  totalTax: {
-    select: lineItemTaxSum,
-  },
-  totalTips: {
-    select: sql<bigint>`0`,
-  },
-  totalCollected: {
-    select: lineItemTotalSum,
-  },
-}
-
-const tendersMetricMap: Record<SupportedMetric, MetricDefinition> = {
-  netSales: {
-    select: sql<bigint>`0`,
-  },
-  grossSales: {
-    select: sql<bigint>`0`,
-  },
-  orderCount: {
-    select: sql<number>`count(distinct ${orderTenders.orderId})`,
-  },
-  storeGrossSales: {
-    select: sql<bigint>`0`,
-  },
-  totalDiscounts: {
-    select: sql<bigint>`0`,
-  },
-  totalTax: {
-    select: sql<bigint>`0`,
-  },
-  totalTips: {
-    select: tenderTipSum,
-  },
-  totalCollected: {
-    select: tenderAmountSum,
-  },
-}
-
-const ordersMetricMap: Record<SupportedMetric, MetricDefinition> = {
-  netSales: {
-    select: orderNetSalesExpr,
-  },
-  grossSales: {
-    select: orderGrossSalesExpr,
-  },
-  orderCount: {
-    select: sql<number>`count(${orders.id})`,
-  },
-  storeGrossSales: {
-    select: orderGrossSalesExpr,
-  },
-  totalDiscounts: {
-    select: orderDiscountsSum,
-  },
-  totalTax: {
-    select: orderTaxSum,
-  },
-  totalTips: {
-    select: orderTipSum,
-  },
-  totalCollected: {
-    select: orderTotalSum,
-  },
-}
-
-const getTemporalExpressions = (saleDateColumn: AnyPgColumn) => {
-  const dayOfWeekSortExpr = sql<number>`extract(dow from ${saleDateColumn}::timestamp)::int`
-  const dayOfWeekNameExpr = sql<string>`
-    case ${dayOfWeekSortExpr}
-      when 0 then 'Sunday'
-      when 1 then 'Monday'
-      when 2 then 'Tuesday'
-      when 3 then 'Wednesday'
-      when 4 then 'Thursday'
-      when 5 then 'Friday'
-      when 6 then 'Saturday'
-    end
-  `
-  const yearExpr = sql<number>`extract(year from ${saleDateColumn}::timestamp)::int`
-  const yearLabelExpr = sql<string>`to_char(${saleDateColumn}::timestamp, 'YYYY')`
-  const weekGroupExpr = sql`date_trunc('week', ${saleDateColumn}::timestamp)`
-  const weekLabelExpr = sql<string>`to_char(${weekGroupExpr}, 'YYYY-MM-DD')`
-  const monthGroupExpr = sql`date_trunc('month', ${saleDateColumn}::timestamp)`
-  const monthLabelExpr = sql<string>`to_char(${monthGroupExpr}, 'FMMonth')`
-
-  return {
-    dayOfWeekSortExpr,
-    dayOfWeekNameExpr,
-    yearExpr,
-    yearLabelExpr,
-    weekGroupExpr,
-    weekLabelExpr,
-    monthGroupExpr,
-    monthLabelExpr,
-  }
-}
-
-const buildDimensionMap = (
-  locationColumn: AnyPgColumn,
-  saleDateColumn: AnyPgColumn,
-  extraDimensions: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> = {},
-): Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>> => {
-  const {
-    dayOfWeekSortExpr,
-    dayOfWeekNameExpr,
-    yearExpr,
-    yearLabelExpr,
-    weekGroupExpr,
-    weekLabelExpr,
-    monthGroupExpr,
-    monthLabelExpr,
-  } = getTemporalExpressions(saleDateColumn)
-
-  return {
-    locationId: {
-      select: locationNameExpr,
-      groupBy: [locationColumn, locations.name],
-      orderBy: locations.name,
-      filterBy: locationColumn,
-    },
-    saleDate: {
-      select: saleDateColumn,
-      groupBy: saleDateColumn,
-      orderBy: saleDateColumn,
-    },
-    dayOfWeek: {
-      select: dayOfWeekNameExpr,
-      groupBy: [dayOfWeekSortExpr, dayOfWeekNameExpr],
-      orderBy: dayOfWeekSortExpr,
-      filterBy: dayOfWeekNameExpr,
-    },
-    year: {
-      select: yearExpr,
-      groupBy: yearExpr,
-      orderBy: yearExpr,
-      filterBy: yearLabelExpr,
-    },
-    week: {
-      select: weekLabelExpr,
-      groupBy: weekGroupExpr,
-      orderBy: weekGroupExpr,
-      filterBy: weekLabelExpr,
-    },
-    month: {
-      select: monthLabelExpr,
-      groupBy: monthGroupExpr,
-      orderBy: monthGroupExpr,
-      filterBy: monthLabelExpr,
-    },
-    ...extraDimensions,
-  }
-}
-
-const dailySalesDimensionMap = buildDimensionMap(dailySales.locationId, dailySales.saleDate)
-const lineItemsDimensionMap = buildDimensionMap(
-  orderLineItems.locationId,
-  orderLineItems.saleDate,
-  {
-    customer: {
-      select: customerNameExpr,
-      groupBy: customerNameExpr,
-      orderBy: customerNameExpr,
-    },
-    product: {
-      select: orderLineItems.name,
-      groupBy: orderLineItems.name,
-      orderBy: orderLineItems.name,
-    },
-    productCategory: {
-      select: productCategoryNameExpr,
-      groupBy: [catalogCategories.name, productCategoryNameExpr],
-      orderBy: productCategoryNameExpr,
-    },
-  },
-)
-const tendersDimensionMap = buildDimensionMap(orderTenders.locationId, orders.saleDate, {
-  customer: {
-    select: customerNameExpr,
-    groupBy: customerNameExpr,
-    orderBy: customerNameExpr,
-  },
-  paymentMethod: {
-    select: orderTenders.type,
-    groupBy: orderTenders.type,
-    orderBy: orderTenders.type,
-  },
-})
-const ordersDimensionMap = buildDimensionMap(orders.locationId, orders.saleDate, {
-  customer: {
-    select: customerNameExpr,
-    groupBy: customerNameExpr,
-    orderBy: customerNameExpr,
-  },
-})
-
-const dailySalesFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
-  locationId: dailySales.locationId,
-  saleDate: dailySales.saleDate,
-}
-const lineItemsFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
-  locationId: orderLineItems.locationId,
-  saleDate: orderLineItems.saleDate,
-  product: orderLineItems.name,
-  productCategory: catalogCategories.name,
-}
-const tendersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
-  locationId: orderTenders.locationId,
-  saleDate: orders.saleDate,
-  paymentMethod: orderTenders.type,
-}
-const ordersFilterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>> = {
-  locationId: orders.locationId,
-  saleDate: orders.saleDate,
-}
-
-const buildExpressionCondition = (
-  dimension: Dimension,
-  expression: GroupableExpression,
-  operator: "eq" | "in" | "between",
-  value: string | string[],
-): SQL => {
-  if (operator === "eq") {
-    return sql`${expression} = ${String(value)}`
-  }
-
-  if (operator === "in") {
-    const values = Array.isArray(value) ? value : [value]
-    return sql`${expression} in (${sql.join(
-      values.map((item) => sql`${item}`),
-      sql`, `,
-    )})`
-  }
-
-  const { from, to } = requireBetweenValues(dimension, operator, value)
-  return sql`${expression} >= ${from} and ${expression} <= ${to}`
-}
-
-const buildColumnCondition = (
-  column: AnyPgColumn,
-  dimension: Dimension,
-  operator: "eq" | "in" | "between",
-  value: string | string[],
-): SQL => {
-  if (operator === "eq") {
-    return eq(column, String(value))
-  }
-
-  if (operator === "in") {
-    return inArray(column, Array.isArray(value) ? value : [value])
-  }
-
-  const { from, to } = requireBetweenValues(dimension, operator, value)
-  return and(gte(column, from), lte(column, to))!
-}
-
-const getModeConfig = (
-  mode: QueryMode,
-): {
-  metricMap: Record<SupportedMetric, MetricDefinition>
-  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>
-  filterColumns: Partial<Record<Exclude<Dimension, "channel">, AnyPgColumn>>
-} => {
-  switch (mode) {
-    case "lineItems":
-      return {
-        metricMap: lineItemsMetricMap,
-        dimensionMap: lineItemsDimensionMap,
-        filterColumns: lineItemsFilterColumns,
-      }
-    case "tenders":
-      return {
-        metricMap: tendersMetricMap,
-        dimensionMap: tendersDimensionMap,
-        filterColumns: tendersFilterColumns,
-      }
-    case "orders":
-      return {
-        metricMap: ordersMetricMap,
-        dimensionMap: ordersDimensionMap,
-        filterColumns: ordersFilterColumns,
-      }
-    default:
-      return {
-        metricMap: dailySalesMetricMap,
-        dimensionMap: dailySalesDimensionMap,
-        filterColumns: dailySalesFilterColumns,
-      }
-  }
-}
-
-const getDimensionDefinition = (
-  dimensionMap: Partial<Record<Exclude<Dimension, "channel">, DimensionDefinition>>,
-  dimension: Exclude<Dimension, "channel">,
-) => {
-  const definition = dimensionMap[dimension]
-
-  if (!definition) {
-    throw DomainError.makeError({
-      code: "BAD_REQUEST",
-      message: `Dimension ${dimension} is not available for this report query`,
-      clientSafeMessage: `Dimension "${dimension}" is not available for this report.`,
-      additionalContext: { dimension },
-    })
-  }
-
-  return definition
-}
+import { buildColumnCondition } from "./build-column-condition"
+import { buildExpressionCondition } from "./build-expression-condition"
+import { computeSummaryRows } from "./compute-summary-rows"
+import { getDimensionDefinition } from "./get-dimension-definition"
+import { getModeConfig } from "./get-mode-config"
+import type { GroupableExpression, SelectExpression } from "./type"
+import { DEFAULT_REPORT_PAGE_SIZE, MAX_REPORT_PAGE_SIZE, PIVOT_SOURCE_ROW_MULTIPLIER } from "./util"
 
 export const buildReportQuery = async (
   db: DbClient,
@@ -450,7 +77,7 @@ export const buildReportQuery = async (
     })
   }
 
-  if (hasCrossModePivotConflict(config.rows, config.columns)) {
+  if (hasCrossModePivotConflict(config.metrics, config.rows, config.columns)) {
     throw DomainError.makeError({
       code: "BAD_REQUEST",
       message: "Row and column pivot dimensions must share the same query mode",
@@ -459,9 +86,16 @@ export const buildReportQuery = async (
     })
   }
 
-  const queryMode = requiresOrderLevelQuery(queryDimensions)
-    ? getQueryMode(queryDimensions)
-    : "dailySales"
+  if (requiresMultiQueryDispatch(config.metrics)) {
+    return runMixedReportQuery(db, customerId, config)
+  }
+
+  const queryMode =
+    requiresScheduledQuery(config.metrics) ||
+    requiresLaborQuery(config.metrics, queryDimensions) ||
+    requiresOrderLevelQuery(queryDimensions)
+      ? getQueryMode(config.metrics, queryDimensions)
+      : "dailySales"
   const page = Math.max(1, config.page ?? 1)
   const pageSize = Math.min(
     MAX_REPORT_PAGE_SIZE,
@@ -475,8 +109,6 @@ export const buildReportQuery = async (
   const flatColumns: ReportColumn[] = []
 
   for (const dimension of dimensions) {
-    if (dimension === "channel") continue
-
     const definition = getDimensionDefinition(dimensionMap, dimension)
     selectFields[dimension] = definition.select
     groupByFields.push(
@@ -496,7 +128,18 @@ export const buildReportQuery = async (
 
   for (const metric of config.metrics) {
     if (!isSupportedMetric(metric)) continue
-    selectFields[metric] = metricMap[metric].select
+    const definition = metricMap[metric]
+
+    if (!definition) {
+      throw DomainError.makeError({
+        code: "BAD_REQUEST",
+        message: `Metric ${metric} is not available in ${queryMode} mode`,
+        clientSafeMessage: `Metric "${metric}" is not available with the current dimensions.`,
+        additionalContext: { metric, queryMode },
+      })
+    }
+
+    selectFields[metric] = definition.select
     const column: ReportColumn = {
       kind: "metric",
       key: metric,
@@ -510,30 +153,29 @@ export const buildReportQuery = async (
   }
 
   const customerClause =
-    queryMode === "orders"
-      ? eq(orders.customerId, customerId)
-      : eq(locations.customerId, customerId)
+    queryMode === "labor"
+      ? eq(laborTimecards.customerId, customerId)
+      : queryMode === "scheduled"
+        ? eq(laborScheduledShifts.customerId, customerId)
+        : queryMode === "orders"
+          ? eq(orders.customerId, customerId)
+          : eq(locations.customerId, customerId)
   const dateColumn =
     queryMode === "dailySales"
       ? dailySales.saleDate
       : queryMode === "lineItems"
         ? orderLineItems.saleDate
-        : orders.saleDate
+        : queryMode === "labor"
+          ? laborTimecards.workDate
+          : queryMode === "scheduled"
+            ? laborScheduledShifts.workDate
+            : orders.saleDate
   const conditions: SQL[] = [
     gte(dateColumn, config.dateRange.from),
     lte(dateColumn, config.dateRange.to),
   ]
 
   for (const filter of config.filters) {
-    if (filter.dimension === "channel") {
-      throw DomainError.makeError({
-        code: "BAD_REQUEST",
-        message: `Dimension ${filter.dimension} is not supported in filters`,
-        clientSafeMessage: `Dimension "${filter.dimension}" is not supported yet.`,
-        additionalContext: { dimension: filter.dimension },
-      })
-    }
-
     const filterColumn = filterColumns[filter.dimension]
 
     if (filterColumn) {
@@ -543,7 +185,11 @@ export const buildReportQuery = async (
       continue
     }
 
-    if (!isComputedDimension(filter.dimension) && filter.dimension !== "customer") {
+    if (
+      !isComputedDimension(filter.dimension) &&
+      filter.dimension !== "customer" &&
+      filter.dimension !== "jobTitle"
+    ) {
       throw DomainError.makeError({
         code: "BAD_REQUEST",
         message: `Dimension ${filter.dimension} is not supported in filters`,
@@ -563,69 +209,80 @@ export const buildReportQuery = async (
   const firstDimension = dimensions[0]
 
   const baseQuery =
-    queryMode === "dailySales"
+    queryMode === "labor"
       ? db
           .select(selectFields as never)
-          .from(dailySales)
-          .innerJoin(locations, eq(dailySales.locationId, locations.id))
-      : queryMode === "lineItems"
+          .from(laborTimecards)
+          .innerJoin(locations, eq(laborTimecards.locationId, locations.id))
+      : queryMode === "scheduled"
         ? db
             .select(selectFields as never)
-            .from(orderLineItems)
-            .innerJoin(locations, eq(orderLineItems.locationId, locations.id))
-            .leftJoin(
-              catalogItemVariations,
-              and(
-                eq(orderLineItems.catalogObjectId, catalogItemVariations.squareId),
-                eq(catalogItemVariations.customerId, customerId),
-              ),
-            )
-            .leftJoin(
-              catalogItems,
-              and(
-                eq(catalogItemVariations.itemId, catalogItems.id),
-                eq(catalogItems.customerId, customerId),
-              ),
-            )
-            .leftJoin(
-              catalogCategories,
-              and(
-                eq(catalogItems.categoryId, catalogCategories.squareId),
-                eq(catalogCategories.customerId, customerId),
-              ),
-            )
-            .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
-            .leftJoin(
-              squareCustomers,
-              and(
-                eq(orders.squareCustomerId, squareCustomers.squareId),
-                eq(squareCustomers.customerId, customerId),
-              ),
-            )
-        : queryMode === "tenders"
+            .from(laborScheduledShifts)
+            .innerJoin(locations, eq(laborScheduledShifts.locationId, locations.id))
+        : queryMode === "dailySales"
           ? db
               .select(selectFields as never)
-              .from(orderTenders)
-              .innerJoin(locations, eq(orderTenders.locationId, locations.id))
-              .leftJoin(orders, eq(orderTenders.orderId, orders.id))
-              .leftJoin(
-                squareCustomers,
-                and(
-                  eq(orders.squareCustomerId, squareCustomers.squareId),
-                  eq(squareCustomers.customerId, customerId),
-                ),
-              )
-          : db
-              .select(selectFields as never)
-              .from(orders)
-              .innerJoin(locations, eq(orders.locationId, locations.id))
-              .leftJoin(
-                squareCustomers,
-                and(
-                  eq(orders.squareCustomerId, squareCustomers.squareId),
-                  eq(squareCustomers.customerId, customerId),
-                ),
-              )
+              .from(dailySales)
+              .innerJoin(locations, eq(dailySales.locationId, locations.id))
+          : queryMode === "lineItems"
+            ? db
+                .select(selectFields as never)
+                .from(orderLineItems)
+                .innerJoin(locations, eq(orderLineItems.locationId, locations.id))
+                .leftJoin(
+                  catalogItemVariations,
+                  and(
+                    eq(orderLineItems.catalogObjectId, catalogItemVariations.squareId),
+                    eq(catalogItemVariations.customerId, customerId),
+                  ),
+                )
+                .leftJoin(
+                  catalogItems,
+                  and(
+                    eq(catalogItemVariations.itemId, catalogItems.id),
+                    eq(catalogItems.customerId, customerId),
+                  ),
+                )
+                .leftJoin(
+                  catalogCategories,
+                  and(
+                    eq(catalogItems.categoryId, catalogCategories.squareId),
+                    eq(catalogCategories.customerId, customerId),
+                  ),
+                )
+                .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
+                .leftJoin(
+                  squareCustomers,
+                  and(
+                    eq(orders.squareCustomerId, squareCustomers.squareId),
+                    eq(squareCustomers.customerId, customerId),
+                  ),
+                )
+            : queryMode === "tenders"
+              ? db
+                  .select(selectFields as never)
+                  .from(orderTenders)
+                  .innerJoin(locations, eq(orderTenders.locationId, locations.id))
+                  .leftJoin(orders, eq(orderTenders.orderId, orders.id))
+                  .leftJoin(
+                    squareCustomers,
+                    and(
+                      eq(orders.squareCustomerId, squareCustomers.squareId),
+                      eq(squareCustomers.customerId, customerId),
+                    ),
+                  )
+              : db
+                  .select(selectFields as never)
+                  .from(orders)
+                  .innerJoin(locations, eq(orders.locationId, locations.id))
+                  .leftJoin(channels, eq(orders.channelId, channels.id))
+                  .leftJoin(
+                    squareCustomers,
+                    and(
+                      eq(orders.squareCustomerId, squareCustomers.squareId),
+                      eq(squareCustomers.customerId, customerId),
+                    ),
+                  )
 
   let query = baseQuery.where(whereClause).$dynamic()
 
@@ -638,7 +295,7 @@ export const buildReportQuery = async (
       ? db.select({ totalCount: count() }).from(query.as("report_rows"))
       : Promise.resolve(null)
 
-  if (firstDimension && firstDimension !== "channel") {
+  if (firstDimension) {
     const definition = getDimensionDefinition(dimensionMap, firstDimension)
     query = query.orderBy(sql`${definition.orderBy} asc`)
   }
@@ -663,6 +320,11 @@ export const buildReportQuery = async (
   )
   const { columns, rows } = pivotReportResult(config, flatColumns, flatRows)
 
+  const shouldComputeSummaryRows = config.comparisons && (isPivotedReport || page === 1)
+  const summaryRows = shouldComputeSummaryRows
+    ? await computeSummaryRows(db, customerId, config, config.comparisons!)
+    : []
+
   return {
     columns,
     rows,
@@ -675,5 +337,268 @@ export const buildReportQuery = async (
       : totalRows !== undefined
         ? { totalRows }
         : {}),
+    ...(summaryRows.length > 0 ? { summaryRows } : {}),
   }
+}
+
+const stringifyKeyPart = (value: string | number | null) =>
+  value === null ? "__null__" : String(value)
+
+const buildRowKey = (rowDimensions: Dimension[], row: Record<string, string | number | null>) =>
+  rowDimensions
+    .map((dimension) => `${dimension}:${stringifyKeyPart(row[dimension] ?? null)}`)
+    .join("|")
+
+const mergeReportResults = (
+  config: ReportQueryInput,
+  primary: ReportQueryResult,
+  secondary: ReportQueryResult,
+): ReportQueryResult => {
+  const dimensionColumns = primary.columns.filter((column) => column.kind === "dimension")
+  const primaryMetricColumns = primary.columns.filter((column) => column.kind === "metric")
+  const secondaryMetricColumns = secondary.columns.filter((column) => column.kind === "metric")
+  const metricColumns = [...primaryMetricColumns, ...secondaryMetricColumns]
+  const allColumns = [...dimensionColumns, ...metricColumns]
+
+  const rowMap = new Map<string, Record<string, string | number | null>>()
+
+  for (const row of primary.rows) {
+    rowMap.set(buildRowKey(config.rows, row), { ...row })
+  }
+
+  for (const row of secondary.rows) {
+    const key = buildRowKey(config.rows, row)
+    const existing = rowMap.get(key)
+
+    if (existing) {
+      for (const [columnKey, value] of Object.entries(row)) {
+        if (existing[columnKey] === undefined) {
+          existing[columnKey] = value
+        }
+      }
+      continue
+    }
+
+    rowMap.set(key, { ...row })
+  }
+
+  const mergedRows = [...rowMap.values()].map((row) => {
+    const filled: Record<string, string | number | null> = { ...row }
+
+    for (const column of allColumns) {
+      if (filled[column.key] === undefined) filled[column.key] = null
+    }
+
+    return filled
+  })
+
+  return {
+    columns: allColumns,
+    rows: mergedRows,
+    generatedAt: new Date().toISOString(),
+    page: 1,
+    pageSize: Math.max(mergedRows.length, primary.pageSize),
+    hasMore: false,
+    totalRows: mergedRows.length,
+  }
+}
+
+const SALES_ONLY_DIMENSIONS = new Set<Dimension>([
+  "channel",
+  "customer",
+  "product",
+  "productCategory",
+  "paymentMethod",
+])
+const LABOR_ONLY_DIMENSIONS = new Set<Dimension>(["jobTitle"])
+
+const splitMetricsBySource = (metrics: Metric[]) => {
+  const sales: Metric[] = []
+  const timecard: Metric[] = []
+  const scheduled: Metric[] = []
+  const derived: Metric[] = []
+
+  for (const metric of metrics) {
+    if (isDerivedLaborMetric(metric)) {
+      derived.push(metric)
+    } else if (isScheduledMetric(metric)) {
+      scheduled.push(metric)
+    } else if (isTimecardMetric(metric)) {
+      timecard.push(metric)
+    } else {
+      sales.push(metric)
+    }
+  }
+
+  return { sales, timecard, scheduled, derived }
+}
+
+const stripUnrequestedMetricColumns = (
+  result: ReportQueryResult,
+  requestedMetrics: Metric[],
+): ReportQueryResult => {
+  const requestedSet = new Set<Metric>(requestedMetrics)
+  const keepColumns = result.columns.filter(
+    (column) => column.kind === "dimension" || requestedSet.has(column.metric),
+  )
+  const keepKeys = new Set(keepColumns.map((column) => column.key))
+  const newRows = result.rows.map((row) =>
+    Object.fromEntries(Object.entries(row).filter(([key]) => keepKeys.has(key))),
+  )
+
+  return { ...result, columns: keepColumns, rows: newRows, totalRows: newRows.length }
+}
+
+const REPORTED_METRIC: Metric = "reportedLaborHours"
+const TEMPLATE_METRIC: Metric = "templateLaborHours"
+const VARIANCE_METRIC: Metric = "laborHourVariance"
+
+const appendLaborHourVarianceMetric = (result: ReportQueryResult): ReportQueryResult => {
+  const reportedColumns = result.columns.filter(
+    (column) => column.kind === "metric" && column.metric === REPORTED_METRIC,
+  )
+
+  if (reportedColumns.length === 0) return result
+
+  const varianceColumns: ReportColumn[] = []
+  const keyPairs: Array<{
+    reportedKey: string
+    templateKey: string
+    varianceKey: string
+  }> = []
+
+  for (const reportedColumn of reportedColumns) {
+    if (reportedColumn.kind !== "metric") continue
+    const reportedKey = reportedColumn.key
+    const templateKey = reportedKey.replace(/reportedLaborHours$/, "templateLaborHours")
+    const templateColumn = result.columns.find(
+      (column) => column.kind === "metric" && column.key === templateKey,
+    )
+
+    if (!templateColumn) continue
+
+    const varianceKey = reportedKey.replace(/reportedLaborHours$/, "laborHourVariance")
+    const varianceColumn: ReportColumn = {
+      kind: "metric",
+      key: varianceKey,
+      metric: VARIANCE_METRIC,
+      ...(reportedColumn.pivot ? { pivot: reportedColumn.pivot } : {}),
+      label: "",
+    }
+    varianceColumn.label = formatReportColumn(varianceColumn)
+    varianceColumns.push(varianceColumn)
+    keyPairs.push({ reportedKey, templateKey, varianceKey })
+  }
+
+  const newRows = result.rows.map((row) => {
+    const next = { ...row }
+    for (const { reportedKey, templateKey, varianceKey } of keyPairs) {
+      const reported = row[reportedKey]
+      const template = row[templateKey]
+      next[varianceKey] = Number(reported ?? 0) - Number(template ?? 0)
+    }
+    return next
+  })
+
+  return { ...result, columns: [...result.columns, ...varianceColumns], rows: newRows }
+}
+
+const runMixedReportQuery = async (
+  db: DbClient,
+  customerId: string,
+  config: ReportQueryInput,
+): Promise<ReportQueryResult> => {
+  for (const dimension of config.rows) {
+    if (!isSharedDimension(dimension)) {
+      throw DomainError.makeError({
+        code: "BAD_REQUEST",
+        message: `Dimension ${dimension} cannot be a row dimension when combining labor + sales metrics`,
+        clientSafeMessage: `Move "${dimension}" to columns or remove it when combining labor and sales metrics. Only Location, Sale Date, Day of Week, Year, Week, or Month can be used as row dimensions in mixed reports.`,
+        additionalContext: { dimension },
+      })
+    }
+  }
+
+  const groups = splitMetricsBySource(config.metrics)
+  const wantsVariance = groups.derived.includes(VARIANCE_METRIC)
+
+  const timecardMetrics =
+    wantsVariance && !groups.timecard.includes(REPORTED_METRIC)
+      ? [...groups.timecard, REPORTED_METRIC]
+      : groups.timecard
+  const scheduledMetrics =
+    wantsVariance && !groups.scheduled.includes(TEMPLATE_METRIC)
+      ? [...groups.scheduled, TEMPLATE_METRIC]
+      : groups.scheduled
+
+  const salesColumns = config.columns.filter((dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension))
+  const laborColumns = config.columns.filter((dimension) => !SALES_ONLY_DIMENSIONS.has(dimension))
+  const salesFilters = config.filters.filter(
+    (filter) => !LABOR_ONLY_DIMENSIONS.has(filter.dimension),
+  )
+  const laborFilters = config.filters.filter(
+    (filter) => !SALES_ONLY_DIMENSIONS.has(filter.dimension),
+  )
+
+  const subConfigBase: ReportQueryInput = {
+    ...config,
+    comparisons: undefined,
+    page: 1,
+  }
+
+  const queries: Array<Promise<ReportQueryResult>> = []
+  if (groups.sales.length > 0) {
+    queries.push(
+      buildReportQuery(db, customerId, {
+        ...subConfigBase,
+        metrics: groups.sales,
+        columns: salesColumns,
+        filters: salesFilters,
+      }),
+    )
+  }
+  if (timecardMetrics.length > 0) {
+    queries.push(
+      buildReportQuery(db, customerId, {
+        ...subConfigBase,
+        metrics: timecardMetrics,
+        columns: laborColumns,
+        filters: laborFilters,
+      }),
+    )
+  }
+  if (scheduledMetrics.length > 0) {
+    queries.push(
+      buildReportQuery(db, customerId, {
+        ...subConfigBase,
+        metrics: scheduledMetrics,
+        columns: laborColumns,
+        filters: laborFilters,
+      }),
+    )
+  }
+
+  const results = await Promise.all(queries)
+  const [firstResult, ...remainingResults] = results
+  let merged = remainingResults.reduce(
+    (accumulated, current) => mergeReportResults(config, accumulated, current),
+    firstResult!,
+  )
+
+  if (wantsVariance) {
+    merged = appendLaborHourVarianceMetric(merged)
+  }
+
+  if (
+    wantsVariance &&
+    (!groups.timecard.includes(REPORTED_METRIC) || !groups.scheduled.includes(TEMPLATE_METRIC))
+  ) {
+    merged = stripUnrequestedMetricColumns(merged, config.metrics)
+  }
+
+  if (!config.comparisons) return merged
+
+  const summaryRows = await computeSummaryRows(db, customerId, config, config.comparisons)
+
+  return summaryRows.length > 0 ? { ...merged, summaryRows } : merged
 }

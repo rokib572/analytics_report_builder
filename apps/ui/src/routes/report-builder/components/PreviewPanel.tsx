@@ -3,6 +3,7 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tan
 import {
   FIELD_LABELS,
   formatReportCell,
+  formatSummaryCell,
   getChartValue,
   getColumnMetric,
   isMonetaryReportColumn,
@@ -300,6 +301,44 @@ export const PreviewPanel = ({
                     ))}
                   </TableRow>
                 ))}
+                {result.summaryRows && result.summaryRows.length > 0
+                  ? result.summaryRows.map((summaryRow) => (
+                      <TableRow
+                        key={`summary-${summaryRow.kind}`}
+                        className="bg-muted/50 font-semibold"
+                      >
+                        {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
+                          const leafMeta = leafColumn.columnDef.meta as
+                            | PreviewColumnMeta
+                            | undefined
+                          const metricColumnForCell = leafMeta?.metricColumn
+                          const cellKey = leafColumn.id
+                          const metricCellValue = metricColumnForCell
+                            ? (summaryRow.values[cellKey] ?? null)
+                            : null
+                          const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
+                          return (
+                            <TableCell
+                              key={`${summaryRow.kind}-${cellKey}`}
+                              className={
+                                metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
+                                  ? "text-right"
+                                  : undefined
+                              }
+                            >
+                              {metricColumnForCell
+                                ? formatSummaryCell(
+                                    summaryRow.kind,
+                                    metricColumnForCell,
+                                    metricCellValue,
+                                  )
+                                : labelCellValue}
+                            </TableCell>
+                          )
+                        })}
+                      </TableRow>
+                    ))
+                  : null}
               </TableBody>
             </Table>
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

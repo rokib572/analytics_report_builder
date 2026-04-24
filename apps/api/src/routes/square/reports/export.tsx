@@ -6,6 +6,7 @@ import { buildReportQuery } from "@analytics/database"
 import {
   FIELD_LABELS,
   formatReportCell,
+  formatSummaryCell,
   type ReportColumn,
   type ReportConfig,
   type ReportQueryResult,
@@ -41,6 +42,7 @@ const collectReportRows = async (
   let page = 1
   let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
+  let summaryRows: ReportQueryResult["summaryRows"]
   const rows: ReportQueryResult["rows"] = []
 
   while (true) {
@@ -53,6 +55,7 @@ const collectReportRows = async (
     if (columns.length === 0) {
       columns = pageResult.columns
       generatedAt = pageResult.generatedAt
+      summaryRows = pageResult.summaryRows
     }
 
     rows.push(...pageResult.rows)
@@ -75,6 +78,7 @@ const collectReportRows = async (
         pageSize: rows.length,
         hasMore: false,
         totalRows: rows.length,
+        ...(summaryRows && summaryRows.length > 0 ? { summaryRows } : {}),
       }
     }
 
@@ -129,13 +133,33 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
   return headerRows
 }
 
+const buildCsvSummaryRows = (result: ReportQueryResult): string[][] => {
+  if (!result.summaryRows || result.summaryRows.length === 0) return []
+
+  const dimensionColumns = result.columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
+  )
+  const metricColumns = result.columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
+  )
+
+  return result.summaryRows.map((summaryRow) => {
+    const dimensionCells = dimensionColumns.map((_, index) => (index === 0 ? summaryRow.label : ""))
+    const metricCells = metricColumns.map((column) =>
+      formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null),
+    )
+    return [...dimensionCells, ...metricCells]
+  })
+}
+
 const buildCsv = (result: ReportQueryResult) => {
   const headerRows = buildCsvHeaderRows(result.columns)
   const dataRows = result.rows.map((row) =>
     result.columns.map((column) => formatReportCell(column, row[column.key] ?? null)),
   )
+  const summaryCsvRows = buildCsvSummaryRows(result)
 
-  return stringify([...headerRows, ...dataRows])
+  return stringify([...headerRows, ...dataRows, ...summaryCsvRows])
 }
 
 const router = new Hono<AuthEnv>()

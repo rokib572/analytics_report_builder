@@ -77,7 +77,11 @@ const DropZone = ({ id, label, items, onRemove }: DropZoneProps) => {
 
 export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   const selectedDimensions = [...config.rows, ...config.columns]
-  const hasPivotModeConflict = hasCrossModePivotConflict(config.rows, config.columns)
+  const hasPivotModeConflict = hasCrossModePivotConflict(
+    config.metrics,
+    config.rows,
+    config.columns,
+  )
 
   const updateFilter = (
     index: number,

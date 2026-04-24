@@ -10,6 +10,7 @@ import {
   syncPayments,
   syncRefunds,
   syncCatalog,
+  syncLabor,
 } from "@analytics/data-sync"
 import {
   createSyncLog,
@@ -134,6 +135,10 @@ const router = new Hono<AuthEnv>().post(
       })
     } else if (data.type === "catalog") {
       const result = await syncCatalog(db, customerId)
+      return context.json({ success: true, ...result })
+    } else if (data.type === "labor") {
+      const syncRange = toRfc3339Range(data.startAt, data.endAt)
+      const result = await syncLabor(db, customerId, syncRange.startAt, syncRange.endAt)
       return context.json({ success: true, ...result })
     }
 

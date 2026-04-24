@@ -2,6 +2,7 @@ import { DomainError } from "@analytics/shared-libs"
 import type {
   ComputedDimension,
   Dimension,
+  LaborMetric,
   Metric,
   OrderLevelDimension,
   PivotCoordinate,
@@ -13,13 +14,47 @@ import type {
 import { formatReportColumn } from "./format"
 
 const unsupportedMetrics = new Set<Metric>(["uberGrossSales", "uberBogoRecoverable"])
-const unsupportedDimensions = new Set<Dimension>(["channel"])
+const unsupportedDimensions = new Set<Dimension>([])
 const orderLevelDimensions = new Set<OrderLevelDimension>([
   "customer",
   "product",
   "productCategory",
   "paymentMethod",
 ])
+const laborMetrics = new Set<LaborMetric>([
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+  "templateLaborHours",
+  "laborHourVariance",
+])
+const timecardMetrics = new Set<LaborMetric>([
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+])
+const scheduledMetrics = new Set<LaborMetric>(["templateLaborHours"])
+const derivedLaborMetrics = new Set<LaborMetric>(["laborHourVariance"])
+
+export const isLaborMetric = (metric: Metric): metric is LaborMetric =>
+  laborMetrics.has(metric as LaborMetric)
+
+export const isTimecardMetric = (metric: Metric): boolean =>
+  timecardMetrics.has(metric as LaborMetric)
+
+export const isScheduledMetric = (metric: Metric): boolean =>
+  scheduledMetrics.has(metric as LaborMetric)
+
+export const isDerivedLaborMetric = (metric: Metric): boolean =>
+  derivedLaborMetrics.has(metric as LaborMetric)
+
+export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
+  metrics.some(isTimecardMetric) || dimensions.includes("jobTitle")
+
+export const requiresScheduledQuery = (metrics: Metric[]): boolean =>
+  metrics.some(isScheduledMetric)
 
 export const ensureSupportedMetric = (metric: Metric) => {
   if (unsupportedMetrics.has(metric)) {
@@ -50,28 +85,78 @@ export const isComputedDimension = (dimension: Dimension): dimension is Computed
   dimension !== "locationId" &&
   dimension !== "saleDate" &&
   dimension !== "channel" &&
+  dimension !== "jobTitle" &&
   !orderLevelDimensions.has(dimension as OrderLevelDimension)
 
 export const requiresOrderLevelQuery = (dimensions: Dimension[]): boolean =>
+  dimensions.includes("channel") ||
   dimensions.some((dimension) => orderLevelDimensions.has(dimension as OrderLevelDimension))
 
 export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
   (dimensions.includes("product") || dimensions.includes("productCategory")) &&
   dimensions.includes("paymentMethod")
 
-export const getQueryMode = (dimensions: Dimension[]): QueryMode => {
+export const getQueryMode = (metrics: Metric[], dimensions: Dimension[]): QueryMode => {
+  if (requiresScheduledQuery(metrics)) return "scheduled"
+  if (requiresLaborQuery(metrics, dimensions)) return "labor"
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
   if (dimensions.includes("paymentMethod")) return "tenders"
-  if (dimensions.includes("customer")) return "orders"
+  if (dimensions.includes("customer") || dimensions.includes("channel")) return "orders"
   return "dailySales"
 }
 
-export const hasCrossModePivotConflict = (rows: Dimension[], columns: Dimension[]) =>
+export const hasCrossModePivotConflict = (
+  metrics: Metric[],
+  rows: Dimension[],
+  columns: Dimension[],
+) =>
   rows.length > 0 &&
   columns.length > 0 &&
   requiresOrderLevelQuery(rows) &&
   requiresOrderLevelQuery(columns) &&
-  getQueryMode(rows) !== getQueryMode(columns)
+  getQueryMode(metrics, rows) !== getQueryMode(metrics, columns)
+
+export const hasMixedLaborAndSalesMetrics = (metrics: Metric[]): boolean => {
+  const laborCount = metrics.filter(isLaborMetric).length
+  return laborCount > 0 && laborCount < metrics.length
+}
+
+export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
+  let hasSales = false
+  let hasTimecard = false
+  let hasScheduled = false
+  let hasDerived = false
+
+  for (const metric of metrics) {
+    if (isDerivedLaborMetric(metric)) {
+      hasDerived = true
+      continue
+    }
+    if (isScheduledMetric(metric)) {
+      hasScheduled = true
+      continue
+    }
+    if (isTimecardMetric(metric)) {
+      hasTimecard = true
+      continue
+    }
+    hasSales = true
+  }
+
+  const sourceCount = (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0)
+  return hasDerived || sourceCount > 1
+}
+
+const SHARED_DIMENSIONS = new Set<Dimension>([
+  "locationId",
+  "saleDate",
+  "dayOfWeek",
+  "year",
+  "week",
+  "month",
+])
+
+export const isSharedDimension = (dimension: Dimension): boolean => SHARED_DIMENSIONS.has(dimension)
 
 export const mergeReportDimensions = (rows: Dimension[], columns: Dimension[]) => [
   ...new Set([...rows, ...columns]),
@@ -261,4 +346,82 @@ export const serializeReportValue = (value: unknown): string | number | null => 
   if (typeof value === "bigint") return value.toString()
   if (value instanceof Date) return value.toISOString()
   return typeof value === "string" || typeof value === "number" ? value : String(value)
+}
+
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
+const DAYS_IN_WEEK = 7
+
+const parseIsoDate = (isoDateString: string): Date => {
+  const [year, month, day] = isoDateString.split("-").map(Number)
+
+  if (!year || !month || !day) {
+    throw DomainError.makeError({
+      code: "BAD_REQUEST",
+      message: `Invalid date value: ${isoDateString}`,
+      clientSafeMessage: "Date range contains an invalid value.",
+      additionalContext: { value: isoDateString },
+    })
+  }
+
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+const formatIsoDate = (date: Date): string => {
+  const year = date.getUTCFullYear().toString().padStart(4, "0")
+  const month = (date.getUTCMonth() + 1).toString().padStart(2, "0")
+  const day = date.getUTCDate().toString().padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+export type DateRange = { from: string; to: string }
+
+export const shiftRangeBack7Days = (range: DateRange): DateRange => {
+  const fromDate = parseIsoDate(range.from)
+  const toDate = parseIsoDate(range.to)
+  const weekInMilliseconds = DAYS_IN_WEEK * MILLISECONDS_PER_DAY
+  return {
+    from: formatIsoDate(new Date(fromDate.getTime() - weekInMilliseconds)),
+    to: formatIsoDate(new Date(toDate.getTime() - weekInMilliseconds)),
+  }
+}
+
+export const shiftRangeBack1Year = (range: DateRange): DateRange => {
+  const fromDate = parseIsoDate(range.from)
+  const toDate = parseIsoDate(range.to)
+  const shiftedFromDate = new Date(
+    Date.UTC(fromDate.getUTCFullYear() - 1, fromDate.getUTCMonth(), fromDate.getUTCDate()),
+  )
+  const shiftedToDate = new Date(
+    Date.UTC(toDate.getUTCFullYear() - 1, toDate.getUTCMonth(), toDate.getUTCDate()),
+  )
+  return { from: formatIsoDate(shiftedFromDate), to: formatIsoDate(shiftedToDate) }
+}
+
+export const yearToDateRange = (range: DateRange): DateRange => {
+  const toDate = parseIsoDate(range.to)
+  const startOfYearDate = new Date(Date.UTC(toDate.getUTCFullYear(), 0, 1))
+  return { from: formatIsoDate(startOfYearDate), to: range.to }
+}
+
+export const getCompingCutoffDate = (rangeFromDate: string): string => {
+  const rangeStartDate = parseIsoDate(rangeFromDate)
+  const cutoffDate = new Date(
+    Date.UTC(
+      rangeStartDate.getUTCFullYear() - 1,
+      rangeStartDate.getUTCMonth(),
+      rangeStartDate.getUTCDate(),
+    ),
+  )
+  return formatIsoDate(cutoffDate)
+}
+
+export const isCompingLocation = (
+  openedAt: string | Date | null | undefined,
+  rangeFromDate: string,
+): boolean => {
+  if (!openedAt) return false
+
+  const openedDate = typeof openedAt === "string" ? parseIsoDate(openedAt.slice(0, 10)) : openedAt
+  const cutoffDate = parseIsoDate(getCompingCutoffDate(rangeFromDate))
+  return openedDate.getTime() <= cutoffDate.getTime()
 }

@@ -2,6 +2,7 @@ import { Text, View } from "@react-pdf/renderer"
 import {
   FIELD_LABELS,
   formatReportCell,
+  formatSummaryCell,
   isMonetaryReportColumn,
   type ReportColumn,
   type ReportQueryResult,
@@ -204,39 +205,97 @@ export const ReportTable = ({ result }: ReportTableProps) => {
           ))}
         </View>
       )}
-      {result.rows.map((row, rowIndex) => (
-        <View
-          key={`row-${rowIndex}`}
-          style={[
-            reportStyles.tableRow,
-            ...(rowIndex === result.rows.length - 1 ? [reportStyles.tableRowLast] : []),
-          ]}
-          wrap={false}
-        >
-          {result.columns.map((column, columnIndex) => (
-            <View
-              key={`${rowIndex}-${column.key}`}
-              style={[
-                reportStyles.tableCell,
-                { width: columnWidth },
-                ...(columnIndex === result.columns.length - 1 ? [reportStyles.tableCellLast] : []),
-              ]}
-            >
-              <Text
+      {result.rows.map((row, rowIndex) => {
+        const isLastDataRow =
+          rowIndex === result.rows.length - 1 &&
+          (!result.summaryRows || result.summaryRows.length === 0)
+        return (
+          <View
+            key={`row-${rowIndex}`}
+            style={[reportStyles.tableRow, ...(isLastDataRow ? [reportStyles.tableRowLast] : [])]}
+            wrap={false}
+          >
+            {result.columns.map((column, columnIndex) => (
+              <View
+                key={`${rowIndex}-${column.key}`}
                 style={[
-                  reportStyles.tableCellText,
-                  ...(column.kind === "metric" &&
-                  (isMonetaryReportColumn(column) || column.metric === "orderCount")
-                    ? [reportStyles.alignRight]
+                  reportStyles.tableCell,
+                  { width: columnWidth },
+                  ...(columnIndex === result.columns.length - 1
+                    ? [reportStyles.tableCellLast]
                     : []),
                 ]}
               >
-                {formatReportCell(column, row[column.key] ?? null)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ))}
+                <Text
+                  style={[
+                    reportStyles.tableCellText,
+                    ...(column.kind === "metric" &&
+                    (isMonetaryReportColumn(column) || column.metric === "orderCount")
+                      ? [reportStyles.alignRight]
+                      : []),
+                  ]}
+                >
+                  {formatReportCell(column, row[column.key] ?? null)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )
+      })}
+      {result.summaryRows?.map((summaryRow, summaryIndex) => {
+        const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
+        const firstDimensionColumnIndex = result.columns.findIndex(
+          (candidate) => candidate.kind === "dimension",
+        )
+        const labelColumnIndex = firstDimensionColumnIndex >= 0 ? firstDimensionColumnIndex : 0
+        return (
+          <View
+            key={`summary-${summaryRow.kind}`}
+            style={[
+              reportStyles.tableSummaryRow,
+              ...(isLastSummaryRow ? [reportStyles.tableRowLast] : []),
+            ]}
+            wrap={false}
+          >
+            {result.columns.map((column, columnIndex) => {
+              const isLastColumn = columnIndex === result.columns.length - 1
+              const isLabelCell = columnIndex === labelColumnIndex && column.kind !== "metric"
+              const summaryValue =
+                column.kind === "metric"
+                  ? formatSummaryCell(
+                      summaryRow.kind,
+                      column,
+                      summaryRow.values[column.key] ?? null,
+                    )
+                  : isLabelCell
+                    ? summaryRow.label
+                    : ""
+              return (
+                <View
+                  key={`${summaryRow.kind}-${column.key}`}
+                  style={[
+                    reportStyles.tableCell,
+                    { width: columnWidth },
+                    ...(isLastColumn ? [reportStyles.tableCellLast] : []),
+                  ]}
+                >
+                  <Text
+                    style={[
+                      reportStyles.tableSummaryCellText,
+                      ...(column.kind === "metric" &&
+                      (isMonetaryReportColumn(column) || column.metric === "orderCount")
+                        ? [reportStyles.alignRight]
+                        : []),
+                    ]}
+                  >
+                    {summaryValue}
+                  </Text>
+                </View>
+              )
+            })}
+          </View>
+        )
+      })}
     </View>
   )
 }
