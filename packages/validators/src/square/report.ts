@@ -11,6 +11,12 @@ export const MetricSchema = z.enum([
   "totalTax",
   "totalTips",
   "totalCollected",
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+  "templateLaborHours",
+  "laborHourVariance",
 ])
 
 export const DimensionSchema = z.enum([
@@ -25,6 +31,7 @@ export const DimensionSchema = z.enum([
   "product",
   "productCategory",
   "paymentMethod",
+  "jobTitle",
 ])
 
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])

@@ -6,7 +6,7 @@ import {
   type SupportedMetric,
 } from "@analytics/report-builder"
 
-export const SUPPORTED_METRICS: SupportedMetric[] = [
+export const SALES_METRICS: SupportedMetric[] = [
   "netSales",
   "grossSales",
   "orderCount",
@@ -15,6 +15,22 @@ export const SUPPORTED_METRICS: SupportedMetric[] = [
   "totalTax",
   "totalTips",
   "totalCollected",
+]
+
+export const LABOR_METRICS: SupportedMetric[] = [
+  "reportedLaborHours",
+  "templateLaborHours",
+  "laborHourVariance",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+]
+
+export const SUPPORTED_METRICS: SupportedMetric[] = [...SALES_METRICS, ...LABOR_METRICS]
+
+export const METRIC_GROUPS: Array<{ label: string; metrics: SupportedMetric[] }> = [
+  { label: "Sales", metrics: SALES_METRICS },
+  { label: "Labor", metrics: LABOR_METRICS },
 ]
 
 export const SUPPORTED_DIMENSIONS: Dimension[] = [
@@ -29,6 +45,7 @@ export const SUPPORTED_DIMENSIONS: Dimension[] = [
   "product",
   "productCategory",
   "paymentMethod",
+  "jobTitle",
 ]
 
 export const isSupportedMetricValue = (value: string): value is Metric =>

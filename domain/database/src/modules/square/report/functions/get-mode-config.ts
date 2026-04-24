@@ -5,12 +5,18 @@ import {
   dailySalesDimensionMap,
   dailySalesFilterColumns,
   dailySalesMetricMap,
+  laborDimensionMap,
+  laborFilterColumns,
+  laborMetricMap,
   lineItemsDimensionMap,
   lineItemsFilterColumns,
   lineItemsMetricMap,
   ordersDimensionMap,
   ordersFilterColumns,
   ordersMetricMap,
+  scheduledDimensionMap,
+  scheduledFilterColumns,
+  scheduledMetricMap,
   tendersDimensionMap,
   tendersFilterColumns,
   tendersMetricMap,
@@ -19,7 +25,7 @@ import {
 export const getModeConfig = (
   mode: QueryMode,
 ): {
-  metricMap: Record<SupportedMetric, MetricDefinition>
+  metricMap: Partial<Record<SupportedMetric, MetricDefinition>>
   dimensionMap: Partial<Record<Dimension, DimensionDefinition>>
   filterColumns: Partial<Record<Dimension, AnyPgColumn>>
 } => {
@@ -41,6 +47,18 @@ export const getModeConfig = (
         metricMap: ordersMetricMap,
         dimensionMap: ordersDimensionMap,
         filterColumns: ordersFilterColumns,
+      }
+    case "labor":
+      return {
+        metricMap: laborMetricMap,
+        dimensionMap: laborDimensionMap,
+        filterColumns: laborFilterColumns,
+      }
+    case "scheduled":
+      return {
+        metricMap: scheduledMetricMap,
+        dimensionMap: scheduledDimensionMap,
+        filterColumns: scheduledFilterColumns,
       }
     default:
       return {

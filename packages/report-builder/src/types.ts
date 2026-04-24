@@ -9,6 +9,20 @@ export type Metric =
   | "totalTax"
   | "totalTips"
   | "totalCollected"
+  | "reportedLaborHours"
+  | "reportedTrainingHours"
+  | "estimatedPayrollAfterTax"
+  | "costPerLaborHour"
+  | "templateLaborHours"
+  | "laborHourVariance"
+
+export type LaborMetric =
+  | "reportedLaborHours"
+  | "reportedTrainingHours"
+  | "estimatedPayrollAfterTax"
+  | "costPerLaborHour"
+  | "templateLaborHours"
+  | "laborHourVariance"
 
 export type SupportedMetric = Exclude<Metric, "uberGrossSales" | "uberBogoRecoverable">
 
@@ -24,16 +38,18 @@ export type Dimension =
   | "product"
   | "productCategory"
   | "paymentMethod"
+  | "jobTitle"
 
 export type OrderLevelDimension = "customer" | "product" | "productCategory" | "paymentMethod"
+export type LaborLevelDimension = "jobTitle"
 
 export type ComputedDimension = Exclude<
   Dimension,
-  "locationId" | "saleDate" | "channel" | OrderLevelDimension
+  "locationId" | "saleDate" | "channel" | OrderLevelDimension | LaborLevelDimension
 >
 
 export type ChartType = "bar" | "line" | "table"
-export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders"
+export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders" | "labor" | "scheduled"
 
 export type ReportFilter = {
   dimension: Dimension

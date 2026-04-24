@@ -38,6 +38,21 @@ export const SyncRequestSchema = z.discriminatedUnion("type", [
       },
       { message: "Date range must be between 1 and 3650 days." },
     ),
+  z
+    .object({
+      type: z.literal("labor"),
+      startAt: z.string().date(),
+      endAt: z.string().date(),
+    })
+    .refine(
+      (data) => {
+        const start = new Date(data.startAt)
+        const end = new Date(data.endAt)
+        const diffDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+        return diffDays <= MAX_SYNC_DAYS && diffDays > 0
+      },
+      { message: "Date range must be between 1 and 3650 days." },
+    ),
 ])
 
 export type SyncRequest = z.infer<typeof SyncRequestSchema>

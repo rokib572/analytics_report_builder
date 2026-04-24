@@ -2,6 +2,7 @@ import { DomainError } from "@analytics/shared-libs"
 import type {
   ComputedDimension,
   Dimension,
+  LaborMetric,
   Metric,
   OrderLevelDimension,
   PivotCoordinate,
@@ -20,6 +21,40 @@ const orderLevelDimensions = new Set<OrderLevelDimension>([
   "productCategory",
   "paymentMethod",
 ])
+const laborMetrics = new Set<LaborMetric>([
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+  "templateLaborHours",
+  "laborHourVariance",
+])
+const timecardMetrics = new Set<LaborMetric>([
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+])
+const scheduledMetrics = new Set<LaborMetric>(["templateLaborHours"])
+const derivedLaborMetrics = new Set<LaborMetric>(["laborHourVariance"])
+
+export const isLaborMetric = (metric: Metric): metric is LaborMetric =>
+  laborMetrics.has(metric as LaborMetric)
+
+export const isTimecardMetric = (metric: Metric): boolean =>
+  timecardMetrics.has(metric as LaborMetric)
+
+export const isScheduledMetric = (metric: Metric): boolean =>
+  scheduledMetrics.has(metric as LaborMetric)
+
+export const isDerivedLaborMetric = (metric: Metric): boolean =>
+  derivedLaborMetrics.has(metric as LaborMetric)
+
+export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
+  metrics.some(isTimecardMetric) || dimensions.includes("jobTitle")
+
+export const requiresScheduledQuery = (metrics: Metric[]): boolean =>
+  metrics.some(isScheduledMetric)
 
 export const ensureSupportedMetric = (metric: Metric) => {
   if (unsupportedMetrics.has(metric)) {
@@ -50,6 +85,7 @@ export const isComputedDimension = (dimension: Dimension): dimension is Computed
   dimension !== "locationId" &&
   dimension !== "saleDate" &&
   dimension !== "channel" &&
+  dimension !== "jobTitle" &&
   !orderLevelDimensions.has(dimension as OrderLevelDimension)
 
 export const requiresOrderLevelQuery = (dimensions: Dimension[]): boolean =>
@@ -60,19 +96,67 @@ export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
   (dimensions.includes("product") || dimensions.includes("productCategory")) &&
   dimensions.includes("paymentMethod")
 
-export const getQueryMode = (dimensions: Dimension[]): QueryMode => {
+export const getQueryMode = (metrics: Metric[], dimensions: Dimension[]): QueryMode => {
+  if (requiresScheduledQuery(metrics)) return "scheduled"
+  if (requiresLaborQuery(metrics, dimensions)) return "labor"
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
   if (dimensions.includes("paymentMethod")) return "tenders"
   if (dimensions.includes("customer") || dimensions.includes("channel")) return "orders"
   return "dailySales"
 }
 
-export const hasCrossModePivotConflict = (rows: Dimension[], columns: Dimension[]) =>
+export const hasCrossModePivotConflict = (
+  metrics: Metric[],
+  rows: Dimension[],
+  columns: Dimension[],
+) =>
   rows.length > 0 &&
   columns.length > 0 &&
   requiresOrderLevelQuery(rows) &&
   requiresOrderLevelQuery(columns) &&
-  getQueryMode(rows) !== getQueryMode(columns)
+  getQueryMode(metrics, rows) !== getQueryMode(metrics, columns)
+
+export const hasMixedLaborAndSalesMetrics = (metrics: Metric[]): boolean => {
+  const laborCount = metrics.filter(isLaborMetric).length
+  return laborCount > 0 && laborCount < metrics.length
+}
+
+export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
+  let hasSales = false
+  let hasTimecard = false
+  let hasScheduled = false
+  let hasDerived = false
+
+  for (const metric of metrics) {
+    if (isDerivedLaborMetric(metric)) {
+      hasDerived = true
+      continue
+    }
+    if (isScheduledMetric(metric)) {
+      hasScheduled = true
+      continue
+    }
+    if (isTimecardMetric(metric)) {
+      hasTimecard = true
+      continue
+    }
+    hasSales = true
+  }
+
+  const sourceCount = (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0)
+  return hasDerived || sourceCount > 1
+}
+
+const SHARED_DIMENSIONS = new Set<Dimension>([
+  "locationId",
+  "saleDate",
+  "dayOfWeek",
+  "year",
+  "week",
+  "month",
+])
+
+export const isSharedDimension = (dimension: Dimension): boolean => SHARED_DIMENSIONS.has(dimension)
 
 export const mergeReportDimensions = (rows: Dimension[], columns: Dimension[]) => [
   ...new Set([...rows, ...columns]),

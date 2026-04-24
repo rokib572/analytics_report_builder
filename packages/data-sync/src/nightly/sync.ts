@@ -15,6 +15,7 @@ import { reconcile } from "../reconciler/reconcile"
 import { syncCatalog } from "../square/catalog/sync"
 import { syncCustomers } from "../square/customers/sync"
 import { syncInventory } from "../square/inventory/sync"
+import { syncLabor, type LaborSyncCollectors } from "../square/labor/sync"
 import { syncOrders } from "../square/orders/sync"
 import { syncPayments } from "../square/payments/sync"
 import { syncRefunds } from "../square/refunds/sync"
@@ -199,6 +200,11 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
       adjustments: createSyncRecordCollector(),
       transfers: createSyncRecordCollector(),
     }
+    const laborCollectors: LaborSyncCollectors = {
+      timecards: createSyncRecordCollector(),
+      breakTypes: createSyncRecordCollector(),
+      teamMemberWages: createSyncRecordCollector(),
+    }
 
     try {
       try {
@@ -281,6 +287,17 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
         transfersUnchanged: 0,
         transfersSkipped: 0,
       }
+      let laborTotals = {
+        timecardsSynced: 0,
+        timecardsUnchanged: 0,
+        timecardsSkipped: 0,
+        breakTypesSynced: 0,
+        breakTypesUnchanged: 0,
+        breakTypesSkipped: 0,
+        teamMemberWagesSynced: 0,
+        teamMemberWagesUnchanged: 0,
+        teamMemberWagesSkipped: 0,
+      }
 
       for (const targetDate of datesToProcess) {
         const reconcileResult = await reconcileDate(db, customerId, targetDate, ordersCollector)
@@ -334,6 +351,37 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
             error: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
           })
           await createTypeErrorLog(db, customerId, "nightly_refunds", targetDate, error)
+        }
+
+        try {
+          const result = await syncLabor(
+            db,
+            customerId,
+            syncRange.startAt,
+            syncRange.endAt,
+            laborCollectors,
+          )
+          laborTotals = {
+            timecardsSynced: laborTotals.timecardsSynced + result.timecards.synced,
+            timecardsUnchanged: laborTotals.timecardsUnchanged + result.timecards.unchanged,
+            timecardsSkipped: laborTotals.timecardsSkipped + result.timecards.skipped,
+            breakTypesSynced: laborTotals.breakTypesSynced + result.breakTypes.synced,
+            breakTypesUnchanged: laborTotals.breakTypesUnchanged + result.breakTypes.unchanged,
+            breakTypesSkipped: laborTotals.breakTypesSkipped + result.breakTypes.skipped,
+            teamMemberWagesSynced:
+              laborTotals.teamMemberWagesSynced + result.teamMemberWages.synced,
+            teamMemberWagesUnchanged:
+              laborTotals.teamMemberWagesUnchanged + result.teamMemberWages.unchanged,
+            teamMemberWagesSkipped:
+              laborTotals.teamMemberWagesSkipped + result.teamMemberWages.skipped,
+          }
+        } catch (error) {
+          hasErrors = true
+          laborCollectors.timecards.failed.push({
+            id: targetDate,
+            error: error instanceof Error ? error.message.slice(0, 1000) : "UNKNOWN_ERROR",
+          })
+          await createTypeErrorLog(db, customerId, "nightly_labor", targetDate, error)
         }
 
         try {
@@ -439,6 +487,39 @@ export const nightlySync = async (db: DbClient): Promise<void> => {
           skippedCount: inventoryTotals.transfersSkipped,
         },
         inventoryCollectors.transfers!,
+      )
+      await createDetailFromCollector(
+        db,
+        syncRun.id,
+        "labor_timecards",
+        {
+          changedCount: laborTotals.timecardsSynced,
+          unchangedCount: laborTotals.timecardsUnchanged,
+          skippedCount: laborTotals.timecardsSkipped,
+        },
+        laborCollectors.timecards,
+      )
+      await createDetailFromCollector(
+        db,
+        syncRun.id,
+        "labor_break_types",
+        {
+          changedCount: laborTotals.breakTypesSynced,
+          unchangedCount: laborTotals.breakTypesUnchanged,
+          skippedCount: laborTotals.breakTypesSkipped,
+        },
+        laborCollectors.breakTypes,
+      )
+      await createDetailFromCollector(
+        db,
+        syncRun.id,
+        "labor_team_member_wages",
+        {
+          changedCount: laborTotals.teamMemberWagesSynced,
+          unchangedCount: laborTotals.teamMemberWagesUnchanged,
+          skippedCount: laborTotals.teamMemberWagesSkipped,
+        },
+        laborCollectors.teamMemberWages,
       )
 
       await completeSyncRun(db, syncRun.id, {

@@ -16,6 +16,14 @@ export { syncPayments } from "./square/payments/sync"
 export { syncRefunds } from "./square/refunds/sync"
 export { syncInventory } from "./square/inventory/sync"
 export { syncCatalog } from "./square/catalog/sync"
+export {
+  syncLabor,
+  syncLaborTimecards,
+  syncLaborBreakTypes,
+  syncLaborTeamMemberWages,
+  type LaborSyncCollectors,
+  type LaborSyncTotals,
+} from "./square/labor/sync"
 export { computeContentHash, normalizeJsonValue } from "./utils/content-hash"
 export {
   capChangedRecordIds,

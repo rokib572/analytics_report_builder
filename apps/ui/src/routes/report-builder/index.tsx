@@ -112,7 +112,9 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
-        if (hasCrossModePivotConflict([...current.rows, fieldName], current.columns)) {
+        if (
+          hasCrossModePivotConflict(current.metrics, [...current.rows, fieldName], current.columns)
+        ) {
           return current
         }
 
@@ -130,7 +132,9 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
-        if (hasCrossModePivotConflict(current.rows, [...current.columns, fieldName])) {
+        if (
+          hasCrossModePivotConflict(current.metrics, current.rows, [...current.columns, fieldName])
+        ) {
           return current
         }
 

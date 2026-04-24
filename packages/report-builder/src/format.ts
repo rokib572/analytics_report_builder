@@ -8,6 +8,15 @@ const MONETARY_COLUMNS = new Set([
   "totalTax",
   "totalTips",
   "totalCollected",
+  "estimatedPayrollAfterTax",
+  "costPerLaborHour",
+])
+
+const HOUR_COLUMNS = new Set([
+  "reportedLaborHours",
+  "reportedTrainingHours",
+  "templateLaborHours",
+  "laborHourVariance",
 ])
 
 export const FIELD_LABELS: Record<string, string> = {
@@ -19,6 +28,12 @@ export const FIELD_LABELS: Record<string, string> = {
   totalTax: "Total Tax",
   totalTips: "Total Tips",
   totalCollected: "Total Collected",
+  reportedLaborHours: "Reported Labor Hours",
+  reportedTrainingHours: "Reported Training Hours",
+  estimatedPayrollAfterTax: "Estimated Payroll (After Tax)",
+  costPerLaborHour: "Cost per Labor Hour",
+  templateLaborHours: "Template Labor Hours",
+  laborHourVariance: "Labor Hour Variance",
   locationId: "Location",
   locationName: "Location Name",
   saleDate: "Sale Date",
@@ -31,9 +46,12 @@ export const FIELD_LABELS: Record<string, string> = {
   productCategory: "Product Category",
   paymentMethod: "Payment Method",
   channel: "Channel",
+  jobTitle: "Job Title",
 }
 
 export const isMonetaryColumn = (column: string) => MONETARY_COLUMNS.has(column)
+
+export const isHourColumn = (column: string) => HOUR_COLUMNS.has(column)
 
 export const getReportColumnLabel = (column: string) => FIELD_LABELS[column] ?? column
 
@@ -45,6 +63,8 @@ export const isMonetaryReportColumn = (column: ReportColumn) => {
   return metric ? isMonetaryColumn(metric) : false
 }
 
+const MILLI_HOURS_PER_HOUR = 1000
+
 const formatCurrency = (value: string | number | null) => {
   if (value === null) return "$0.00"
 
@@ -52,6 +72,15 @@ const formatCurrency = (value: string | number | null) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+const formatHours = (value: string | number | null) => {
+  if (value === null) return "0.00"
+
+  return (Number(value) / MILLI_HOURS_PER_HOUR).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 export const formatReportColumn = (column: ReportColumn): string => {
@@ -80,6 +109,7 @@ export function formatReportCell(column: string | ReportColumn, value: string | 
   const metric = typeof column === "string" ? (column as Metric | string) : getColumnMetric(column)
 
   if (metric && isMonetaryColumn(metric)) return formatCurrency(value)
+  if (metric && isHourColumn(metric)) return formatHours(value)
 
   if (metric === "orderCount") {
     return Number(value ?? 0).toLocaleString("en-US", {
@@ -94,6 +124,7 @@ export const getChartValue = (column: string | ReportColumn, value: string | num
   const metric = typeof column === "string" ? (column as Metric | string) : getColumnMetric(column)
 
   if (metric && isMonetaryColumn(metric)) return Number(value ?? 0) / 100
+  if (metric && isHourColumn(metric)) return Number(value ?? 0) / MILLI_HOURS_PER_HOUR
   if (metric === "orderCount") return Number(value ?? 0)
   return value
 }

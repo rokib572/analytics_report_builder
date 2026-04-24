@@ -4,12 +4,17 @@ import type { Dimension, SupportedMetric } from "@analytics/report-builder"
 import { channels } from "../../channels/schema"
 import { dailySales } from "../../daily-sales/schema"
 import { catalogCategories } from "../../catalog-categories/schema"
+import { laborScheduledShifts } from "../../labor-scheduled-shifts/schema"
+import { laborTimecards } from "../../labor-timecards/schema"
 import { locations } from "../../locations/schema"
 import { orderLineItems } from "../../order-line-items/schema"
 import { orderTenders } from "../../order-tenders/schema"
 import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
 import type { DimensionDefinition, MetricDefinition } from "./type"
+
+export const PAYROLL_TAX_MULTIPLIER_PERCENT = 114
+const MILLI_HOURS_PER_HOUR = 1000
 
 export const DEFAULT_REPORT_PAGE_SIZE = 10_000
 export const MAX_REPORT_PAGE_SIZE = 50_000
@@ -42,7 +47,47 @@ const productCategoryNameExpr = sql<string>`coalesce(${catalogCategories.name}, 
 const locationNameExpr = sql<string>`coalesce(${locations.name}, 'Unknown')`
 const channelNameExpr = sql<string>`coalesce(${channels.displayName}, 'Unassigned')`
 
-export const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
+const laborPaidMilliHoursSum = sql<bigint>`coalesce(sum(${laborTimecards.totalPaidHours}), 0)`
+const laborTrainingMilliHoursSum = sql<bigint>`
+  coalesce(
+    sum(${laborTimecards.totalPaidHours})
+      filter (where ${laborTimecards.jobTitle} ilike '%training%'),
+    0
+  )
+`
+const laborCostCentsSum = sql<bigint>`coalesce(sum(${laborTimecards.totalLaborCostCents}), 0)`
+const laborPayrollAfterTaxCentsExpr = sql<bigint>`(${laborCostCentsSum} * ${PAYROLL_TAX_MULTIPLIER_PERCENT}) / 100`
+const laborCostPerHourCentsExpr = sql<bigint>`
+  case
+    when ${laborPaidMilliHoursSum} = 0 then 0
+    else ((${laborCostCentsSum} * ${PAYROLL_TAX_MULTIPLIER_PERCENT}) / 100) * ${MILLI_HOURS_PER_HOUR} / ${laborPaidMilliHoursSum}
+  end
+`
+
+export const laborMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
+  reportedLaborHours: {
+    select: laborPaidMilliHoursSum,
+  },
+  reportedTrainingHours: {
+    select: laborTrainingMilliHoursSum,
+  },
+  estimatedPayrollAfterTax: {
+    select: laborPayrollAfterTaxCentsExpr,
+  },
+  costPerLaborHour: {
+    select: laborCostPerHourCentsExpr,
+  },
+}
+
+const scheduledMilliHoursSum = sql<bigint>`(coalesce(sum(${laborScheduledShifts.scheduledMinutes}), 0) * ${MILLI_HOURS_PER_HOUR}) / 60`
+
+export const scheduledMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
+  templateLaborHours: {
+    select: scheduledMilliHoursSum,
+  },
+}
+
+export const dailySalesMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
   netSales: {
     select: sql<bigint>`coalesce(sum(${dailySales.netSales}), 0)`,
   },
@@ -69,7 +114,7 @@ export const dailySalesMetricMap: Record<SupportedMetric, MetricDefinition> = {
   },
 }
 
-export const lineItemsMetricMap: Record<SupportedMetric, MetricDefinition> = {
+export const lineItemsMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
   netSales: {
     select: sql<bigint>`${lineItemGrossSalesSum} - ${lineItemDiscountsSum}`,
   },
@@ -96,7 +141,7 @@ export const lineItemsMetricMap: Record<SupportedMetric, MetricDefinition> = {
   },
 }
 
-export const tendersMetricMap: Record<SupportedMetric, MetricDefinition> = {
+export const tendersMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
   netSales: {
     select: sql<bigint>`0`,
   },
@@ -123,7 +168,7 @@ export const tendersMetricMap: Record<SupportedMetric, MetricDefinition> = {
   },
 }
 
-export const ordersMetricMap: Record<SupportedMetric, MetricDefinition> = {
+export const ordersMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
   netSales: {
     select: orderNetSalesExpr,
   },
@@ -289,6 +334,36 @@ export const ordersDimensionMap = buildDimensionMap(orders.locationId, orders.sa
   },
 })
 
+const jobTitleNameExpr = sql<string>`coalesce(${laborTimecards.jobTitle}, 'Unspecified')`
+
+export const laborDimensionMap = buildDimensionMap(
+  laborTimecards.locationId,
+  laborTimecards.workDate,
+  {
+    jobTitle: {
+      select: jobTitleNameExpr,
+      groupBy: laborTimecards.jobTitle,
+      orderBy: laborTimecards.jobTitle,
+      filterBy: laborTimecards.jobTitle,
+    },
+  },
+)
+
+const scheduledJobTitleNameExpr = sql<string>`coalesce(${laborScheduledShifts.jobTitle}, 'Unspecified')`
+
+export const scheduledDimensionMap = buildDimensionMap(
+  laborScheduledShifts.locationId,
+  laborScheduledShifts.workDate,
+  {
+    jobTitle: {
+      select: scheduledJobTitleNameExpr,
+      groupBy: laborScheduledShifts.jobTitle,
+      orderBy: laborScheduledShifts.jobTitle,
+      filterBy: laborScheduledShifts.jobTitle,
+    },
+  },
+)
+
 export const dailySalesFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: dailySales.locationId,
   saleDate: dailySales.saleDate,
@@ -311,4 +386,16 @@ export const ordersFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   locationId: orders.locationId,
   saleDate: orders.saleDate,
   channel: orders.channelId,
+}
+
+export const laborFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
+  locationId: laborTimecards.locationId,
+  saleDate: laborTimecards.workDate,
+  jobTitle: laborTimecards.jobTitle,
+}
+
+export const scheduledFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
+  locationId: laborScheduledShifts.locationId,
+  saleDate: laborScheduledShifts.workDate,
+  jobTitle: laborScheduledShifts.jobTitle,
 }
