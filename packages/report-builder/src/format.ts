@@ -1,4 +1,4 @@
-import type { Metric, ReportColumn } from "./types"
+import type { Metric, ReportColumn, ReportSummaryKind } from "./types"
 
 const MONETARY_COLUMNS = new Set([
   "netSales",
@@ -96,4 +96,26 @@ export const getChartValue = (column: string | ReportColumn, value: string | num
   if (metric && isMonetaryColumn(metric)) return Number(value ?? 0) / 100
   if (metric === "orderCount") return Number(value ?? 0)
   return value
+}
+
+export const isPercentSummaryKind = (kind: ReportSummaryKind): boolean =>
+  kind === "changePercent" || kind === "yearOverYearChangePercent"
+
+const formatSignedPercentage = (value: string | number | null): string => {
+  if (value === null || value === undefined || value === "") return "-"
+
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) return "-"
+
+  const signPrefix = numericValue > 0 ? "+" : ""
+  return `${signPrefix}${numericValue.toFixed(1)}%`
+}
+
+export const formatSummaryCell = (
+  kind: ReportSummaryKind,
+  column: ReportColumn,
+  value: string | number | null,
+): string => {
+  if (isPercentSummaryKind(kind)) return formatSignedPercentage(value)
+  return formatReportCell(column, value)
 }
