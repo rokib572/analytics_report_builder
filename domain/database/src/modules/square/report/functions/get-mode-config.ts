@@ -20,6 +20,9 @@ import {
   tendersDimensionMap,
   tendersFilterColumns,
   tendersMetricMap,
+  wasteDimensionMap,
+  wasteFilterColumns,
+  wasteMetricMap,
 } from "./util"
 
 export const getModeConfig = (
@@ -59,6 +62,12 @@ export const getModeConfig = (
         metricMap: scheduledMetricMap,
         dimensionMap: scheduledDimensionMap,
         filterColumns: scheduledFilterColumns,
+      }
+    case "waste":
+      return {
+        metricMap: wasteMetricMap,
+        dimensionMap: wasteDimensionMap,
+        filterColumns: wasteFilterColumns,
       }
     default:
       return {

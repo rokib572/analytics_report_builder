@@ -15,6 +15,9 @@ export type Metric =
   | "costPerLaborHour"
   | "templateLaborHours"
   | "laborHourVariance"
+  | "wasteItems"
+  | "wasteCost"
+  | "wasteCostPctOfSales"
 
 export type LaborMetric =
   | "reportedLaborHours"
@@ -23,6 +26,8 @@ export type LaborMetric =
   | "costPerLaborHour"
   | "templateLaborHours"
   | "laborHourVariance"
+
+export type WasteMetric = "wasteItems" | "wasteCost" | "wasteCostPctOfSales"
 
 export type SupportedMetric = Exclude<Metric, "uberGrossSales" | "uberBogoRecoverable">
 
@@ -49,7 +54,14 @@ export type ComputedDimension = Exclude<
 >
 
 export type ChartType = "bar" | "line" | "table"
-export type QueryMode = "dailySales" | "lineItems" | "tenders" | "orders" | "labor" | "scheduled"
+export type QueryMode =
+  | "dailySales"
+  | "lineItems"
+  | "tenders"
+  | "orders"
+  | "labor"
+  | "scheduled"
+  | "waste"
 
 export type ReportFilter = {
   dimension: Dimension

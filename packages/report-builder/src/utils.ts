@@ -10,6 +10,7 @@ import type {
   ReportColumn,
   ReportConfig,
   SupportedMetric,
+  WasteMetric,
 } from "./types"
 import { formatReportColumn } from "./format"
 
@@ -37,6 +38,9 @@ const timecardMetrics = new Set<LaborMetric>([
 ])
 const scheduledMetrics = new Set<LaborMetric>(["templateLaborHours"])
 const derivedLaborMetrics = new Set<LaborMetric>(["laborHourVariance"])
+const wasteMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost", "wasteCostPctOfSales"])
+const wasteQueryMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost"])
+const derivedWasteMetrics = new Set<WasteMetric>(["wasteCostPctOfSales"])
 
 export const isLaborMetric = (metric: Metric): metric is LaborMetric =>
   laborMetrics.has(metric as LaborMetric)
@@ -50,11 +54,22 @@ export const isScheduledMetric = (metric: Metric): boolean =>
 export const isDerivedLaborMetric = (metric: Metric): boolean =>
   derivedLaborMetrics.has(metric as LaborMetric)
 
+export const isWasteMetric = (metric: Metric): metric is WasteMetric =>
+  wasteMetrics.has(metric as WasteMetric)
+
+export const isWasteQueryMetric = (metric: Metric): boolean =>
+  wasteQueryMetrics.has(metric as WasteMetric)
+
+export const isDerivedWasteMetric = (metric: Metric): boolean =>
+  derivedWasteMetrics.has(metric as WasteMetric)
+
 export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
   metrics.some(isTimecardMetric) || dimensions.includes("jobTitle")
 
 export const requiresScheduledQuery = (metrics: Metric[]): boolean =>
   metrics.some(isScheduledMetric)
+
+export const requiresWasteQuery = (metrics: Metric[]): boolean => metrics.some(isWasteQueryMetric)
 
 export const ensureSupportedMetric = (metric: Metric) => {
   if (unsupportedMetrics.has(metric)) {
@@ -97,6 +112,7 @@ export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
   dimensions.includes("paymentMethod")
 
 export const getQueryMode = (metrics: Metric[], dimensions: Dimension[]): QueryMode => {
+  if (requiresWasteQuery(metrics)) return "waste"
   if (requiresScheduledQuery(metrics)) return "scheduled"
   if (requiresLaborQuery(metrics, dimensions)) return "labor"
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
@@ -125,10 +141,11 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
   let hasSales = false
   let hasTimecard = false
   let hasScheduled = false
+  let hasWaste = false
   let hasDerived = false
 
   for (const metric of metrics) {
-    if (isDerivedLaborMetric(metric)) {
+    if (isDerivedLaborMetric(metric) || isDerivedWasteMetric(metric)) {
       hasDerived = true
       continue
     }
@@ -140,10 +157,15 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
       hasTimecard = true
       continue
     }
+    if (isWasteQueryMetric(metric)) {
+      hasWaste = true
+      continue
+    }
     hasSales = true
   }
 
-  const sourceCount = (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0)
+  const sourceCount =
+    (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0) + (hasWaste ? 1 : 0)
   return hasDerived || sourceCount > 1
 }
 

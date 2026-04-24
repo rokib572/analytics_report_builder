@@ -17,6 +17,9 @@ export const MetricSchema = z.enum([
   "costPerLaborHour",
   "templateLaborHours",
   "laborHourVariance",
+  "wasteItems",
+  "wasteCost",
+  "wasteCostPctOfSales",
 ])
 
 export const DimensionSchema = z.enum([

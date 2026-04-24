@@ -26,11 +26,18 @@ export const LABOR_METRICS: SupportedMetric[] = [
   "costPerLaborHour",
 ]
 
-export const SUPPORTED_METRICS: SupportedMetric[] = [...SALES_METRICS, ...LABOR_METRICS]
+export const WASTE_METRICS: SupportedMetric[] = ["wasteItems", "wasteCost", "wasteCostPctOfSales"]
+
+export const SUPPORTED_METRICS: SupportedMetric[] = [
+  ...SALES_METRICS,
+  ...LABOR_METRICS,
+  ...WASTE_METRICS,
+]
 
 export const METRIC_GROUPS: Array<{ label: string; metrics: SupportedMetric[] }> = [
   { label: "Sales", metrics: SALES_METRICS },
   { label: "Labor", metrics: LABOR_METRICS },
+  { label: "Waste", metrics: WASTE_METRICS },
 ]
 
 export const SUPPORTED_DIMENSIONS: Dimension[] = [

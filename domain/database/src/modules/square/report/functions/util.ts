@@ -4,6 +4,7 @@ import type { Dimension, SupportedMetric } from "@analytics/report-builder"
 import { channels } from "../../channels/schema"
 import { dailySales } from "../../daily-sales/schema"
 import { catalogCategories } from "../../catalog-categories/schema"
+import { inventoryAdjustments } from "../../inventory-adjustments/schema"
 import { laborScheduledShifts } from "../../labor-scheduled-shifts/schema"
 import { laborTimecards } from "../../labor-timecards/schema"
 import { locations } from "../../locations/schema"
@@ -12,6 +13,8 @@ import { orderTenders } from "../../order-tenders/schema"
 import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
 import type { DimensionDefinition, MetricDefinition } from "./type"
+
+export const WASTE_INVENTORY_STATE = "WASTE"
 
 export const PAYROLL_TAX_MULTIPLIER_PERCENT = 114
 const MILLI_HOURS_PER_HOUR = 1000
@@ -333,6 +336,38 @@ export const ordersDimensionMap = buildDimensionMap(orders.locationId, orders.sa
     filterBy: orders.channelId,
   },
 })
+
+const wasteQuantitySum = sql<number>`coalesce(sum(nullif(${inventoryAdjustments.quantity}, '')::numeric), 0)`
+const wasteCostSum = sql<bigint>`coalesce(sum(${inventoryAdjustments.totalPriceMoney}), 0)`
+const wasteDateExpr = sql<string>`(${inventoryAdjustments.occurredAt})::date`
+
+export const wasteMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
+  wasteItems: {
+    select: wasteQuantitySum,
+  },
+  wasteCost: {
+    select: wasteCostSum,
+  },
+}
+
+export const wasteDimensionMap = buildDimensionMap(
+  inventoryAdjustments.locationId,
+  inventoryAdjustments.occurredAt,
+  {
+    saleDate: {
+      select: wasteDateExpr,
+      groupBy: wasteDateExpr,
+      orderBy: wasteDateExpr,
+      filterBy: wasteDateExpr,
+    },
+  },
+)
+
+export const wasteFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
+  locationId: inventoryAdjustments.locationId,
+}
+
+export const wasteDateFilterExpression = wasteDateExpr
 
 const jobTitleNameExpr = sql<string>`coalesce(${laborTimecards.jobTitle}, 'Unspecified')`
 

@@ -1,4 +1,4 @@
-import { and, count, eq, gte, lte, sql, type SQL } from "drizzle-orm"
+import { and, count, eq, gte, lte, sql, type SQL, type SQLWrapper } from "drizzle-orm"
 import {
   ensureSupportedDimension,
   ensureSupportedMetric,
@@ -7,10 +7,12 @@ import {
   hasIncompatibleDimensions,
   isComputedDimension,
   isDerivedLaborMetric,
+  isDerivedWasteMetric,
   isScheduledMetric,
   isSharedDimension,
   isSupportedMetric,
   isTimecardMetric,
+  isWasteQueryMetric,
   pivotReportResult,
   mergeReportDimensions,
   getQueryMode,
@@ -18,6 +20,7 @@ import {
   requiresMultiQueryDispatch,
   requiresOrderLevelQuery,
   requiresScheduledQuery,
+  requiresWasteQuery,
   serializeReportValue,
   type Dimension,
   type Metric,
@@ -32,6 +35,7 @@ import { dailySales } from "../../daily-sales/schema"
 import { catalogCategories } from "../../catalog-categories/schema"
 import { catalogItems } from "../../catalog-items/schema"
 import { catalogItemVariations } from "../../catalog-item-variations/schema"
+import { inventoryAdjustments } from "../../inventory-adjustments/schema"
 import { laborScheduledShifts } from "../../labor-scheduled-shifts/schema"
 import { laborTimecards } from "../../labor-timecards/schema"
 import { locations } from "../../locations/schema"
@@ -45,7 +49,13 @@ import { computeSummaryRows } from "./compute-summary-rows"
 import { getDimensionDefinition } from "./get-dimension-definition"
 import { getModeConfig } from "./get-mode-config"
 import type { GroupableExpression, SelectExpression } from "./type"
-import { DEFAULT_REPORT_PAGE_SIZE, MAX_REPORT_PAGE_SIZE, PIVOT_SOURCE_ROW_MULTIPLIER } from "./util"
+import {
+  DEFAULT_REPORT_PAGE_SIZE,
+  MAX_REPORT_PAGE_SIZE,
+  PIVOT_SOURCE_ROW_MULTIPLIER,
+  WASTE_INVENTORY_STATE,
+  wasteDateFilterExpression,
+} from "./util"
 
 export const buildReportQuery = async (
   db: DbClient,
@@ -91,6 +101,7 @@ export const buildReportQuery = async (
   }
 
   const queryMode =
+    requiresWasteQuery(config.metrics) ||
     requiresScheduledQuery(config.metrics) ||
     requiresLaborQuery(config.metrics, queryDimensions) ||
     requiresOrderLevelQuery(queryDimensions)
@@ -159,8 +170,10 @@ export const buildReportQuery = async (
         ? eq(laborScheduledShifts.customerId, customerId)
         : queryMode === "orders"
           ? eq(orders.customerId, customerId)
-          : eq(locations.customerId, customerId)
-  const dateColumn =
+          : queryMode === "waste"
+            ? eq(inventoryAdjustments.customerId, customerId)
+            : eq(locations.customerId, customerId)
+  const dateColumn: SQLWrapper =
     queryMode === "dailySales"
       ? dailySales.saleDate
       : queryMode === "lineItems"
@@ -169,11 +182,17 @@ export const buildReportQuery = async (
           ? laborTimecards.workDate
           : queryMode === "scheduled"
             ? laborScheduledShifts.workDate
-            : orders.saleDate
+            : queryMode === "waste"
+              ? wasteDateFilterExpression
+              : orders.saleDate
   const conditions: SQL[] = [
     gte(dateColumn, config.dateRange.from),
     lte(dateColumn, config.dateRange.to),
   ]
+
+  if (queryMode === "waste") {
+    conditions.push(eq(inventoryAdjustments.toState, WASTE_INVENTORY_STATE))
+  }
 
   for (const filter of config.filters) {
     const filterColumn = filterColumns[filter.dimension]
@@ -219,51 +238,43 @@ export const buildReportQuery = async (
             .select(selectFields as never)
             .from(laborScheduledShifts)
             .innerJoin(locations, eq(laborScheduledShifts.locationId, locations.id))
-        : queryMode === "dailySales"
+        : queryMode === "waste"
           ? db
               .select(selectFields as never)
-              .from(dailySales)
-              .innerJoin(locations, eq(dailySales.locationId, locations.id))
-          : queryMode === "lineItems"
+              .from(inventoryAdjustments)
+              .innerJoin(locations, eq(inventoryAdjustments.locationId, locations.id))
+          : queryMode === "dailySales"
             ? db
                 .select(selectFields as never)
-                .from(orderLineItems)
-                .innerJoin(locations, eq(orderLineItems.locationId, locations.id))
-                .leftJoin(
-                  catalogItemVariations,
-                  and(
-                    eq(orderLineItems.catalogObjectId, catalogItemVariations.squareId),
-                    eq(catalogItemVariations.customerId, customerId),
-                  ),
-                )
-                .leftJoin(
-                  catalogItems,
-                  and(
-                    eq(catalogItemVariations.itemId, catalogItems.id),
-                    eq(catalogItems.customerId, customerId),
-                  ),
-                )
-                .leftJoin(
-                  catalogCategories,
-                  and(
-                    eq(catalogItems.categoryId, catalogCategories.squareId),
-                    eq(catalogCategories.customerId, customerId),
-                  ),
-                )
-                .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
-                .leftJoin(
-                  squareCustomers,
-                  and(
-                    eq(orders.squareCustomerId, squareCustomers.squareId),
-                    eq(squareCustomers.customerId, customerId),
-                  ),
-                )
-            : queryMode === "tenders"
+                .from(dailySales)
+                .innerJoin(locations, eq(dailySales.locationId, locations.id))
+            : queryMode === "lineItems"
               ? db
                   .select(selectFields as never)
-                  .from(orderTenders)
-                  .innerJoin(locations, eq(orderTenders.locationId, locations.id))
-                  .leftJoin(orders, eq(orderTenders.orderId, orders.id))
+                  .from(orderLineItems)
+                  .innerJoin(locations, eq(orderLineItems.locationId, locations.id))
+                  .leftJoin(
+                    catalogItemVariations,
+                    and(
+                      eq(orderLineItems.catalogObjectId, catalogItemVariations.squareId),
+                      eq(catalogItemVariations.customerId, customerId),
+                    ),
+                  )
+                  .leftJoin(
+                    catalogItems,
+                    and(
+                      eq(catalogItemVariations.itemId, catalogItems.id),
+                      eq(catalogItems.customerId, customerId),
+                    ),
+                  )
+                  .leftJoin(
+                    catalogCategories,
+                    and(
+                      eq(catalogItems.categoryId, catalogCategories.squareId),
+                      eq(catalogCategories.customerId, customerId),
+                    ),
+                  )
+                  .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
                   .leftJoin(
                     squareCustomers,
                     and(
@@ -271,18 +282,31 @@ export const buildReportQuery = async (
                       eq(squareCustomers.customerId, customerId),
                     ),
                   )
-              : db
-                  .select(selectFields as never)
-                  .from(orders)
-                  .innerJoin(locations, eq(orders.locationId, locations.id))
-                  .leftJoin(channels, eq(orders.channelId, channels.id))
-                  .leftJoin(
-                    squareCustomers,
-                    and(
-                      eq(orders.squareCustomerId, squareCustomers.squareId),
-                      eq(squareCustomers.customerId, customerId),
-                    ),
-                  )
+              : queryMode === "tenders"
+                ? db
+                    .select(selectFields as never)
+                    .from(orderTenders)
+                    .innerJoin(locations, eq(orderTenders.locationId, locations.id))
+                    .leftJoin(orders, eq(orderTenders.orderId, orders.id))
+                    .leftJoin(
+                      squareCustomers,
+                      and(
+                        eq(orders.squareCustomerId, squareCustomers.squareId),
+                        eq(squareCustomers.customerId, customerId),
+                      ),
+                    )
+                : db
+                    .select(selectFields as never)
+                    .from(orders)
+                    .innerJoin(locations, eq(orders.locationId, locations.id))
+                    .leftJoin(channels, eq(orders.channelId, channels.id))
+                    .leftJoin(
+                      squareCustomers,
+                      and(
+                        eq(orders.squareCustomerId, squareCustomers.squareId),
+                        eq(squareCustomers.customerId, customerId),
+                      ),
+                    )
 
   let query = baseQuery.where(whereClause).$dynamic()
 
@@ -416,21 +440,27 @@ const splitMetricsBySource = (metrics: Metric[]) => {
   const sales: Metric[] = []
   const timecard: Metric[] = []
   const scheduled: Metric[] = []
-  const derived: Metric[] = []
+  const waste: Metric[] = []
+  const derivedLabor: Metric[] = []
+  const derivedWaste: Metric[] = []
 
   for (const metric of metrics) {
     if (isDerivedLaborMetric(metric)) {
-      derived.push(metric)
+      derivedLabor.push(metric)
+    } else if (isDerivedWasteMetric(metric)) {
+      derivedWaste.push(metric)
     } else if (isScheduledMetric(metric)) {
       scheduled.push(metric)
     } else if (isTimecardMetric(metric)) {
       timecard.push(metric)
+    } else if (isWasteQueryMetric(metric)) {
+      waste.push(metric)
     } else {
       sales.push(metric)
     }
   }
 
-  return { sales, timecard, scheduled, derived }
+  return { sales, timecard, scheduled, waste, derivedLabor, derivedWaste }
 }
 
 const stripUnrequestedMetricColumns = (
@@ -452,6 +482,59 @@ const stripUnrequestedMetricColumns = (
 const REPORTED_METRIC: Metric = "reportedLaborHours"
 const TEMPLATE_METRIC: Metric = "templateLaborHours"
 const VARIANCE_METRIC: Metric = "laborHourVariance"
+const WASTE_COST_METRIC: Metric = "wasteCost"
+const NET_SALES_METRIC: Metric = "netSales"
+const WASTE_COST_PCT_METRIC: Metric = "wasteCostPctOfSales"
+
+const appendWasteCostPctOfSalesMetric = (result: ReportQueryResult): ReportQueryResult => {
+  const wasteCostColumns = result.columns.filter(
+    (column) => column.kind === "metric" && column.metric === WASTE_COST_METRIC,
+  )
+
+  if (wasteCostColumns.length === 0) return result
+
+  const pctColumns: ReportColumn[] = []
+  const keyPairs: Array<{
+    wasteCostKey: string
+    netSalesKey: string
+    pctKey: string
+  }> = []
+
+  for (const wasteCostColumn of wasteCostColumns) {
+    if (wasteCostColumn.kind !== "metric") continue
+    const wasteCostKey = wasteCostColumn.key
+    const netSalesKey = wasteCostKey.replace(/wasteCost$/, "netSales")
+    const netSalesColumn = result.columns.find(
+      (column) => column.kind === "metric" && column.key === netSalesKey,
+    )
+
+    if (!netSalesColumn) continue
+
+    const pctKey = wasteCostKey.replace(/wasteCost$/, "wasteCostPctOfSales")
+    const pctColumn: ReportColumn = {
+      kind: "metric",
+      key: pctKey,
+      metric: WASTE_COST_PCT_METRIC,
+      ...(wasteCostColumn.pivot ? { pivot: wasteCostColumn.pivot } : {}),
+      label: "",
+    }
+    pctColumn.label = formatReportColumn(pctColumn)
+    pctColumns.push(pctColumn)
+    keyPairs.push({ wasteCostKey, netSalesKey, pctKey })
+  }
+
+  const newRows = result.rows.map((row) => {
+    const next = { ...row }
+    for (const { wasteCostKey, netSalesKey, pctKey } of keyPairs) {
+      const wasteCost = Number(row[wasteCostKey] ?? 0)
+      const netSales = Number(row[netSalesKey] ?? 0)
+      next[pctKey] = netSales === 0 ? null : (wasteCost / netSales) * 100
+    }
+    return next
+  })
+
+  return { ...result, columns: [...result.columns, ...pctColumns], rows: newRows }
+}
 
 const appendLaborHourVarianceMetric = (result: ReportQueryResult): ReportQueryResult => {
   const reportedColumns = result.columns.filter(
@@ -520,7 +603,8 @@ const runMixedReportQuery = async (
   }
 
   const groups = splitMetricsBySource(config.metrics)
-  const wantsVariance = groups.derived.includes(VARIANCE_METRIC)
+  const wantsVariance = groups.derivedLabor.includes(VARIANCE_METRIC)
+  const wantsWastePct = groups.derivedWaste.includes(WASTE_COST_PCT_METRIC)
 
   const timecardMetrics =
     wantsVariance && !groups.timecard.includes(REPORTED_METRIC)
@@ -530,14 +614,29 @@ const runMixedReportQuery = async (
     wantsVariance && !groups.scheduled.includes(TEMPLATE_METRIC)
       ? [...groups.scheduled, TEMPLATE_METRIC]
       : groups.scheduled
+  const wasteMetrics =
+    wantsWastePct && !groups.waste.includes(WASTE_COST_METRIC)
+      ? [...groups.waste, WASTE_COST_METRIC]
+      : groups.waste
+  const salesMetrics =
+    wantsWastePct && !groups.sales.includes(NET_SALES_METRIC)
+      ? [...groups.sales, NET_SALES_METRIC]
+      : groups.sales
 
   const salesColumns = config.columns.filter((dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension))
   const laborColumns = config.columns.filter((dimension) => !SALES_ONLY_DIMENSIONS.has(dimension))
+  const wasteColumns = config.columns.filter(
+    (dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension) && !SALES_ONLY_DIMENSIONS.has(dimension),
+  )
   const salesFilters = config.filters.filter(
     (filter) => !LABOR_ONLY_DIMENSIONS.has(filter.dimension),
   )
   const laborFilters = config.filters.filter(
     (filter) => !SALES_ONLY_DIMENSIONS.has(filter.dimension),
+  )
+  const wasteFilters = config.filters.filter(
+    (filter) =>
+      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !SALES_ONLY_DIMENSIONS.has(filter.dimension),
   )
 
   const subConfigBase: ReportQueryInput = {
@@ -547,11 +646,11 @@ const runMixedReportQuery = async (
   }
 
   const queries: Array<Promise<ReportQueryResult>> = []
-  if (groups.sales.length > 0) {
+  if (salesMetrics.length > 0) {
     queries.push(
       buildReportQuery(db, customerId, {
         ...subConfigBase,
-        metrics: groups.sales,
+        metrics: salesMetrics,
         columns: salesColumns,
         filters: salesFilters,
       }),
@@ -577,6 +676,16 @@ const runMixedReportQuery = async (
       }),
     )
   }
+  if (wasteMetrics.length > 0) {
+    queries.push(
+      buildReportQuery(db, customerId, {
+        ...subConfigBase,
+        metrics: wasteMetrics,
+        columns: wasteColumns,
+        filters: wasteFilters,
+      }),
+    )
+  }
 
   const results = await Promise.all(queries)
   const [firstResult, ...remainingResults] = results
@@ -589,10 +698,18 @@ const runMixedReportQuery = async (
     merged = appendLaborHourVarianceMetric(merged)
   }
 
-  if (
+  if (wantsWastePct) {
+    merged = appendWasteCostPctOfSalesMetric(merged)
+  }
+
+  const shouldStripVariance =
     wantsVariance &&
     (!groups.timecard.includes(REPORTED_METRIC) || !groups.scheduled.includes(TEMPLATE_METRIC))
-  ) {
+  const shouldStripWastePct =
+    wantsWastePct &&
+    (!groups.waste.includes(WASTE_COST_METRIC) || !groups.sales.includes(NET_SALES_METRIC))
+
+  if (shouldStripVariance || shouldStripWastePct) {
     merged = stripUnrequestedMetricColumns(merged, config.metrics)
   }
 
