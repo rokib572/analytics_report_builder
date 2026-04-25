@@ -1,4 +1,5 @@
 import type { Metric, ReportConfig, ReportFilter } from "../types"
+import { shiftRangeBack1Year } from "../utils"
 
 export type PresetChannel = {
   id: string
@@ -51,13 +52,16 @@ export const buildDailyOperationsReportConfig = ({
     }
   }
 
+  const dateRange = { from: today, to: today }
+  const comparisonDateRange = shiftRangeBack1Year(dateRange)
+
   return {
     metrics: PRESET_METRICS,
     rows: ["locationId"],
     columns: [],
     filters,
     chartType: "table",
-    dateRange: { from: today, to: today },
+    dateRange,
     comparisons: {
       total: true,
       compingOnly: true,
@@ -69,6 +73,9 @@ export const buildDailyOperationsReportConfig = ({
     locationAttributes: ["daysOpen", "dateOpened"],
     inlineYtdMetrics: INLINE_YTD_METRICS,
     channelBreakdownMetrics: ["netSales"],
+    comparisonDateRange,
+    comparisonMetrics: ["netSales"],
+    comparisonMetricLabels: { netSales: "PY Comping Sales" },
     locationAgePartition: { enabled: true, thresholdDays: 30 },
   }
 }

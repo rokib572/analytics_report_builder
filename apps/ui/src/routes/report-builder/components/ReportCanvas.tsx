@@ -91,6 +91,8 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   )
   const inlineYtdMetrics = config.inlineYtdMetrics ?? []
   const channelBreakdownMetrics = config.channelBreakdownMetrics ?? []
+  const comparisonMetrics = config.comparisonMetrics ?? []
+  const comparisonDate = config.comparisonDateRange?.from ?? ""
 
   const toggleInlineYtdMetric = (metric: Metric) => {
     const next = inlineYtdMetrics.includes(metric)
@@ -109,6 +111,23 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
     onConfigChange({
       ...config,
       channelBreakdownMetrics: next.length > 0 ? next : undefined,
+    })
+  }
+
+  const toggleComparisonMetric = (metric: Metric) => {
+    const next = comparisonMetrics.includes(metric)
+      ? comparisonMetrics.filter((item) => item !== metric)
+      : [...comparisonMetrics, metric]
+    onConfigChange({
+      ...config,
+      comparisonMetrics: next.length > 0 ? next : undefined,
+    })
+  }
+
+  const setComparisonDate = (nextDate: string) => {
+    onConfigChange({
+      ...config,
+      comparisonDateRange: nextDate ? { from: nextDate, to: nextDate } : undefined,
     })
   }
 
@@ -312,6 +331,57 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {config.metrics.length > 0 && (
+        <div className="space-y-3 rounded-md border border-border bg-background p-3">
+          <div className="flex items-center justify-between">
+            <Label>Prior-Period Comparison Column</Label>
+            <span className="text-xs text-muted-foreground">
+              Pulls the selected metric&rsquo;s value for each row on the chosen date.
+            </span>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="comparison-date" className="font-normal">
+                Comparison date
+              </Label>
+              <Input
+                id="comparison-date"
+                type="date"
+                className="w-44"
+                value={comparisonDate}
+                onChange={(event) => setComparisonDate(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {config.metrics.map((metric) => {
+                const checkboxId = `comparison-toggle-${metric}`
+                return (
+                  <div
+                    key={metric}
+                    className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
+                  >
+                    <Checkbox
+                      id={checkboxId}
+                      checked={comparisonMetrics.includes(metric)}
+                      onCheckedChange={() => toggleComparisonMetric(metric)}
+                      disabled={!comparisonDate}
+                    />
+                    <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                      {FIELD_LABELS[metric] ?? metric}
+                    </Label>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+          {!comparisonDate && comparisonMetrics.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Pick a comparison date to activate these columns.
+            </p>
+          )}
         </div>
       )}
 

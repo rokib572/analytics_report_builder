@@ -114,6 +114,9 @@ export const reportStyles = StyleSheet.create({
   alignRight: {
     textAlign: "right",
   },
+  alignCenter: {
+    textAlign: "center",
+  },
   emptyState: {
     fontSize: 10,
     color: "#64748b",

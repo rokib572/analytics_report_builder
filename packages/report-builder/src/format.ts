@@ -24,6 +24,7 @@ const PERCENT_COLUMNS = new Set([
   "wasteCostPctOfSales",
   "laborHourVariancePercent",
   "payrollPctOfSales",
+  "salesYoyChangePercent",
 ])
 
 const COUNT_COLUMNS = new Set(["wasteItems", "unitsSold"])
@@ -49,6 +50,7 @@ export const FIELD_LABELS: Record<string, string> = {
   wasteCost: "Waste Cost",
   wasteCostPctOfSales: "Waste % of Sales",
   unitsSold: "Units Sold",
+  salesYoyChangePercent: "YOY Sales Change (%)",
   daysOpen: "Days Open",
   dateOpened: "Date Opened",
   locationId: "Location",

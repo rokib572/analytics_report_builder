@@ -23,6 +23,7 @@ export const MetricSchema = z.enum([
   "wasteCost",
   "wasteCostPctOfSales",
   "unitsSold",
+  "salesYoyChangePercent",
 ])
 
 export const DimensionSchema = z.enum([
@@ -74,6 +75,14 @@ export const ReportConfigSchema = z.object({
   locationAttributes: z.array(LocationAttributeSchema).optional(),
   inlineYtdMetrics: z.array(MetricSchema).optional(),
   channelBreakdownMetrics: z.array(MetricSchema).optional(),
+  comparisonDateRange: z
+    .object({
+      from: z.string(),
+      to: z.string(),
+    })
+    .optional(),
+  comparisonMetrics: z.array(MetricSchema).optional(),
+  comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
   locationAgePartition: z
     .object({
       enabled: z.literal(true),

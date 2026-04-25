@@ -384,29 +384,122 @@ export const PreviewPanel = ({
           <div className="space-y-4">
             <Table>
               <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead
-                        key={header.id}
-                        className={
-                          !header.subHeaders.length &&
-                          (header.column.columnDef.meta as PreviewColumnMeta | undefined)
-                            ?.metricColumn &&
-                          isNumericMetricColumn(
-                            (header.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
-                          )
-                            ? "text-right"
-                            : undefined
-                        }
+                {(() => {
+                  const leafColumns = table.getVisibleLeafColumns()
+                  const columnByKey = new Map(result.columns.map((column) => [column.key, column]))
+                  const orderedColumns = leafColumns
+                    .map((leaf) => columnByKey.get(leaf.id))
+                    .filter((column): column is ReportColumn => Boolean(column))
+                  const columnLabelByKey = new Map(
+                    leafColumns.map((leaf) => {
+                      const header = leaf.columnDef.header
+                      const resolved = typeof header === "string" ? header : String(leaf.id)
+                      return [leaf.id, resolved]
+                    }),
+                  )
+                  const hasBreakdownGroups = orderedColumns.some(
+                    (column) => column.kind === "metric" && Boolean(column.breakdownGroup),
+                  )
+
+                  type TopCell = {
+                    key: string
+                    label: string
+                    colSpan: number
+                    rowSpan: number
+                    alignCenter: boolean
+                    alignRight: boolean
+                  }
+                  type LeafCell = {
+                    key: string
+                    label: string
+                    alignRight: boolean
+                  }
+
+                  const topCells: TopCell[] = []
+                  const leafCells: LeafCell[] = []
+
+                  let cursor = 0
+                  while (cursor < orderedColumns.length) {
+                    const column = orderedColumns[cursor]!
+                    const groupLabel =
+                      column.kind === "metric" ? (column.breakdownGroup ?? null) : null
+                    if (!groupLabel) {
+                      const alignRight = column.kind === "metric" && isNumericMetricColumn(column)
+                      const label = columnLabelByKey.get(column.key) ?? column.label
+                      topCells.push({
+                        key: `top-${column.key}`,
+                        label,
+                        colSpan: 1,
+                        rowSpan: hasBreakdownGroups ? 2 : 1,
+                        alignCenter: false,
+                        alignRight,
+                      })
+                      cursor += 1
+                      continue
+                    }
+                    const groupStart = cursor
+                    while (
+                      cursor < orderedColumns.length &&
+                      orderedColumns[cursor]!.kind === "metric" &&
+                      (orderedColumns[cursor] as Extract<ReportColumn, { kind: "metric" }>)
+                        .breakdownGroup === groupLabel
+                    ) {
+                      const member = orderedColumns[cursor]! as Extract<
+                        ReportColumn,
+                        { kind: "metric" }
                       >
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                ))}
+                      leafCells.push({
+                        key: `leaf-${member.key}`,
+                        label: columnLabelByKey.get(member.key) ?? member.label,
+                        alignRight: isNumericMetricColumn(member),
+                      })
+                      cursor += 1
+                    }
+                    topCells.push({
+                      key: `group-${groupStart}-${groupLabel}`,
+                      label: groupLabel,
+                      colSpan: cursor - groupStart,
+                      rowSpan: 1,
+                      alignCenter: true,
+                      alignRight: false,
+                    })
+                  }
+
+                  return (
+                    <>
+                      <TableRow>
+                        {topCells.map((cell) => (
+                          <TableHead
+                            key={cell.key}
+                            colSpan={cell.colSpan}
+                            rowSpan={cell.rowSpan}
+                            className={
+                              cell.alignCenter
+                                ? "text-center"
+                                : cell.alignRight
+                                  ? "text-right"
+                                  : undefined
+                            }
+                          >
+                            {cell.label}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                      {hasBreakdownGroups && (
+                        <TableRow>
+                          {leafCells.map((cell) => (
+                            <TableHead
+                              key={cell.key}
+                              className={cell.alignRight ? "text-right" : undefined}
+                            >
+                              {cell.label}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      )}
+                    </>
+                  )
+                })()}
               </TableHeader>
               <TableBody>
                 {result.sections && result.sections.length > 0 ? (

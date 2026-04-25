@@ -60,6 +60,7 @@ export const appendInlineYtdColumns = async (
     if (
       column.kind === "metric" &&
       !column.pivot &&
+      column.key === column.metric &&
       requestedYtdMetrics.includes(column.metric) &&
       !appendedMetrics.has(column.metric)
     ) {

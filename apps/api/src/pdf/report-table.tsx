@@ -308,7 +308,9 @@ export const ReportTable = ({ result }: ReportTableProps) => {
                               ...(isLast ? [reportStyles.tableCellLast] : []),
                             ]}
                           >
-                            <Text style={reportStyles.tableHeaderText}>{span.label}</Text>
+                            <Text style={[reportStyles.tableHeaderText, reportStyles.alignCenter]}>
+                              {span.label}
+                            </Text>
                           </View>,
                         )
                         columnIndex += span.length

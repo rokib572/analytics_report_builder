@@ -21,6 +21,7 @@ export type Metric =
   | "wasteCost"
   | "wasteCostPctOfSales"
   | "unitsSold"
+  | "salesYoyChangePercent"
 
 export type LineItemsMetric = "unitsSold"
 
@@ -107,6 +108,9 @@ export type ReportConfig = {
   locationAttributes?: LocationAttribute[]
   inlineYtdMetrics?: Metric[]
   channelBreakdownMetrics?: Metric[]
+  comparisonDateRange?: { from: string; to: string }
+  comparisonMetrics?: Metric[]
+  comparisonMetricLabels?: Record<string, string>
   locationAgePartition?: LocationAgePartitionConfig
 }
 
