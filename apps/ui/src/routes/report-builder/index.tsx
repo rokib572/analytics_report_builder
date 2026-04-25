@@ -7,7 +7,7 @@ import {
   type ReportConfig,
 } from "@analytics/report-builder"
 import { ReportConfigSchema } from "@analytics/validators"
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger, useSidebar } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
 import { Router } from "../../router"
 import {
@@ -22,14 +22,22 @@ import { PreviewPanel } from "./components/PreviewPanel"
 import { SaveReportModal } from "./components/SaveReportModal"
 import { SavedReportsList } from "./components/SavedReportsList"
 import { ExportMenu } from "./components/ExportMenu"
-import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
+import {
+  getDefaultDateRange,
+  isSupportedDimension,
+  isSupportedMetricValue,
+  type DatePreset,
+} from "./constants"
 
 export const ReportBuilderRoute = () => {
   const route = Router.useRoute(["ReportBuilderGet"])
   const reportId = route?.params?.reportId
+  const { setOpen: setNavSidebarOpen } = useSidebar()
   const [activeTab, setActiveTab] = useState("builder")
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [previewPage, setPreviewPage] = useState(1)
+  const [datePreset, setDatePreset] = useState<DatePreset>("custom")
+  const [comparisonDatePreset, setComparisonDatePreset] = useState<DatePreset>("custom")
   const [config, setConfig] = useState<ReportConfig>({
     metrics: [],
     rows: [],
@@ -55,6 +63,11 @@ export const ReportBuilderRoute = () => {
   }, [config])
 
   useEffect(() => {
+    setNavSidebarOpen(false)
+    return () => setNavSidebarOpen(true)
+  }, [setNavSidebarOpen])
+
+  useEffect(() => {
     if (!reportId) return
 
     let isMounted = true
@@ -71,6 +84,8 @@ export const ReportBuilderRoute = () => {
       if (!isMounted) return
 
       setConfig(ReportConfigSchema.parse(json.data.config))
+      setDatePreset("custom")
+      setComparisonDatePreset("custom")
       setActiveTab("builder")
     }
 
@@ -148,6 +163,8 @@ export const ReportBuilderRoute = () => {
 
   const handleOpenSavedReport = (savedConfig: ReportConfig) => {
     setConfig(savedConfig)
+    setDatePreset("custom")
+    setComparisonDatePreset("custom")
     setActiveTab("builder")
   }
 
@@ -222,7 +239,14 @@ export const ReportBuilderRoute = () => {
                 }
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                <ReportCanvas config={config} onConfigChange={setConfig} />
+                <ReportCanvas
+                  config={config}
+                  onConfigChange={setConfig}
+                  datePreset={datePreset}
+                  onDatePresetChange={setDatePreset}
+                  comparisonDatePreset={comparisonDatePreset}
+                  onComparisonDatePresetChange={setComparisonDatePreset}
+                />
                 <PreviewPanel
                   result={previewResult}
                   chartType={config.chartType}

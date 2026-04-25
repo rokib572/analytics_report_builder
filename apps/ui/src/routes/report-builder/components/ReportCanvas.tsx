@@ -25,11 +25,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@analytics/ui-shared"
-import { FIELD_LABELS, SUPPORTED_DIMENSIONS } from "../constants"
+import {
+  DATE_PRESETS,
+  FIELD_LABELS,
+  SUPPORTED_DIMENSIONS,
+  getDateRangeForPreset,
+  type DatePreset,
+} from "../constants"
 
 type ReportCanvasProps = {
   config: ReportConfig
   onConfigChange: (config: ReportConfig) => void
+  datePreset: DatePreset
+  onDatePresetChange: (preset: DatePreset) => void
+  comparisonDatePreset: DatePreset
+  onComparisonDatePresetChange: (preset: DatePreset) => void
 }
 
 type DropZoneProps = {
@@ -83,7 +93,14 @@ const DropZone = ({ id, label, items, onRemove }: DropZoneProps) => {
   )
 }
 
-export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
+export const ReportCanvas = ({
+  config,
+  onConfigChange,
+  datePreset,
+  onDatePresetChange,
+  comparisonDatePreset,
+  onComparisonDatePresetChange,
+}: ReportCanvasProps) => {
   const selectedDimensions = [...config.rows, ...config.columns]
   const hasPivotModeConflict = hasCrossModePivotConflict(
     config.metrics,
@@ -97,7 +114,10 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   )
   const comparisonMetrics = config.comparisonMetrics ?? []
   const comparisonYtdMetrics = config.comparisonYtdMetrics ?? []
-  const comparisonDate = config.comparisonDateRange?.from ?? ""
+  const comparisonDateFrom = config.comparisonDateRange?.from ?? ""
+  const comparisonDateTo = config.comparisonDateRange?.to ?? ""
+  const hasComparisonDateRange = Boolean(comparisonDateFrom && comparisonDateTo)
+  const isCustomComparisonDateRange = comparisonDatePreset === "custom"
   const matchesExtraColumn = (
     descriptor: ExtraColumnDescriptor,
     kind: ExtraColumnKind,
@@ -216,12 +236,34 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
     })
   }
 
-  const setComparisonDate = (nextDate: string) => {
+  const setComparisonDateField = (field: "from" | "to", nextValue: string) => {
+    const nextRange = {
+      from: field === "from" ? nextValue : comparisonDateFrom,
+      to: field === "to" ? nextValue : comparisonDateTo,
+    }
     onConfigChange({
       ...config,
-      comparisonDateRange: nextDate ? { from: nextDate, to: nextDate } : undefined,
+      comparisonDateRange: nextRange.from || nextRange.to ? nextRange : undefined,
     })
   }
+
+  const handleComparisonDatePresetChange = (preset: DatePreset) => {
+    onComparisonDatePresetChange(preset)
+    const nextRange = getDateRangeForPreset(preset)
+    if (nextRange) {
+      onConfigChange({ ...config, comparisonDateRange: nextRange })
+    }
+  }
+
+  const handleDatePresetChange = (preset: DatePreset) => {
+    onDatePresetChange(preset)
+    const nextRange = getDateRangeForPreset(preset)
+    if (nextRange) {
+      onConfigChange({ ...config, dateRange: nextRange })
+    }
+  }
+
+  const isCustomDateRange = datePreset === "custom"
 
   const updateFilter = (
     index: number,
@@ -238,6 +280,57 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
 
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
+      <div className="space-y-3 rounded-md border border-border bg-background p-3">
+        <div className="flex flex-wrap gap-2">
+          {DATE_PRESETS.map((preset) => {
+            const isSelected = datePreset === preset.value
+            return (
+              <Button
+                key={preset.value}
+                type="button"
+                size="sm"
+                variant={isSelected ? "default" : "outline"}
+                onClick={() => handleDatePresetChange(preset.value)}
+              >
+                {preset.label}
+              </Button>
+            )
+          })}
+        </div>
+        <div className="flex flex-col gap-3 md:flex-row">
+          <div className="space-y-2">
+            <Label htmlFor="report-date-from">From</Label>
+            <Input
+              id="report-date-from"
+              type="date"
+              value={config.dateRange.from}
+              disabled={!isCustomDateRange}
+              onChange={(event) =>
+                onConfigChange({
+                  ...config,
+                  dateRange: { ...config.dateRange, from: event.target.value },
+                })
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="report-date-to">To</Label>
+            <Input
+              id="report-date-to"
+              type="date"
+              value={config.dateRange.to}
+              disabled={!isCustomDateRange}
+              onChange={(event) =>
+                onConfigChange({
+                  ...config,
+                  dateRange: { ...config.dateRange, to: event.target.value },
+                })
+              }
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <DropZone
           id="metrics"
@@ -379,128 +472,125 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
           <div className="flex items-center justify-between">
             <Label>Prior-Period Comparison Column</Label>
             <span className="text-xs text-muted-foreground">
-              Pulls the selected metric&rsquo;s value for each row on the chosen date.
+              Pulls the selected metric&rsquo;s value for each row over the chosen date range.
             </span>
           </div>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap gap-2">
+            {DATE_PRESETS.map((preset) => {
+              const isSelected = comparisonDatePreset === preset.value
+              return (
+                <Button
+                  key={preset.value}
+                  type="button"
+                  size="sm"
+                  variant={isSelected ? "default" : "outline"}
+                  onClick={() => handleComparisonDatePresetChange(preset.value)}
+                >
+                  {preset.label}
+                </Button>
+              )
+            })}
+          </div>
+          <div className="flex flex-col gap-3 md:flex-row">
             <div className="space-y-1">
-              <Label htmlFor="comparison-date" className="font-normal">
-                Comparison date
+              <Label htmlFor="comparison-date-from" className="font-normal">
+                From
               </Label>
               <Input
-                id="comparison-date"
+                id="comparison-date-from"
                 type="date"
                 className="w-44"
-                value={comparisonDate}
-                onChange={(event) => setComparisonDate(event.target.value)}
+                value={comparisonDateFrom}
+                disabled={!isCustomComparisonDateRange}
+                onChange={(event) => setComparisonDateField("from", event.target.value)}
               />
             </div>
-            <div className="flex flex-wrap gap-3">
-              {config.metrics.map((metric) => {
-                const checkboxId = `comparison-toggle-${metric}`
-                const ytdCheckboxId = `comparison-ytd-toggle-${metric}`
-                const isComparing = comparisonMetrics.includes(metric)
-                return (
-                  <div
-                    key={metric}
-                    className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
-                  >
-                    <Checkbox
-                      id={checkboxId}
-                      checked={isComparing}
-                      onCheckedChange={() => toggleComparisonMetric(metric)}
-                      disabled={!comparisonDate}
-                    />
-                    <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
-                      {FIELD_LABELS[metric] ?? metric}
-                    </Label>
-                    <span className="ml-2 flex items-center gap-1 border-l border-border pl-2">
-                      <Checkbox
-                        id={ytdCheckboxId}
-                        checked={comparisonYtdMetrics.includes(metric)}
-                        onCheckedChange={() => toggleComparisonYtdMetric(metric)}
-                        disabled={!comparisonDate || !isComparing}
-                      />
-                      <Label
-                        htmlFor={ytdCheckboxId}
-                        className="cursor-pointer text-xs font-normal text-muted-foreground"
-                      >
-                        YTD
-                      </Label>
-                    </span>
-                  </div>
-                )
-              })}
+            <div className="space-y-1">
+              <Label htmlFor="comparison-date-to" className="font-normal">
+                To
+              </Label>
+              <Input
+                id="comparison-date-to"
+                type="date"
+                className="w-44"
+                value={comparisonDateTo}
+                disabled={!isCustomComparisonDateRange}
+                onChange={(event) => setComparisonDateField("to", event.target.value)}
+              />
             </div>
           </div>
-          {!comparisonDate && comparisonMetrics.length > 0 && (
+          <div className="flex flex-wrap gap-3">
+            {config.metrics.map((metric) => {
+              const checkboxId = `comparison-toggle-${metric}`
+              const ytdCheckboxId = `comparison-ytd-toggle-${metric}`
+              const isComparing = comparisonMetrics.includes(metric)
+              return (
+                <div
+                  key={metric}
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
+                >
+                  <Checkbox
+                    id={checkboxId}
+                    checked={isComparing}
+                    onCheckedChange={() => toggleComparisonMetric(metric)}
+                    disabled={!hasComparisonDateRange}
+                  />
+                  <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                    {FIELD_LABELS[metric] ?? metric}
+                  </Label>
+                  <span className="ml-2 flex items-center gap-1 border-l border-border pl-2">
+                    <Checkbox
+                      id={ytdCheckboxId}
+                      checked={comparisonYtdMetrics.includes(metric)}
+                      onCheckedChange={() => toggleComparisonYtdMetric(metric)}
+                      disabled={!hasComparisonDateRange || !isComparing}
+                    />
+                    <Label
+                      htmlFor={ytdCheckboxId}
+                      className="cursor-pointer text-xs font-normal text-muted-foreground"
+                    >
+                      YTD
+                    </Label>
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          {!hasComparisonDateRange && comparisonMetrics.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              Pick a comparison date to activate these columns.
+              Pick a comparison date range to activate these columns.
             </p>
           )}
         </div>
       )}
 
-      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="flex flex-col gap-4 md:flex-row">
-          <div className="space-y-2">
-            <Label htmlFor="report-date-from">From</Label>
-            <Input
-              id="report-date-from"
-              type="date"
-              value={config.dateRange.from}
-              onChange={(event) =>
-                onConfigChange({
-                  ...config,
-                  dateRange: { ...config.dateRange, from: event.target.value },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="report-date-to">To</Label>
-            <Input
-              id="report-date-to"
-              type="date"
-              value={config.dateRange.to}
-              onChange={(event) =>
-                onConfigChange({
-                  ...config,
-                  dateRange: { ...config.dateRange, to: event.target.value },
-                })
-              }
-            />
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Chart Type</Label>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={config.chartType === "table" ? "default" : "outline"}
-              onClick={() => onConfigChange({ ...config, chartType: "table" })}
-            >
-              <Table2 className="mr-2 h-4 w-4" />
-              Table
-            </Button>
-            <Button
-              type="button"
-              variant={config.chartType === "bar" ? "default" : "outline"}
-              onClick={() => onConfigChange({ ...config, chartType: "bar" })}
-            >
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Bar
-            </Button>
-            <Button
-              type="button"
-              variant={config.chartType === "line" ? "default" : "outline"}
-              onClick={() => onConfigChange({ ...config, chartType: "line" })}
-            >
-              <LineChart className="mr-2 h-4 w-4" />
-              Line
-            </Button>
-          </div>
+      <div className="space-y-2">
+        <Label>Chart Type</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant={config.chartType === "table" ? "default" : "outline"}
+            onClick={() => onConfigChange({ ...config, chartType: "table" })}
+          >
+            <Table2 className="mr-2 h-4 w-4" />
+            Table
+          </Button>
+          <Button
+            type="button"
+            variant={config.chartType === "bar" ? "default" : "outline"}
+            onClick={() => onConfigChange({ ...config, chartType: "bar" })}
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Bar
+          </Button>
+          <Button
+            type="button"
+            variant={config.chartType === "line" ? "default" : "outline"}
+            onClick={() => onConfigChange({ ...config, chartType: "line" })}
+          >
+            <LineChart className="mr-2 h-4 w-4" />
+            Line
+          </Button>
         </div>
       </div>
 
