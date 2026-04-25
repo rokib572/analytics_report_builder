@@ -67,7 +67,6 @@ export const appendComparisonColumns = async (
       ...config,
       metrics: [metric],
       columns: [],
-      comparisons: undefined,
       inlineYtdMetrics: undefined,
       channelBreakdownMetrics: undefined,
       comparisonDateRange: undefined,

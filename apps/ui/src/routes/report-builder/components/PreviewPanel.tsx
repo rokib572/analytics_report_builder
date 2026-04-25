@@ -3,7 +3,6 @@ import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tan
 import {
   FIELD_LABELS,
   formatReportCell,
-  formatSummaryCell,
   getChartValue,
   getColumnMetric,
   isMonetaryReportColumn,
@@ -256,10 +255,7 @@ export const PreviewPanel = ({
   const firstDimension = dimensionColumns[0]?.key ?? metricColumns[0]?.key
   const chartData = result ? transformChartData(result) : []
 
-  const overallSummaryHasContent = (result?.summaryRows?.length ?? 0) > 0
-  const hasDisplayableContent = Boolean(
-    result && (result.rows.length > 0 || overallSummaryHasContent),
-  )
+  const hasDisplayableContent = Boolean(result && result.rows.length > 0)
 
   return (
     <Card>
@@ -434,40 +430,6 @@ export const PreviewPanel = ({
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
-                  </TableRow>
-                ))}
-                {result.summaryRows?.map((summaryRow) => (
-                  <TableRow
-                    key={`summary-${summaryRow.kind}`}
-                    className="bg-muted/50 font-semibold"
-                  >
-                    {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
-                      const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
-                      const metricColumnForCell = leafMeta?.metricColumn
-                      const cellKey = leafColumn.id
-                      const metricCellValue = metricColumnForCell
-                        ? (summaryRow.values[cellKey] ?? null)
-                        : null
-                      const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
-                      return (
-                        <TableCell
-                          key={`${summaryRow.kind}-${cellKey}`}
-                          className={
-                            metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
-                              ? "text-right"
-                              : undefined
-                          }
-                        >
-                          {metricColumnForCell
-                            ? formatSummaryCell(
-                                summaryRow.kind,
-                                metricColumnForCell,
-                                metricCellValue,
-                              )
-                            : labelCellValue}
-                        </TableCell>
-                      )
-                    })}
                   </TableRow>
                 ))}
               </TableBody>

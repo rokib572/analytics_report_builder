@@ -52,7 +52,6 @@ export const appendChannelBreakdownColumns = async (
       columns: ["channel"],
       inlineYtdMetrics: undefined,
       channelBreakdownMetrics: undefined,
-      comparisons: undefined,
       locationAttributes: undefined,
       page: 1,
     }

@@ -52,7 +52,6 @@ import { appendLaborHourVariancePercentMetric } from "./append-labor-hour-varian
 import { appendPayrollPctOfSalesMetric } from "./append-payroll-pct-of-sales-metric"
 import { buildColumnCondition } from "./build-column-condition"
 import { buildExpressionCondition } from "./build-expression-condition"
-import { computeSummaryRows } from "./compute-summary-rows"
 import { enrichLocationAttributes } from "./enrich-location-attributes"
 import { getDimensionDefinition } from "./get-dimension-definition"
 import { getModeConfig } from "./get-mode-config"
@@ -354,11 +353,6 @@ export const buildReportQuery = async (
   )
   const { columns, rows } = pivotReportResult(config, flatColumns, flatRows)
 
-  const shouldComputeSummaryRows = config.comparisons && (isPivotedReport || page === 1)
-  const summaryRows = shouldComputeSummaryRows
-    ? await computeSummaryRows(db, customerId, config, config.comparisons!)
-    : []
-
   const baseResult: ReportQueryResult = {
     columns,
     rows,
@@ -371,7 +365,6 @@ export const buildReportQuery = async (
       : totalRows !== undefined
         ? { totalRows }
         : {}),
-    ...(summaryRows.length > 0 ? { summaryRows } : {}),
   }
 
   const withChannelBreakdown = await appendChannelBreakdownColumns(
@@ -686,7 +679,6 @@ const runMixedReportQuery = async (
 
   const subConfigBase: ReportQueryInput = {
     ...config,
-    comparisons: undefined,
     locationAttributes: undefined,
     inlineYtdMetrics: undefined,
     channelBreakdownMetrics: undefined,
@@ -783,19 +775,7 @@ const runMixedReportQuery = async (
     merged = stripUnrequestedMetricColumns(merged, config.metrics)
   }
 
-  const withSummary = config.comparisons
-    ? await (async () => {
-        const summaryRows = await computeSummaryRows(db, customerId, config, config.comparisons!)
-        return summaryRows.length > 0 ? { ...merged, summaryRows } : merged
-      })()
-    : merged
-
-  const withChannelBreakdown = await appendChannelBreakdownColumns(
-    db,
-    customerId,
-    config,
-    withSummary,
-  )
+  const withChannelBreakdown = await appendChannelBreakdownColumns(db, customerId, config, merged)
   const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
   const withComparison = await appendComparisonColumns(db, customerId, config, withYtd)
   const enriched = await enrichLocationAttributes(db, customerId, config, withComparison)

@@ -3,11 +3,9 @@ import { Text, View } from "@react-pdf/renderer"
 import {
   FIELD_LABELS,
   formatReportCell,
-  formatSummaryCell,
   isMonetaryReportColumn,
   type ReportColumn,
   type ReportQueryResult,
-  type ReportSummaryRow,
 } from "@analytics/report-builder"
 import { reportStyles } from "./styles"
 
@@ -123,59 +121,6 @@ const renderDataRow = (
     ))}
   </View>
 )
-
-const renderSummaryRow = (
-  { columns, columnWidth }: RowRendererContext,
-  summaryRow: ReportSummaryRow,
-  key: string,
-  isLastSummaryRow: boolean,
-) => {
-  const firstDimensionColumnIndex = columns.findIndex((candidate) => candidate.kind === "dimension")
-  const labelColumnIndex = firstDimensionColumnIndex >= 0 ? firstDimensionColumnIndex : 0
-
-  return (
-    <View
-      key={key}
-      style={[
-        reportStyles.tableSummaryRow,
-        ...(isLastSummaryRow ? [reportStyles.tableRowLast] : []),
-      ]}
-      wrap={false}
-    >
-      {columns.map((column, columnIndex) => {
-        const isLastColumn = columnIndex === columns.length - 1
-        const isLabelCell = columnIndex === labelColumnIndex && column.kind !== "metric"
-        const summaryValue =
-          column.kind === "metric"
-            ? formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null)
-            : isLabelCell
-              ? summaryRow.label
-              : ""
-        return (
-          <View
-            key={`${key}-${column.key}`}
-            style={[
-              reportStyles.tableCell,
-              { width: columnWidth },
-              ...(isLastColumn ? [reportStyles.tableCellLast] : []),
-            ]}
-          >
-            <Text
-              style={[
-                reportStyles.tableSummaryCellText,
-                ...(column.kind === "metric" && isNumericMetricColumn(column)
-                  ? [reportStyles.alignRight]
-                  : []),
-              ]}
-            >
-              {summaryValue}
-            </Text>
-          </View>
-        )
-      })}
-    </View>
-  )
-}
 
 type BreakdownSpan = { label: string; startIndex: number; length: number }
 
@@ -369,19 +314,8 @@ export const ReportTable = ({ result }: ReportTableProps) => {
         </View>
       )}
       {result.rows.map((row, rowIndex) => {
-        const isLastDataRow =
-          rowIndex === result.rows.length - 1 &&
-          (!result.summaryRows || result.summaryRows.length === 0)
+        const isLastDataRow = rowIndex === result.rows.length - 1
         return renderDataRow(rowContext, row, `row-${rowIndex}`, isLastDataRow)
-      })}
-      {result.summaryRows?.map((summaryRow, summaryIndex) => {
-        const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
-        return renderSummaryRow(
-          rowContext,
-          summaryRow,
-          `summary-${summaryRow.kind}`,
-          isLastSummaryRow,
-        )
       })}
     </View>
   )

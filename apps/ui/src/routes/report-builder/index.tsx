@@ -16,7 +16,6 @@ import {
   usePagedReportQuery,
 } from "../../data/report-builder/hooks"
 import { ReportCanvas } from "./components/ReportCanvas"
-import { ComparisonsPanel } from "./components/ComparisonsPanel"
 import { FieldPanel } from "./components/FieldPanel"
 import { PresetPicker } from "./components/PresetPicker"
 import { PreviewPanel } from "./components/PreviewPanel"
@@ -224,7 +223,6 @@ export const ReportBuilderRoute = () => {
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
                 <ReportCanvas config={config} onConfigChange={setConfig} />
-                <ComparisonsPanel config={config} onConfigChange={setConfig} />
                 <PreviewPanel
                   result={previewResult}
                   chartType={config.chartType}

@@ -37,7 +37,6 @@ export const appendInlineYtdColumns = async (
     ...config,
     metrics: requestedYtdMetrics,
     columns: [],
-    comparisons: undefined,
     inlineYtdMetrics: undefined,
     locationAttributes: undefined,
     dateRange: yearToDateRange(config.dateRange),

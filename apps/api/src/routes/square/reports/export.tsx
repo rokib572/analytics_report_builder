@@ -6,7 +6,6 @@ import { buildReportQuery } from "@analytics/database"
 import {
   FIELD_LABELS,
   formatReportCell,
-  formatSummaryCell,
   type ReportColumn,
   type ReportConfig,
   type ReportQueryResult,
@@ -42,7 +41,6 @@ const collectReportRows = async (
   let page = 1
   let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
-  let summaryRows: ReportQueryResult["summaryRows"]
   const rows: ReportQueryResult["rows"] = []
 
   while (true) {
@@ -55,7 +53,6 @@ const collectReportRows = async (
     if (columns.length === 0) {
       columns = pageResult.columns
       generatedAt = pageResult.generatedAt
-      summaryRows = pageResult.summaryRows
     }
 
     rows.push(...pageResult.rows)
@@ -78,7 +75,6 @@ const collectReportRows = async (
         pageSize: rows.length,
         hasMore: false,
         totalRows: rows.length,
-        ...(summaryRows && summaryRows.length > 0 ? { summaryRows } : {}),
       }
     }
 
@@ -171,27 +167,6 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
   return headerRows
 }
 
-const buildCsvSummaryRowsFrom = (
-  columns: ReportQueryResult["columns"],
-  summaryRows: ReportQueryResult["summaryRows"],
-): string[][] => {
-  if (!summaryRows || summaryRows.length === 0) return []
-
-  const labelColumnIndex = columns.findIndex((column) => column.kind === "dimension")
-
-  return summaryRows.map((summaryRow) =>
-    columns.map((column, columnIndex) => {
-      if (column.kind === "metric") {
-        return formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null)
-      }
-      if (column.kind === "dimension" && columnIndex === labelColumnIndex) {
-        return summaryRow.label
-      }
-      return ""
-    }),
-  )
-}
-
 const buildCsvDataRows = (
   columns: ReportQueryResult["columns"],
   rows: ReportQueryResult["rows"],
@@ -201,9 +176,8 @@ const buildCsvDataRows = (
 const buildCsv = (result: ReportQueryResult) => {
   const headerRows = buildCsvHeaderRows(result.columns)
   const dataRows = buildCsvDataRows(result.columns, result.rows)
-  const summaryCsvRows = buildCsvSummaryRowsFrom(result.columns, result.summaryRows)
 
-  return stringify([...headerRows, ...dataRows, ...summaryCsvRows])
+  return stringify([...headerRows, ...dataRows])
 }
 
 const router = new Hono<AuthEnv>()

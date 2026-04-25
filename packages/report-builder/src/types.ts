@@ -79,16 +79,6 @@ export type ReportFilter = {
   value: string | string[]
 }
 
-export type ReportComparisons = {
-  total?: boolean
-  previousPeriod?: boolean
-  yearOverYear?: boolean
-  yearToDate?: boolean
-  compingOnly?: boolean
-  includeChangePercent?: boolean
-  includeYearOverYearChangePercent?: boolean
-}
-
 export type ReportConfig = {
   metrics: Metric[]
   rows: Dimension[]
@@ -99,7 +89,6 @@ export type ReportConfig = {
     from: string
     to: string
   }
-  comparisons?: ReportComparisons
   locationAttributes?: LocationAttribute[]
   inlineYtdMetrics?: Metric[]
   channelBreakdownMetrics?: Metric[]
@@ -139,21 +128,6 @@ export type ReportColumn =
       attribute: LocationAttribute
     }
 
-export type ReportSummaryKind =
-  | "total"
-  | "comping"
-  | "previousPeriod"
-  | "yearOverYear"
-  | "yearToDate"
-  | "changePercent"
-  | "yearOverYearChangePercent"
-
-export type ReportSummaryRow = {
-  kind: ReportSummaryKind
-  label: string
-  values: Record<string, string | number | null>
-}
-
 export type ReportQueryResult = {
   columns: ReportColumn[]
   rows: Record<string, string | number | null>[]
@@ -162,5 +136,4 @@ export type ReportQueryResult = {
   pageSize: number
   hasMore: boolean
   totalRows?: number
-  summaryRows?: ReportSummaryRow[]
 }

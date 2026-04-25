@@ -45,16 +45,6 @@ export const LocationAttributeSchema = z.enum(["daysOpen", "dateOpened"])
 
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])
 
-export const ReportComparisonsSchema = z.object({
-  total: z.boolean().optional(),
-  previousPeriod: z.boolean().optional(),
-  yearOverYear: z.boolean().optional(),
-  yearToDate: z.boolean().optional(),
-  compingOnly: z.boolean().optional(),
-  includeChangePercent: z.boolean().optional(),
-  includeYearOverYearChangePercent: z.boolean().optional(),
-})
-
 export const ReportConfigSchema = z.object({
   metrics: z.array(MetricSchema).min(1),
   rows: z.array(DimensionSchema),
@@ -71,7 +61,6 @@ export const ReportConfigSchema = z.object({
     from: z.string(),
     to: z.string(),
   }),
-  comparisons: ReportComparisonsSchema.optional(),
   locationAttributes: z.array(LocationAttributeSchema).optional(),
   inlineYtdMetrics: z.array(MetricSchema).optional(),
   channelBreakdownMetrics: z.array(MetricSchema).optional(),
@@ -122,22 +111,6 @@ export const ReportColumnSchema = z.discriminatedUnion("kind", [
   }),
 ])
 
-export const ReportSummaryKindSchema = z.enum([
-  "total",
-  "comping",
-  "previousPeriod",
-  "yearOverYear",
-  "yearToDate",
-  "changePercent",
-  "yearOverYearChangePercent",
-])
-
-export const ReportSummaryRowSchema = z.object({
-  kind: ReportSummaryKindSchema,
-  label: z.string(),
-  values: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
-})
-
 export const ReportQueryResultSchema = z.object({
   columns: z.array(ReportColumnSchema),
   rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
@@ -146,7 +119,6 @@ export const ReportQueryResultSchema = z.object({
   pageSize: z.number().int().min(1).max(50_000),
   hasMore: z.boolean(),
   totalRows: z.number().int().min(0).optional(),
-  summaryRows: z.array(ReportSummaryRowSchema).optional(),
 })
 
 export const SavedReportSchema = z.object({
@@ -182,6 +154,3 @@ export type CreateSavedReport = z.infer<typeof CreateSavedReportSchema>
 export type UpdateSavedReport = z.infer<typeof UpdateSavedReportSchema>
 export type ReportExport = z.infer<typeof ReportExportSchema>
 export type ReportExportFormat = z.infer<typeof ReportExportFormatSchema>
-export type ReportComparisons = z.infer<typeof ReportComparisonsSchema>
-export type ReportSummaryKind = z.infer<typeof ReportSummaryKindSchema>
-export type ReportSummaryRow = z.infer<typeof ReportSummaryRowSchema>
