@@ -71,7 +71,16 @@ export const ReportConfigSchema = z.object({
     })
     .optional(),
   comparisonMetrics: z.array(MetricSchema).optional(),
+  comparisonYtdMetrics: z.array(MetricSchema).optional(),
   comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
+  extraColumnOrder: z
+    .array(
+      z.object({
+        kind: z.enum(["inlineYtd", "comparison", "comparisonYtd"]),
+        metric: MetricSchema,
+      }),
+    )
+    .optional(),
   payrollTaxRatePercent: z.number().min(0).max(100).optional(),
 })
 

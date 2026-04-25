@@ -1,0 +1,310 @@
+import {
+  FIELD_LABELS,
+  yearToDateRange,
+  type Dimension,
+  type ExtraColumnDescriptor,
+  type ExtraColumnKind,
+  type Metric,
+  type ReportColumn,
+  type ReportQueryInput,
+  type ReportQueryResult,
+} from "@analytics/report-builder"
+import type { DbClient } from "../../../../db/client"
+import { buildReportQuery } from "./report-query"
+
+const INLINE_YTD_KEY_SUFFIX = "__ytd"
+const COMPARISON_KEY_SUFFIX = "__comparison"
+const COMPARISON_YTD_KEY_SUFFIX = "__comparison_ytd"
+const COMPARISON_CHANGE_PCT_KEY_SUFFIX = "__comparison_change_pct"
+const SALES_YOY_CHANGE_LABEL = "YOY Sales Change (%)"
+
+const DEFAULT_COMPARISON_LABELS: Partial<Record<Metric, { priorPeriod: string; ytd: string }>> = {
+  netSales: { priorPeriod: "PY Comping Sales", ytd: "Comping Sales YTD" },
+}
+
+const stringifyKeyPart = (value: string | number | null) =>
+  value === null ? "__null__" : String(value)
+
+const buildRowKey = (rowDimensions: Dimension[], row: Record<string, string | number | null>) =>
+  rowDimensions
+    .map((dimension) => `${dimension}:${stringifyKeyPart(row[dimension] ?? null)}`)
+    .join("|")
+
+const computeYoyChangePercent = (
+  currentValue: string | number | null | undefined,
+  priorValue: string | number | null | undefined,
+): number | null => {
+  if (currentValue === null || currentValue === undefined) return null
+  if (priorValue === null || priorValue === undefined) return null
+  const priorNumeric = Number(priorValue)
+  if (!Number.isFinite(priorNumeric) || priorNumeric === 0) return null
+  const currentNumeric = Number(currentValue)
+  if (!Number.isFinite(currentNumeric)) return null
+  return ((currentNumeric - priorNumeric) / priorNumeric) * 100
+}
+
+const buildPriorComparisonLabel = (metric: Metric, override: string | undefined): string => {
+  if (override) return override
+  const domainDefault = DEFAULT_COMPARISON_LABELS[metric]
+  if (domainDefault) return domainDefault.priorPeriod
+  const metricLabel = FIELD_LABELS[metric] ?? metric
+  return `PY ${metricLabel}`
+}
+
+const buildYtdComparisonLabel = (metric: Metric): string => {
+  const domainDefault = DEFAULT_COMPARISON_LABELS[metric]
+  if (domainDefault) return domainDefault.ytd
+  const metricLabel = FIELD_LABELS[metric] ?? metric
+  return `${metricLabel} YTD`
+}
+
+const buildInlineYtdLabel = (metric: Metric): string => `YTD ${FIELD_LABELS[metric] ?? metric}`
+
+const dedupeDescriptors = (descriptors: ExtraColumnDescriptor[]): ExtraColumnDescriptor[] => {
+  const seen = new Set<string>()
+  const result: ExtraColumnDescriptor[] = []
+  for (const descriptor of descriptors) {
+    const key = `${descriptor.kind}:${descriptor.metric}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(descriptor)
+  }
+  return result
+}
+
+const deriveDescriptorsFromLegacy = (config: ReportQueryInput): ExtraColumnDescriptor[] => {
+  const descriptors: ExtraColumnDescriptor[] = []
+  for (const metric of config.inlineYtdMetrics ?? []) {
+    descriptors.push({ kind: "inlineYtd", metric })
+  }
+  for (const metric of config.comparisonMetrics ?? []) {
+    descriptors.push({ kind: "comparison", metric })
+  }
+  for (const metric of config.comparisonYtdMetrics ?? []) {
+    descriptors.push({ kind: "comparisonYtd", metric })
+  }
+  return descriptors
+}
+
+const filterDescriptorsBySupport = (
+  descriptors: ExtraColumnDescriptor[],
+  config: ReportQueryInput,
+): ExtraColumnDescriptor[] => {
+  const baseMetrics = new Set<Metric>(config.metrics)
+  const comparisonMetricsByDescriptor = new Set<Metric>()
+  const filtered: ExtraColumnDescriptor[] = []
+
+  for (const descriptor of descriptors) {
+    if (!baseMetrics.has(descriptor.metric)) continue
+    if (descriptor.kind === "inlineYtd") {
+      if (config.rows.length === 0) continue
+      filtered.push(descriptor)
+      continue
+    }
+    if (descriptor.kind === "comparison") {
+      if (!config.comparisonDateRange) continue
+      filtered.push(descriptor)
+      comparisonMetricsByDescriptor.add(descriptor.metric)
+      continue
+    }
+    if (descriptor.kind === "comparisonYtd") {
+      if (!config.comparisonDateRange) continue
+      if (!comparisonMetricsByDescriptor.has(descriptor.metric)) continue
+      filtered.push(descriptor)
+    }
+  }
+
+  return filtered
+}
+
+const buildSubConfig = (
+  config: ReportQueryInput,
+  metrics: Metric[],
+  dateRange: { from: string; to: string },
+): ReportQueryInput => ({
+  ...config,
+  metrics,
+  columns: [],
+  inlineYtdMetrics: undefined,
+  channelBreakdownMetrics: undefined,
+  comparisonDateRange: undefined,
+  comparisonMetrics: undefined,
+  comparisonYtdMetrics: undefined,
+  extraColumnOrder: undefined,
+  locationAttributes: undefined,
+  dateRange,
+  page: 1,
+})
+
+const fetchRowsByKey = async (
+  db: DbClient,
+  customerId: string,
+  config: ReportQueryInput,
+  metrics: Metric[],
+  dateRange: { from: string; to: string },
+): Promise<Map<string, Record<string, string | number | null>>> => {
+  const subResult = await buildReportQuery(
+    db,
+    customerId,
+    buildSubConfig(config, metrics, dateRange),
+  )
+  const byRowKey = new Map<string, Record<string, string | number | null>>()
+  for (const row of subResult.rows) {
+    byRowKey.set(buildRowKey(config.rows, row), row)
+  }
+  return byRowKey
+}
+
+const collectMetricsByKind = (
+  descriptors: ExtraColumnDescriptor[],
+): Record<ExtraColumnKind, Metric[]> => {
+  const buckets: Record<ExtraColumnKind, Metric[]> = {
+    inlineYtd: [],
+    comparison: [],
+    comparisonYtd: [],
+  }
+  for (const descriptor of descriptors) {
+    if (!buckets[descriptor.kind].includes(descriptor.metric)) {
+      buckets[descriptor.kind].push(descriptor.metric)
+    }
+  }
+  return buckets
+}
+
+export const appendExtraColumns = async (
+  db: DbClient,
+  customerId: string,
+  config: ReportQueryInput,
+  result: ReportQueryResult,
+): Promise<ReportQueryResult> => {
+  const orderedDescriptors = config.extraColumnOrder?.length
+    ? dedupeDescriptors(config.extraColumnOrder)
+    : dedupeDescriptors(deriveDescriptorsFromLegacy(config))
+
+  const supportedDescriptors = filterDescriptorsBySupport(orderedDescriptors, config)
+  if (supportedDescriptors.length === 0) return result
+
+  const buckets = collectMetricsByKind(supportedDescriptors)
+
+  const inlineYtdRowsByKey =
+    buckets.inlineYtd.length > 0
+      ? await fetchRowsByKey(
+          db,
+          customerId,
+          config,
+          buckets.inlineYtd,
+          yearToDateRange(config.dateRange),
+        )
+      : null
+
+  const comparisonRowsByKey =
+    buckets.comparison.length > 0 && config.comparisonDateRange
+      ? await fetchRowsByKey(db, customerId, config, buckets.comparison, config.comparisonDateRange)
+      : null
+
+  const comparisonYtdRowsByKey =
+    buckets.comparisonYtd.length > 0 && config.comparisonDateRange
+      ? await fetchRowsByKey(
+          db,
+          customerId,
+          config,
+          buckets.comparisonYtd,
+          yearToDateRange(config.comparisonDateRange),
+        )
+      : null
+
+  const newColumns: ReportColumn[] = []
+  const writeRowEntries: Array<{
+    columnKey: string
+    metric: Metric
+    sourceMap: Map<string, Record<string, string | number | null>> | null
+    derivePercent?: { fromKey: string }
+  }> = []
+
+  for (const descriptor of supportedDescriptors) {
+    const labelOverride = config.comparisonMetricLabels?.[descriptor.metric]
+
+    if (descriptor.kind === "inlineYtd") {
+      const columnKey = `${descriptor.metric}${INLINE_YTD_KEY_SUFFIX}`
+      newColumns.push({
+        kind: "metric",
+        metric: descriptor.metric,
+        key: columnKey,
+        label: buildInlineYtdLabel(descriptor.metric),
+      })
+      writeRowEntries.push({
+        columnKey,
+        metric: descriptor.metric,
+        sourceMap: inlineYtdRowsByKey,
+      })
+      continue
+    }
+
+    if (descriptor.kind === "comparison") {
+      const columnKey = `${descriptor.metric}${COMPARISON_KEY_SUFFIX}`
+      newColumns.push({
+        kind: "metric",
+        metric: descriptor.metric,
+        key: columnKey,
+        label: buildPriorComparisonLabel(descriptor.metric, labelOverride),
+      })
+      writeRowEntries.push({
+        columnKey,
+        metric: descriptor.metric,
+        sourceMap: comparisonRowsByKey,
+      })
+      if (descriptor.metric === "netSales") {
+        const changeKey = `${descriptor.metric}${COMPARISON_CHANGE_PCT_KEY_SUFFIX}`
+        newColumns.push({
+          kind: "metric",
+          metric: "salesYoyChangePercent",
+          key: changeKey,
+          label: SALES_YOY_CHANGE_LABEL,
+        })
+        writeRowEntries.push({
+          columnKey: changeKey,
+          metric: descriptor.metric,
+          sourceMap: null,
+          derivePercent: { fromKey: columnKey },
+        })
+      }
+      continue
+    }
+
+    const columnKey = `${descriptor.metric}${COMPARISON_YTD_KEY_SUFFIX}`
+    newColumns.push({
+      kind: "metric",
+      metric: descriptor.metric,
+      key: columnKey,
+      label: buildYtdComparisonLabel(descriptor.metric),
+    })
+    writeRowEntries.push({
+      columnKey,
+      metric: descriptor.metric,
+      sourceMap: comparisonYtdRowsByKey,
+    })
+  }
+
+  const nextRows = result.rows.map((row) => {
+    const next = { ...row }
+    const rowKey = buildRowKey(config.rows, row)
+    for (const entry of writeRowEntries) {
+      if (entry.derivePercent) {
+        next[entry.columnKey] = computeYoyChangePercent(
+          row[entry.metric],
+          next[entry.derivePercent.fromKey] ?? null,
+        )
+        continue
+      }
+      const sourceRow = entry.sourceMap?.get(rowKey)
+      next[entry.columnKey] = sourceRow?.[entry.metric] ?? null
+    }
+    return next
+  })
+
+  return {
+    ...result,
+    columns: [...result.columns, ...newColumns],
+    rows: nextRows,
+  }
+}

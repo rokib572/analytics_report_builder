@@ -7,6 +7,8 @@ import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
   isChannelBreakdownEligibleMetric,
+  type ExtraColumnDescriptor,
+  type ExtraColumnKind,
   type Metric,
   type ReportConfig,
 } from "@analytics/report-builder"
@@ -94,7 +96,47 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
     isChannelBreakdownEligibleMetric,
   )
   const comparisonMetrics = config.comparisonMetrics ?? []
+  const comparisonYtdMetrics = config.comparisonYtdMetrics ?? []
   const comparisonDate = config.comparisonDateRange?.from ?? ""
+  const matchesExtraColumn = (
+    descriptor: ExtraColumnDescriptor,
+    kind: ExtraColumnKind,
+    metric: Metric,
+  ) => descriptor.kind === kind && descriptor.metric === metric
+
+  const addExtraColumn = (
+    list: ExtraColumnDescriptor[],
+    kind: ExtraColumnKind,
+    metric: Metric,
+  ): ExtraColumnDescriptor[] =>
+    list.some((entry) => matchesExtraColumn(entry, kind, metric))
+      ? list
+      : [...list, { kind, metric }]
+
+  const removeExtraColumn = (
+    list: ExtraColumnDescriptor[],
+    kind: ExtraColumnKind,
+    metric: Metric,
+  ): ExtraColumnDescriptor[] => list.filter((entry) => !matchesExtraColumn(entry, kind, metric))
+
+  const deriveExtraColumnOrderFromLegacy = (): ExtraColumnDescriptor[] => {
+    const derived: ExtraColumnDescriptor[] = []
+    for (const metric of inlineYtdMetrics) {
+      derived.push({ kind: "inlineYtd", metric })
+    }
+    for (const metric of comparisonMetrics) {
+      derived.push({ kind: "comparison", metric })
+    }
+    for (const metric of comparisonYtdMetrics) {
+      derived.push({ kind: "comparisonYtd", metric })
+    }
+    return derived
+  }
+
+  const extraColumnOrder =
+    config.extraColumnOrder && config.extraColumnOrder.length > 0
+      ? config.extraColumnOrder
+      : deriveExtraColumnOrderFromLegacy()
   const showPayrollTaxRateInput = config.metrics.includes("estimatedPayrollAfterTax")
   const payrollTaxRatePercent = config.payrollTaxRatePercent ?? DEFAULT_PAYROLL_TAX_RATE_PERCENT
 
@@ -113,12 +155,17 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   }
 
   const toggleInlineYtdMetric = (metric: Metric) => {
-    const next = inlineYtdMetrics.includes(metric)
+    const isCurrentlySelected = inlineYtdMetrics.includes(metric)
+    const nextMetrics = isCurrentlySelected
       ? inlineYtdMetrics.filter((item) => item !== metric)
       : [...inlineYtdMetrics, metric]
+    const nextOrder = isCurrentlySelected
+      ? removeExtraColumn(extraColumnOrder, "inlineYtd", metric)
+      : addExtraColumn(extraColumnOrder, "inlineYtd", metric)
     onConfigChange({
       ...config,
-      inlineYtdMetrics: next.length > 0 ? next : undefined,
+      inlineYtdMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
 
@@ -133,12 +180,39 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   }
 
   const toggleComparisonMetric = (metric: Metric) => {
-    const next = comparisonMetrics.includes(metric)
+    const isCurrentlySelected = comparisonMetrics.includes(metric)
+    const nextMetrics = isCurrentlySelected
       ? comparisonMetrics.filter((item) => item !== metric)
       : [...comparisonMetrics, metric]
+    const nextYtdMetrics = isCurrentlySelected
+      ? comparisonYtdMetrics.filter((item) => item !== metric)
+      : comparisonYtdMetrics
+    let nextOrder = isCurrentlySelected
+      ? removeExtraColumn(extraColumnOrder, "comparison", metric)
+      : addExtraColumn(extraColumnOrder, "comparison", metric)
+    if (isCurrentlySelected) {
+      nextOrder = removeExtraColumn(nextOrder, "comparisonYtd", metric)
+    }
     onConfigChange({
       ...config,
-      comparisonMetrics: next.length > 0 ? next : undefined,
+      comparisonMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      comparisonYtdMetrics: nextYtdMetrics.length > 0 ? nextYtdMetrics : undefined,
+      extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
+    })
+  }
+
+  const toggleComparisonYtdMetric = (metric: Metric) => {
+    const isCurrentlySelected = comparisonYtdMetrics.includes(metric)
+    const nextMetrics = isCurrentlySelected
+      ? comparisonYtdMetrics.filter((item) => item !== metric)
+      : [...comparisonYtdMetrics, metric]
+    const nextOrder = isCurrentlySelected
+      ? removeExtraColumn(extraColumnOrder, "comparisonYtd", metric)
+      : addExtraColumn(extraColumnOrder, "comparisonYtd", metric)
+    onConfigChange({
+      ...config,
+      comparisonYtdMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
 
@@ -324,6 +398,8 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
             <div className="flex flex-wrap gap-3">
               {config.metrics.map((metric) => {
                 const checkboxId = `comparison-toggle-${metric}`
+                const ytdCheckboxId = `comparison-ytd-toggle-${metric}`
+                const isComparing = comparisonMetrics.includes(metric)
                 return (
                   <div
                     key={metric}
@@ -331,13 +407,27 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
                   >
                     <Checkbox
                       id={checkboxId}
-                      checked={comparisonMetrics.includes(metric)}
+                      checked={isComparing}
                       onCheckedChange={() => toggleComparisonMetric(metric)}
                       disabled={!comparisonDate}
                     />
                     <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
                       {FIELD_LABELS[metric] ?? metric}
                     </Label>
+                    <span className="ml-2 flex items-center gap-1 border-l border-border pl-2">
+                      <Checkbox
+                        id={ytdCheckboxId}
+                        checked={comparisonYtdMetrics.includes(metric)}
+                        onCheckedChange={() => toggleComparisonYtdMetric(metric)}
+                        disabled={!comparisonDate || !isComparing}
+                      />
+                      <Label
+                        htmlFor={ytdCheckboxId}
+                        className="cursor-pointer text-xs font-normal text-muted-foreground"
+                      >
+                        YTD
+                      </Label>
+                    </span>
                   </div>
                 )
               })}

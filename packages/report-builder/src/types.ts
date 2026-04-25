@@ -79,6 +79,13 @@ export type ReportFilter = {
   value: string | string[]
 }
 
+export type ExtraColumnKind = "inlineYtd" | "comparison" | "comparisonYtd"
+
+export type ExtraColumnDescriptor = {
+  kind: ExtraColumnKind
+  metric: Metric
+}
+
 export type ReportConfig = {
   metrics: Metric[]
   rows: Dimension[]
@@ -94,7 +101,9 @@ export type ReportConfig = {
   channelBreakdownMetrics?: Metric[]
   comparisonDateRange?: { from: string; to: string }
   comparisonMetrics?: Metric[]
+  comparisonYtdMetrics?: Metric[]
   comparisonMetricLabels?: Record<string, string>
+  extraColumnOrder?: ExtraColumnDescriptor[]
   payrollTaxRatePercent?: number
 }
 

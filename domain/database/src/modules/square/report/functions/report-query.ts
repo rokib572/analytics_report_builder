@@ -47,8 +47,7 @@ import { orderTenders } from "../../order-tenders/schema"
 import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
 import { appendChannelBreakdownColumns } from "./append-channel-breakdown-columns"
-import { appendComparisonColumns } from "./append-comparison-columns"
-import { appendInlineYtdColumns } from "./append-ytd-columns"
+import { appendExtraColumns } from "./append-extra-columns"
 import { appendLaborHourVariancePercentMetric } from "./append-labor-hour-variance-percent-metric"
 import { appendPayrollPctOfSalesMetric } from "./append-payroll-pct-of-sales-metric"
 import { buildColumnCondition } from "./build-column-condition"
@@ -377,9 +376,8 @@ export const buildReportQuery = async (
     config,
     baseResult,
   )
-  const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
-  const withComparison = await appendComparisonColumns(db, customerId, config, withYtd)
-  const enriched = await enrichLocationAttributes(db, customerId, config, withComparison)
+  const withExtras = await appendExtraColumns(db, customerId, config, withChannelBreakdown)
+  const enriched = await enrichLocationAttributes(db, customerId, config, withExtras)
   return reorderColumnsByMetricSequence(enriched, config.metrics)
 }
 
@@ -780,8 +778,7 @@ const runMixedReportQuery = async (
   }
 
   const withChannelBreakdown = await appendChannelBreakdownColumns(db, customerId, config, merged)
-  const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
-  const withComparison = await appendComparisonColumns(db, customerId, config, withYtd)
-  const enriched = await enrichLocationAttributes(db, customerId, config, withComparison)
+  const withExtras = await appendExtraColumns(db, customerId, config, withChannelBreakdown)
+  const enriched = await enrichLocationAttributes(db, customerId, config, withExtras)
   return reorderColumnsByMetricSequence(enriched, config.metrics)
 }
