@@ -43,7 +43,6 @@ const collectReportRows = async (
   let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
   let summaryRows: ReportQueryResult["summaryRows"]
-  let sections: ReportQueryResult["sections"]
   const rows: ReportQueryResult["rows"] = []
 
   while (true) {
@@ -57,7 +56,6 @@ const collectReportRows = async (
       columns = pageResult.columns
       generatedAt = pageResult.generatedAt
       summaryRows = pageResult.summaryRows
-      sections = pageResult.sections
     }
 
     rows.push(...pageResult.rows)
@@ -81,7 +79,6 @@ const collectReportRows = async (
         hasMore: false,
         totalRows: rows.length,
         ...(summaryRows && summaryRows.length > 0 ? { summaryRows } : {}),
-        ...(sections && sections.length > 0 ? { sections } : {}),
       }
     }
 
@@ -201,29 +198,8 @@ const buildCsvDataRows = (
 ): string[][] =>
   rows.map((row) => columns.map((column) => formatReportCell(column, row[column.key] ?? null)))
 
-const buildCsvSectionLabelRow = (
-  columns: ReportQueryResult["columns"],
-  label: string,
-): string[] => {
-  const cells = columns.map(() => "")
-  cells[0] = label
-  return cells
-}
-
 const buildCsv = (result: ReportQueryResult) => {
   const headerRows = buildCsvHeaderRows(result.columns)
-
-  if (result.sections && result.sections.length > 0) {
-    const allRows: string[][] = [...headerRows]
-    result.sections.forEach((section, sectionIndex) => {
-      if (sectionIndex > 0) allRows.push(result.columns.map(() => ""))
-      allRows.push(buildCsvSectionLabelRow(result.columns, section.label))
-      allRows.push(...buildCsvDataRows(result.columns, section.rows))
-      allRows.push(...buildCsvSummaryRowsFrom(result.columns, section.summaryRows))
-    })
-    return stringify(allRows)
-  }
-
   const dataRows = buildCsvDataRows(result.columns, result.rows)
   const summaryCsvRows = buildCsvSummaryRowsFrom(result.columns, result.summaryRows)
 

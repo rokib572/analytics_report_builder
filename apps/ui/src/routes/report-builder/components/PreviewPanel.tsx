@@ -1,11 +1,5 @@
 import { useMemo } from "react"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-  type Column,
-  type ColumnDef,
-} from "@tanstack/react-table"
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table"
 import {
   FIELD_LABELS,
   formatReportCell,
@@ -15,7 +9,6 @@ import {
   isMonetaryReportColumn,
   type ChartType,
   type ReportColumn,
-  type ReportSection,
 } from "@analytics/report-builder"
 import type { ReportQueryResult } from "@analytics/validators"
 import {
@@ -221,84 +214,6 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
   ]
 }
 
-type SectionBodyProps = {
-  section: ReportSection
-  leafColumns: Column<PreviewRow, unknown>[]
-}
-
-const SectionBody = ({ section, leafColumns }: SectionBodyProps) => {
-  const columnCount = leafColumns.length
-
-  return (
-    <>
-      <TableRow className="bg-muted font-semibold">
-        <TableCell colSpan={columnCount || 1}>{section.label}</TableCell>
-      </TableRow>
-      {section.rows.length === 0 ? (
-        <TableRow>
-          <TableCell colSpan={columnCount || 1} className="text-sm text-muted-foreground">
-            No rows in this section.
-          </TableCell>
-        </TableRow>
-      ) : (
-        section.rows.map((row, rowIndex) => (
-          <TableRow key={`${section.key}-${rowIndex}`}>
-            {leafColumns.map((leafColumn) => {
-              const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
-              const metricColumnForCell = leafMeta?.metricColumn
-              const cellKey = leafColumn.id
-              const rawValue = row[cellKey] ?? null
-              return (
-                <TableCell
-                  key={`${section.key}-${rowIndex}-${cellKey}`}
-                  className={
-                    metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
-                      ? "text-right"
-                      : undefined
-                  }
-                >
-                  {metricColumnForCell
-                    ? formatReportCell(metricColumnForCell, rawValue)
-                    : rawValue === null
-                      ? "-"
-                      : String(rawValue)}
-                </TableCell>
-              )
-            })}
-          </TableRow>
-        ))
-      )}
-      {section.summaryRows?.map((summaryRow) => (
-        <TableRow key={`${section.key}-${summaryRow.kind}`} className="bg-muted/50 font-semibold">
-          {leafColumns.map((leafColumn, leafIndex) => {
-            const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
-            const metricColumnForCell = leafMeta?.metricColumn
-            const cellKey = leafColumn.id
-            const metricCellValue = metricColumnForCell
-              ? (summaryRow.values[cellKey] ?? null)
-              : null
-            const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
-            return (
-              <TableCell
-                key={`${section.key}-${summaryRow.kind}-${cellKey}`}
-                className={
-                  metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
-                    ? "text-right"
-                    : undefined
-                }
-              >
-                {metricColumnForCell
-                  ? formatSummaryCell(summaryRow.kind, metricColumnForCell, metricCellValue)
-                  : labelCellValue}
-              </TableCell>
-            )
-          })}
-        </TableRow>
-      ))}
-    </>
-  )
-}
-
 const transformChartData = (result: ReportQueryResult): Record<string, unknown>[] =>
   result.rows.map((row) =>
     Object.fromEntries(
@@ -341,10 +256,9 @@ export const PreviewPanel = ({
   const firstDimension = dimensionColumns[0]?.key ?? metricColumns[0]?.key
   const chartData = result ? transformChartData(result) : []
 
-  const hasSectionsEnabled = (result?.sections?.length ?? 0) > 0
   const overallSummaryHasContent = (result?.summaryRows?.length ?? 0) > 0
   const hasDisplayableContent = Boolean(
-    result && (result.rows.length > 0 || hasSectionsEnabled || overallSummaryHasContent),
+    result && (result.rows.length > 0 || overallSummaryHasContent),
   )
 
   return (
@@ -502,77 +416,60 @@ export const PreviewPanel = ({
                 })()}
               </TableHeader>
               <TableBody>
-                {result.sections && result.sections.length > 0 ? (
-                  result.sections.map((section) => (
-                    <SectionBody
-                      key={section.key}
-                      section={section}
-                      leafColumns={table.getVisibleLeafColumns()}
-                    />
-                  ))
-                ) : (
-                  <>
-                    {table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell
-                            key={cell.id}
-                            className={
-                              (cell.column.columnDef.meta as PreviewColumnMeta | undefined)
-                                ?.metricColumn &&
-                              isNumericMetricColumn(
-                                (cell.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
-                              )
-                                ? "text-right"
-                                : undefined
-                            }
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
+                {table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className={
+                          (cell.column.columnDef.meta as PreviewColumnMeta | undefined)
+                            ?.metricColumn &&
+                          isNumericMetricColumn(
+                            (cell.column.columnDef.meta as PreviewColumnMeta).metricColumn!,
+                          )
+                            ? "text-right"
+                            : undefined
+                        }
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
                     ))}
-                    {result.summaryRows && result.summaryRows.length > 0
-                      ? result.summaryRows.map((summaryRow) => (
-                          <TableRow
-                            key={`summary-${summaryRow.kind}`}
-                            className="bg-muted/50 font-semibold"
-                          >
-                            {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
-                              const leafMeta = leafColumn.columnDef.meta as
-                                | PreviewColumnMeta
-                                | undefined
-                              const metricColumnForCell = leafMeta?.metricColumn
-                              const cellKey = leafColumn.id
-                              const metricCellValue = metricColumnForCell
-                                ? (summaryRow.values[cellKey] ?? null)
-                                : null
-                              const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
-                              return (
-                                <TableCell
-                                  key={`${summaryRow.kind}-${cellKey}`}
-                                  className={
-                                    metricColumnForCell &&
-                                    isNumericMetricColumn(metricColumnForCell)
-                                      ? "text-right"
-                                      : undefined
-                                  }
-                                >
-                                  {metricColumnForCell
-                                    ? formatSummaryCell(
-                                        summaryRow.kind,
-                                        metricColumnForCell,
-                                        metricCellValue,
-                                      )
-                                    : labelCellValue}
-                                </TableCell>
+                  </TableRow>
+                ))}
+                {result.summaryRows?.map((summaryRow) => (
+                  <TableRow
+                    key={`summary-${summaryRow.kind}`}
+                    className="bg-muted/50 font-semibold"
+                  >
+                    {table.getVisibleLeafColumns().map((leafColumn, leafIndex) => {
+                      const leafMeta = leafColumn.columnDef.meta as PreviewColumnMeta | undefined
+                      const metricColumnForCell = leafMeta?.metricColumn
+                      const cellKey = leafColumn.id
+                      const metricCellValue = metricColumnForCell
+                        ? (summaryRow.values[cellKey] ?? null)
+                        : null
+                      const labelCellValue = leafIndex === 0 ? summaryRow.label : ""
+                      return (
+                        <TableCell
+                          key={`${summaryRow.kind}-${cellKey}`}
+                          className={
+                            metricColumnForCell && isNumericMetricColumn(metricColumnForCell)
+                              ? "text-right"
+                              : undefined
+                          }
+                        >
+                          {metricColumnForCell
+                            ? formatSummaryCell(
+                                summaryRow.kind,
+                                metricColumnForCell,
+                                metricCellValue,
                               )
-                            })}
-                          </TableRow>
-                        ))
-                      : null}
-                  </>
-                )}
+                            : labelCellValue}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
             <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">

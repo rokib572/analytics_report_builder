@@ -89,11 +89,6 @@ export type ReportComparisons = {
   includeYearOverYearChangePercent?: boolean
 }
 
-export type LocationAgePartitionConfig = {
-  enabled: true
-  thresholdDays: number
-}
-
 export type ReportConfig = {
   metrics: Metric[]
   rows: Dimension[]
@@ -111,7 +106,6 @@ export type ReportConfig = {
   comparisonDateRange?: { from: string; to: string }
   comparisonMetrics?: Metric[]
   comparisonMetricLabels?: Record<string, string>
-  locationAgePartition?: LocationAgePartitionConfig
 }
 
 export type ReportQueryInput = ReportConfig & {
@@ -160,15 +154,6 @@ export type ReportSummaryRow = {
   values: Record<string, string | number | null>
 }
 
-export type ReportSectionKey = "mature" | "new"
-
-export type ReportSection = {
-  key: ReportSectionKey
-  label: string
-  rows: Record<string, string | number | null>[]
-  summaryRows?: ReportSummaryRow[]
-}
-
 export type ReportQueryResult = {
   columns: ReportColumn[]
   rows: Record<string, string | number | null>[]
@@ -178,5 +163,4 @@ export type ReportQueryResult = {
   hasMore: boolean
   totalRows?: number
   summaryRows?: ReportSummaryRow[]
-  sections?: ReportSection[]
 }

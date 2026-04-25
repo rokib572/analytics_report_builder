@@ -72,7 +72,6 @@ export const appendComparisonColumns = async (
       channelBreakdownMetrics: undefined,
       comparisonDateRange: undefined,
       comparisonMetrics: undefined,
-      locationAgePartition: undefined,
       locationAttributes: undefined,
       dateRange: comparisonRange,
       page: 1,
@@ -140,25 +139,10 @@ export const appendComparisonColumns = async (
       return next
     })
 
-    const nextSections = working.sections?.map((section) => ({
-      ...section,
-      rows: section.rows.map((row) => {
-        const next = { ...row }
-        const subRow = byRowKey.get(buildRowKey(config.rows, row))
-        const priorValue = subRow?.[metric] ?? null
-        next[comparisonKey] = priorValue
-        if (changePercentKey) {
-          next[changePercentKey] = computeYoyChangePercent(row[metric], priorValue)
-        }
-        return next
-      }),
-    }))
-
     working = {
       ...working,
       columns: nextColumns,
       rows: nextRows,
-      ...(nextSections ? { sections: nextSections } : {}),
     }
   }
 

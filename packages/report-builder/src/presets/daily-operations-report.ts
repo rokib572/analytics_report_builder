@@ -76,7 +76,6 @@ export const buildDailyOperationsReportConfig = ({
     comparisonDateRange,
     comparisonMetrics: ["netSales"],
     comparisonMetricLabels: { netSales: "PY Comping Sales" },
-    locationAgePartition: { enabled: true, thresholdDays: 30 },
   }
 }
 
@@ -92,7 +91,6 @@ export const REPORT_PRESETS: PresetDescriptor[] = [
   {
     id: "daily-operations-report",
     name: "Daily Operations Report",
-    description:
-      "Location-by-location daily sales, labor, waste, and YTD snapshot with Mature vs New-store sections.",
+    description: "Location-by-location daily sales, labor, waste, and YTD snapshot.",
   },
 ]

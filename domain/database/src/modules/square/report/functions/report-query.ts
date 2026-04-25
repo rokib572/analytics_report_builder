@@ -52,7 +52,6 @@ import { appendLaborHourVariancePercentMetric } from "./append-labor-hour-varian
 import { appendPayrollPctOfSalesMetric } from "./append-payroll-pct-of-sales-metric"
 import { buildColumnCondition } from "./build-column-condition"
 import { buildExpressionCondition } from "./build-expression-condition"
-import { computeLocationAgeSections } from "./compute-location-age-sections"
 import { computeSummaryRows } from "./compute-summary-rows"
 import { enrichLocationAttributes } from "./enrich-location-attributes"
 import { getDimensionDefinition } from "./get-dimension-definition"
@@ -384,9 +383,7 @@ export const buildReportQuery = async (
   const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
   const withComparison = await appendComparisonColumns(db, customerId, config, withYtd)
   const enriched = await enrichLocationAttributes(db, customerId, config, withComparison)
-  const sections = await computeLocationAgeSections(db, customerId, config, enriched)
-  const finalResult = sections ? { ...enriched, sections } : enriched
-  return reorderColumnsByMetricSequence(finalResult, config.metrics)
+  return reorderColumnsByMetricSequence(enriched, config.metrics)
 }
 
 const stringifyKeyPart = (value: string | number | null) =>
@@ -695,7 +692,6 @@ const runMixedReportQuery = async (
     channelBreakdownMetrics: undefined,
     comparisonDateRange: undefined,
     comparisonMetrics: undefined,
-    locationAgePartition: undefined,
     page: 1,
   }
 
@@ -803,7 +799,5 @@ const runMixedReportQuery = async (
   const withYtd = await appendInlineYtdColumns(db, customerId, config, withChannelBreakdown)
   const withComparison = await appendComparisonColumns(db, customerId, config, withYtd)
   const enriched = await enrichLocationAttributes(db, customerId, config, withComparison)
-  const sections = await computeLocationAgeSections(db, customerId, config, enriched)
-  const finalResult = sections ? { ...enriched, sections } : enriched
-  return reorderColumnsByMetricSequence(finalResult, config.metrics)
+  return reorderColumnsByMetricSequence(enriched, config.metrics)
 }

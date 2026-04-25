@@ -53,7 +53,6 @@ export const appendChannelBreakdownColumns = async (
       inlineYtdMetrics: undefined,
       channelBreakdownMetrics: undefined,
       comparisons: undefined,
-      locationAgePartition: undefined,
       locationAttributes: undefined,
       page: 1,
     }

@@ -83,18 +83,6 @@ export const reportStyles = StyleSheet.create({
     fontSize: 9,
     fontWeight: 700,
   },
-  tableSectionLabel: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#cbd5e1",
-    backgroundColor: "#cbd5e1",
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-  },
-  tableSectionLabelText: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: "#0f172a",
-  },
   tableCell: {
     paddingVertical: 6,
     paddingHorizontal: 8,

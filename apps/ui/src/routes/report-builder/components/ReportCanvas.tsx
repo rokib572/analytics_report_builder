@@ -197,65 +197,6 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
         </div>
       )}
 
-      <div className="space-y-2 rounded-md border border-border bg-background p-3">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="split-by-location-age">Split by Location Age</Label>
-          <span className="text-xs text-muted-foreground">
-            Partitions rows into Mature vs New stores with per-section totals.
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="split-by-location-age"
-              checked={Boolean(config.locationAgePartition?.enabled)}
-              onCheckedChange={(checked) =>
-                onConfigChange({
-                  ...config,
-                  locationAgePartition: checked
-                    ? {
-                        enabled: true,
-                        thresholdDays: config.locationAgePartition?.thresholdDays ?? 30,
-                      }
-                    : undefined,
-                })
-              }
-            />
-            <Label htmlFor="split-by-location-age" className="cursor-pointer font-normal">
-              Enabled
-            </Label>
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="location-age-threshold" className="font-normal">
-              New-store threshold (days):
-            </Label>
-            <Input
-              id="location-age-threshold"
-              type="number"
-              min={1}
-              max={365}
-              className="w-24"
-              value={config.locationAgePartition?.thresholdDays ?? 30}
-              onChange={(event) => {
-                const next = Number(event.target.value)
-                if (!Number.isFinite(next) || next < 1) return
-                onConfigChange({
-                  ...config,
-                  locationAgePartition: {
-                    enabled: true,
-                    thresholdDays: Math.min(365, Math.max(1, Math.round(next))),
-                  },
-                })
-              }}
-              disabled={!config.locationAgePartition?.enabled}
-            />
-          </div>
-        </div>
-        {config.locationAgePartition?.enabled && !config.rows.includes("locationId") && (
-          <p className="text-xs text-muted-foreground">Only applies when rows include Location.</p>
-        )}
-      </div>
-
       {config.metrics.length > 0 && (
         <div className="space-y-2 rounded-md border border-border bg-background p-3">
           <div className="flex items-center justify-between">

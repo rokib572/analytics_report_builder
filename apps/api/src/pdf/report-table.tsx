@@ -7,7 +7,6 @@ import {
   isMonetaryReportColumn,
   type ReportColumn,
   type ReportQueryResult,
-  type ReportSection,
   type ReportSummaryRow,
 } from "@analytics/report-builder"
 import { reportStyles } from "./styles"
@@ -178,35 +177,6 @@ const renderSummaryRow = (
   )
 }
 
-const renderSectionLabelRow = (sectionKey: string, label: string) => (
-  <View key={`section-${sectionKey}-label`} style={reportStyles.tableSectionLabel} wrap={false}>
-    <Text style={reportStyles.tableSectionLabelText}>{label}</Text>
-  </View>
-)
-
-const renderSectionBlocks = (context: RowRendererContext, sections: ReportSection[]) =>
-  sections.flatMap((section, sectionIndex) => {
-    const isLastSection = sectionIndex === sections.length - 1
-    const summaryRows = section.summaryRows ?? []
-    const dataBlock = section.rows.map((row, rowIndex) =>
-      renderDataRow(
-        context,
-        row,
-        `section-${section.key}-row-${rowIndex}`,
-        isLastSection && rowIndex === section.rows.length - 1 && summaryRows.length === 0,
-      ),
-    )
-    const summaryBlock = summaryRows.map((summaryRow, summaryIndex) =>
-      renderSummaryRow(
-        context,
-        summaryRow,
-        `section-${section.key}-summary-${summaryRow.kind}`,
-        isLastSection && summaryIndex === summaryRows.length - 1,
-      ),
-    )
-    return [renderSectionLabelRow(section.key, section.label), ...dataBlock, ...summaryBlock]
-  })
-
 type BreakdownSpan = { label: string; startIndex: number; length: number }
 
 const buildBreakdownSpans = (columns: ReportColumn[]): BreakdownSpan[] => {
@@ -243,7 +213,7 @@ export const ReportTable = ({ result }: ReportTableProps) => {
 
   const rowContext: RowRendererContext = { columns: result.columns, columnWidth }
 
-  if (result.rows.length === 0 && (!result.sections || result.sections.length === 0)) {
+  if (result.rows.length === 0) {
     return <Text style={reportStyles.emptyState}>No data found for the selected criteria.</Text>
   }
 
@@ -398,27 +368,21 @@ export const ReportTable = ({ result }: ReportTableProps) => {
           ))}
         </View>
       )}
-      {result.sections && result.sections.length > 0 ? (
-        renderSectionBlocks(rowContext, result.sections)
-      ) : (
-        <>
-          {result.rows.map((row, rowIndex) => {
-            const isLastDataRow =
-              rowIndex === result.rows.length - 1 &&
-              (!result.summaryRows || result.summaryRows.length === 0)
-            return renderDataRow(rowContext, row, `row-${rowIndex}`, isLastDataRow)
-          })}
-          {result.summaryRows?.map((summaryRow, summaryIndex) => {
-            const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
-            return renderSummaryRow(
-              rowContext,
-              summaryRow,
-              `summary-${summaryRow.kind}`,
-              isLastSummaryRow,
-            )
-          })}
-        </>
-      )}
+      {result.rows.map((row, rowIndex) => {
+        const isLastDataRow =
+          rowIndex === result.rows.length - 1 &&
+          (!result.summaryRows || result.summaryRows.length === 0)
+        return renderDataRow(rowContext, row, `row-${rowIndex}`, isLastDataRow)
+      })}
+      {result.summaryRows?.map((summaryRow, summaryIndex) => {
+        const isLastSummaryRow = summaryIndex === (result.summaryRows?.length ?? 0) - 1
+        return renderSummaryRow(
+          rowContext,
+          summaryRow,
+          `summary-${summaryRow.kind}`,
+          isLastSummaryRow,
+        )
+      })}
     </View>
   )
 }

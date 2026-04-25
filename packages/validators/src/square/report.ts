@@ -83,12 +83,6 @@ export const ReportConfigSchema = z.object({
     .optional(),
   comparisonMetrics: z.array(MetricSchema).optional(),
   comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
-  locationAgePartition: z
-    .object({
-      enabled: z.literal(true),
-      thresholdDays: z.number().int().min(1).max(365),
-    })
-    .optional(),
 })
 
 export const ReportQuerySchema = ReportConfigSchema.extend({
@@ -144,15 +138,6 @@ export const ReportSummaryRowSchema = z.object({
   values: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
 })
 
-export const ReportSectionKeySchema = z.enum(["mature", "new"])
-
-export const ReportSectionSchema = z.object({
-  key: ReportSectionKeySchema,
-  label: z.string(),
-  rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
-  summaryRows: z.array(ReportSummaryRowSchema).optional(),
-})
-
 export const ReportQueryResultSchema = z.object({
   columns: z.array(ReportColumnSchema),
   rows: z.array(z.record(z.string(), z.union([z.string(), z.number(), z.null()]))),
@@ -162,7 +147,6 @@ export const ReportQueryResultSchema = z.object({
   hasMore: z.boolean(),
   totalRows: z.number().int().min(0).optional(),
   summaryRows: z.array(ReportSummaryRowSchema).optional(),
-  sections: z.array(ReportSectionSchema).optional(),
 })
 
 export const SavedReportSchema = z.object({
