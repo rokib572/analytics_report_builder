@@ -1,12 +1,7 @@
 import {
   FIELD_LABELS,
-  isDerivedLaborMetric,
-  isDerivedWasteMetric,
-  isLaborMetric,
-  isLineItemMetric,
-  isWasteMetric,
+  isChannelBreakdownEligibleMetric,
   type Dimension,
-  type Metric,
   type ReportColumn,
   type ReportQueryInput,
   type ReportQueryResult,
@@ -22,13 +17,6 @@ const buildRowKey = (rowDimensions: Dimension[], row: Record<string, string | nu
     .map((dimension) => `${dimension}:${stringifyKeyPart(row[dimension] ?? null)}`)
     .join("|")
 
-const isChannelBreakdownEligible = (metric: Metric): boolean =>
-  !isLaborMetric(metric) &&
-  !isWasteMetric(metric) &&
-  !isLineItemMetric(metric) &&
-  !isDerivedLaborMetric(metric) &&
-  !isDerivedWasteMetric(metric)
-
 export const appendChannelBreakdownColumns = async (
   db: DbClient,
   customerId: string,
@@ -36,7 +24,7 @@ export const appendChannelBreakdownColumns = async (
   result: ReportQueryResult,
 ): Promise<ReportQueryResult> => {
   const requested = (config.channelBreakdownMetrics ?? []).filter(
-    (metric) => config.metrics.includes(metric) && isChannelBreakdownEligible(metric),
+    (metric) => config.metrics.includes(metric) && isChannelBreakdownEligibleMetric(metric),
   )
 
   if (requested.length === 0) return result

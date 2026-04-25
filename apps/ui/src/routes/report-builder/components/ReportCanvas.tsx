@@ -3,11 +3,7 @@ import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
 import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
-  isDerivedLaborMetric,
-  isDerivedWasteMetric,
-  isLaborMetric,
-  isLineItemMetric,
-  isWasteMetric,
+  isChannelBreakdownEligibleMetric,
   type Metric,
   type ReportConfig,
 } from "@analytics/report-builder"
@@ -91,6 +87,9 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   )
   const inlineYtdMetrics = config.inlineYtdMetrics ?? []
   const channelBreakdownMetrics = config.channelBreakdownMetrics ?? []
+  const channelBreakdownEligibleSelectedMetrics = config.metrics.filter(
+    isChannelBreakdownEligibleMetric,
+  )
   const comparisonMetrics = config.comparisonMetrics ?? []
   const comparisonDate = config.comparisonDateRange?.from ?? ""
 
@@ -130,13 +129,6 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
       comparisonDateRange: nextDate ? { from: nextDate, to: nextDate } : undefined,
     })
   }
-
-  const isChannelBreakdownEligible = (metric: Metric): boolean =>
-    !isLaborMetric(metric) &&
-    !isWasteMetric(metric) &&
-    !isLineItemMetric(metric) &&
-    !isDerivedLaborMetric(metric) &&
-    !isDerivedWasteMetric(metric)
 
   const updateFilter = (
     index: number,
@@ -233,7 +225,7 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
         </div>
       )}
 
-      {config.metrics.length > 0 && (
+      {channelBreakdownEligibleSelectedMetrics.length > 0 && (
         <div className="space-y-2 rounded-md border border-border bg-background p-3">
           <div className="flex items-center justify-between">
             <Label>Break down by channel</Label>
@@ -242,28 +234,17 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
             </span>
           </div>
           <div className="flex flex-wrap gap-3">
-            {config.metrics.map((metric) => {
+            {channelBreakdownEligibleSelectedMetrics.map((metric) => {
               const checkboxId = `channel-breakdown-toggle-${metric}`
-              const eligible = isChannelBreakdownEligible(metric)
               return (
                 <div
                   key={metric}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm",
-                    !eligible && "opacity-60",
-                  )}
-                  title={
-                    eligible ? undefined : "Not supported for labor, waste, or line-item metrics"
-                  }
+                  className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm"
                 >
                   <Checkbox
                     id={checkboxId}
-                    checked={eligible && channelBreakdownMetrics.includes(metric)}
-                    onCheckedChange={() => {
-                      if (!eligible) return
-                      toggleChannelBreakdownMetric(metric)
-                    }}
-                    disabled={!eligible}
+                    checked={channelBreakdownMetrics.includes(metric)}
+                    onCheckedChange={() => toggleChannelBreakdownMetric(metric)}
                   />
                   <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
                     {FIELD_LABELS[metric] ?? metric}

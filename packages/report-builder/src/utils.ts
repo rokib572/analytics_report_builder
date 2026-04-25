@@ -74,6 +74,11 @@ export const isDerivedWasteMetric = (metric: Metric): boolean =>
 export const isLineItemMetric = (metric: Metric): metric is LineItemsMetric =>
   lineItemMetrics.has(metric as LineItemsMetric)
 
+const channelBreakdownEligibleMetrics = new Set<Metric>(["netSales", "grossSales"])
+
+export const isChannelBreakdownEligibleMetric = (metric: Metric): boolean =>
+  channelBreakdownEligibleMetrics.has(metric)
+
 export const requiresLineItemsQuery = (metrics: Metric[]): boolean => metrics.some(isLineItemMetric)
 
 export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
