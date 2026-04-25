@@ -1,4 +1,4 @@
-import { type ReactNode } from "react"
+import { useEffect, type ReactNode } from "react"
 import { useAuth } from "../../lib/auth-context"
 import { useIntegrations } from "../../data/integrations/hooks"
 import { Router } from "../../router"
@@ -8,17 +8,35 @@ export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
   const route = Router.useRoute(["Onboarding", "Connect", "Integrations", "Help", "HelpTopic"])
   const { data, isPending } = useIntegrations()
 
-  // System admins don't need integrations
+  const hasActiveIntegrations = (data?.data ?? []).some((integration) => integration.isActive)
+  const isAllowedWithoutChecks =
+    route?.name === "Onboarding" || route?.name === "Help" || route?.name === "HelpTopic"
+  const isConnectOrIntegrationsRoute = route?.name === "Connect" || route?.name === "Integrations"
+
+  const needsOnboarding = !isSystemAdmin && !isAllowedWithoutChecks && !user.companyName
+  const needsConnect =
+    !isSystemAdmin &&
+    !isAllowedWithoutChecks &&
+    !!user.companyName &&
+    !isPending &&
+    !hasActiveIntegrations &&
+    !isConnectOrIntegrationsRoute
+
+  useEffect(() => {
+    if (needsOnboarding) {
+      Router.replace("Onboarding")
+      return
+    }
+
+    if (needsConnect) {
+      Router.replace("Connect")
+    }
+  }, [needsOnboarding, needsConnect])
+
   if (isSystemAdmin) return <>{children}</>
+  if (isAllowedWithoutChecks) return <>{children}</>
 
-  if (route?.name === "Onboarding" || route?.name === "Help" || route?.name === "HelpTopic") {
-    return <>{children}</>
-  }
-
-  if (!user.companyName) {
-    Router.replace("Onboarding")
-    return null
-  }
+  if (needsOnboarding) return null
 
   if (isPending) {
     return (
@@ -28,13 +46,7 @@ export const OnboardingGuard = ({ children }: { children: ReactNode }) => {
     )
   }
 
-  const hasActiveIntegrations = (data?.data ?? []).some((integration) => integration.isActive)
-
-  // Allow access to Connect/Integrations even without active integrations so users can reconnect.
-  if (!hasActiveIntegrations && route?.name !== "Connect" && route?.name !== "Integrations") {
-    Router.replace("Connect")
-    return null
-  }
+  if (needsConnect) return null
 
   return <>{children}</>
 }

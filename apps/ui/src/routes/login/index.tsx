@@ -54,7 +54,7 @@ export const LoginRoute = () => {
     const result = await authClient.signIn.email({
       email: values.email,
       password: values.password,
-      callbackURL: `${window.location.origin}/onboarding`,
+      callbackURL: `${window.location.origin}/`,
     })
 
     if (result.error) {
