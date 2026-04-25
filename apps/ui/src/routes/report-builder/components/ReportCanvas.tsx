@@ -1,6 +1,9 @@
 import { useDroppable } from "@dnd-kit/core"
 import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
 import {
+  DEFAULT_PAYROLL_TAX_RATE_PERCENT,
+  MAX_PAYROLL_TAX_RATE_PERCENT,
+  MIN_PAYROLL_TAX_RATE_PERCENT,
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
   isChannelBreakdownEligibleMetric,
@@ -92,6 +95,22 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
   )
   const comparisonMetrics = config.comparisonMetrics ?? []
   const comparisonDate = config.comparisonDateRange?.from ?? ""
+  const showPayrollTaxRateInput = config.metrics.includes("estimatedPayrollAfterTax")
+  const payrollTaxRatePercent = config.payrollTaxRatePercent ?? DEFAULT_PAYROLL_TAX_RATE_PERCENT
+
+  const setPayrollTaxRatePercent = (rawValue: string) => {
+    if (rawValue.trim() === "") {
+      onConfigChange({ ...config, payrollTaxRatePercent: undefined })
+      return
+    }
+    const parsed = Number(rawValue)
+    if (Number.isNaN(parsed)) return
+    const clamped = Math.min(
+      MAX_PAYROLL_TAX_RATE_PERCENT,
+      Math.max(MIN_PAYROLL_TAX_RATE_PERCENT, parsed),
+    )
+    onConfigChange({ ...config, payrollTaxRatePercent: clamped })
+  }
 
   const toggleInlineYtdMetric = (metric: Metric) => {
     const next = inlineYtdMetrics.includes(metric)
@@ -186,6 +205,31 @@ export const ReportCanvas = ({ config, onConfigChange }: ReportCanvasProps) => {
           {hasPivotModeConflict
             ? "Rows and columns must use dimensions from the same query mode when pivoting."
             : "Product and Payment Method cannot be used in the same report."}
+        </div>
+      )}
+
+      {showPayrollTaxRateInput && (
+        <div className="space-y-2 rounded-md border border-border bg-background p-3">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="payroll-tax-rate-percent">Payroll Tax Rate</Label>
+            <span className="text-xs text-muted-foreground">
+              Applied to <em>Estimated Payroll (After Tax)</em>. Default{" "}
+              {DEFAULT_PAYROLL_TAX_RATE_PERCENT}%.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              id="payroll-tax-rate-percent"
+              type="number"
+              min={MIN_PAYROLL_TAX_RATE_PERCENT}
+              max={MAX_PAYROLL_TAX_RATE_PERCENT}
+              step={0.1}
+              value={payrollTaxRatePercent}
+              onChange={(event) => setPayrollTaxRatePercent(event.target.value)}
+              className="w-28"
+            />
+            <span className="text-sm text-muted-foreground">%</span>
+          </div>
         </div>
       )}
 

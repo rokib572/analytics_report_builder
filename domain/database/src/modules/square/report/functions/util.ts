@@ -16,7 +16,6 @@ import type { DimensionDefinition, MetricDefinition } from "./type"
 
 export const WASTE_INVENTORY_STATE = "WASTE"
 
-export const PAYROLL_TAX_MULTIPLIER_PERCENT = 114
 const MILLI_HOURS_PER_HOUR = 1000
 
 export const DEFAULT_REPORT_PAGE_SIZE = 10_000
@@ -60,27 +59,33 @@ const laborTrainingMilliHoursSum = sql<bigint>`
   )
 `
 const laborCostCentsSum = sql<bigint>`coalesce(sum(${laborTimecards.totalLaborCostCents}), 0)`
-const laborPayrollAfterTaxCentsExpr = sql<bigint>`(${laborCostCentsSum} * ${PAYROLL_TAX_MULTIPLIER_PERCENT}) / 100`
-const laborCostPerHourCentsExpr = sql<bigint>`
-  case
-    when ${laborPaidMilliHoursSum} = 0 then 0
-    else ((${laborCostCentsSum} * ${PAYROLL_TAX_MULTIPLIER_PERCENT}) / 100) * ${MILLI_HOURS_PER_HOUR} / ${laborPaidMilliHoursSum}
-  end
-`
 
-export const laborMetricMap: Partial<Record<SupportedMetric, MetricDefinition>> = {
-  reportedLaborHours: {
-    select: laborPaidMilliHoursSum,
-  },
-  reportedTrainingHours: {
-    select: laborTrainingMilliHoursSum,
-  },
-  estimatedPayrollAfterTax: {
-    select: laborPayrollAfterTaxCentsExpr,
-  },
-  costPerLaborHour: {
-    select: laborCostPerHourCentsExpr,
-  },
+export const buildLaborMetricMap = (
+  payrollTaxRatePercent: number,
+): Partial<Record<SupportedMetric, MetricDefinition>> => {
+  const taxMultiplierPercent = 100 + payrollTaxRatePercent
+  const laborPayrollAfterTaxCentsExpr = sql<bigint>`(${laborCostCentsSum} * ${taxMultiplierPercent}) / 100`
+  const laborCostPerHourCentsExpr = sql<bigint>`
+    case
+      when ${laborPaidMilliHoursSum} = 0 then 0
+      else ((${laborCostCentsSum} * ${taxMultiplierPercent}) / 100) * ${MILLI_HOURS_PER_HOUR} / ${laborPaidMilliHoursSum}
+    end
+  `
+
+  return {
+    reportedLaborHours: {
+      select: laborPaidMilliHoursSum,
+    },
+    reportedTrainingHours: {
+      select: laborTrainingMilliHoursSum,
+    },
+    estimatedPayrollAfterTax: {
+      select: laborPayrollAfterTaxCentsExpr,
+    },
+    costPerLaborHour: {
+      select: laborCostPerHourCentsExpr,
+    },
+  }
 }
 
 const scheduledMilliHoursSum = sql<bigint>`(coalesce(sum(${laborScheduledShifts.scheduledMinutes}), 0) * ${MILLI_HOURS_PER_HOUR}) / 60`

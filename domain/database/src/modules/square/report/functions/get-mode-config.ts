@@ -2,12 +2,12 @@ import type { AnyPgColumn } from "drizzle-orm/pg-core"
 import type { Dimension, QueryMode, SupportedMetric } from "@analytics/report-builder"
 import type { DimensionDefinition, MetricDefinition } from "./type"
 import {
+  buildLaborMetricMap,
   dailySalesDimensionMap,
   dailySalesFilterColumns,
   dailySalesMetricMap,
   laborDimensionMap,
   laborFilterColumns,
-  laborMetricMap,
   lineItemsDimensionMap,
   lineItemsFilterColumns,
   lineItemsMetricMap,
@@ -25,8 +25,13 @@ import {
   wasteMetricMap,
 } from "./util"
 
+type ModeConfigOptions = {
+  payrollTaxRatePercent: number
+}
+
 export const getModeConfig = (
   mode: QueryMode,
+  options: ModeConfigOptions,
 ): {
   metricMap: Partial<Record<SupportedMetric, MetricDefinition>>
   dimensionMap: Partial<Record<Dimension, DimensionDefinition>>
@@ -53,7 +58,7 @@ export const getModeConfig = (
       }
     case "labor":
       return {
-        metricMap: laborMetricMap,
+        metricMap: buildLaborMetricMap(options.payrollTaxRatePercent),
         dimensionMap: laborDimensionMap,
         filterColumns: laborFilterColumns,
       }

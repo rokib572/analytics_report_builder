@@ -79,6 +79,17 @@ const channelBreakdownEligibleMetrics = new Set<Metric>(["netSales", "grossSales
 export const isChannelBreakdownEligibleMetric = (metric: Metric): boolean =>
   channelBreakdownEligibleMetrics.has(metric)
 
+export const DEFAULT_PAYROLL_TAX_RATE_PERCENT = 14
+export const MIN_PAYROLL_TAX_RATE_PERCENT = 0
+export const MAX_PAYROLL_TAX_RATE_PERCENT = 100
+
+export const resolvePayrollTaxRatePercent = (rate: number | undefined): number => {
+  if (rate === undefined || Number.isNaN(rate)) return DEFAULT_PAYROLL_TAX_RATE_PERCENT
+  if (rate < MIN_PAYROLL_TAX_RATE_PERCENT) return MIN_PAYROLL_TAX_RATE_PERCENT
+  if (rate > MAX_PAYROLL_TAX_RATE_PERCENT) return MAX_PAYROLL_TAX_RATE_PERCENT
+  return rate
+}
+
 export const requiresLineItemsQuery = (metrics: Metric[]): boolean => metrics.some(isLineItemMetric)
 
 export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>

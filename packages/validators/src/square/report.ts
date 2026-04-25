@@ -72,6 +72,7 @@ export const ReportConfigSchema = z.object({
     .optional(),
   comparisonMetrics: z.array(MetricSchema).optional(),
   comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
+  payrollTaxRatePercent: z.number().min(0).max(100).optional(),
 })
 
 export const ReportQuerySchema = ReportConfigSchema.extend({

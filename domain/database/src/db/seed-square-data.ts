@@ -233,34 +233,34 @@ export const SEED_INVENTORY_CONFIG = {
   receiptQuantityRange: { min: 50, max: 150 },
 } as const
 
-export const SEED_TEAM_MEMBERS = [
+export const SEED_TEAM_MEMBER_ROLES = [
   {
-    id: "db-seed-tm-001",
-    name: "Alice Barista",
+    role: "barista-1",
+    namePrefix: "Barista 1",
     jobTitle: "Barista",
     jobId: "db-seed-job-barista",
     hourlyWageCents: 1800n,
   },
   {
-    id: "db-seed-tm-002",
-    name: "Bob Barista",
+    role: "barista-2",
+    namePrefix: "Barista 2",
     jobTitle: "Barista",
     jobId: "db-seed-job-barista",
     hourlyWageCents: 1800n,
   },
   {
-    id: "db-seed-tm-003",
-    name: "Carol Manager",
-    jobTitle: "Manager",
-    jobId: "db-seed-job-manager",
-    hourlyWageCents: 2800n,
-  },
-  {
-    id: "db-seed-tm-004",
-    name: "David Cashier",
+    role: "cashier-1",
+    namePrefix: "Cashier",
     jobTitle: "Cashier",
     jobId: "db-seed-job-cashier",
     hourlyWageCents: 1600n,
+  },
+  {
+    role: "manager-1",
+    namePrefix: "Manager",
+    jobTitle: "Manager",
+    jobId: "db-seed-job-manager",
+    hourlyWageCents: 2800n,
   },
 ] as const
 
@@ -270,7 +270,7 @@ export const SEED_LABOR_CONFIG = {
     { startHour: 10, endHour: 18 },
     { startHour: 14, endHour: 22 },
   ] as const,
-  staffPerShiftPerLocation: { min: 2, max: 3 },
+  staffPerShiftPerLocation: { min: 1, max: 2 },
   workedShiftCompletionProbability: 0.95,
   declaredCashTipsRange: { min: 0, max: 1500 },
   paidBreakMinutes: 15,

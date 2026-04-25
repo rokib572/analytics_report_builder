@@ -12,7 +12,7 @@ import {
   SEED_ORDER_CONFIG,
   SEED_REFUND_CONFIG,
   SEED_SQUARE_CUSTOMERS,
-  SEED_TEAM_MEMBERS,
+  SEED_TEAM_MEMBER_ROLES,
 } from "./seed-square-data"
 import { customers } from "../modules/customers/schema"
 import { upsertCustomers } from "../modules/square/customers/functions/upsert"
@@ -20,6 +20,8 @@ import { type ChannelDto } from "../modules/square/channels/schema"
 import { upsertChannelBySourceName } from "../modules/square/channels/functions/upsert-by-source-name"
 import { locations, type LocationPayload } from "../modules/square/locations/schema"
 import { upsertLocation } from "../modules/square/locations/functions/upsert"
+import { catalogItems } from "../modules/square/catalog-items/schema"
+import { catalogItemVariations } from "../modules/square/catalog-item-variations/schema"
 import { upsertCatalogCategory } from "../modules/square/catalog-categories/functions/upsert"
 import { upsertCatalogItem } from "../modules/square/catalog-items/functions/upsert"
 import { upsertCatalogItemVariation } from "../modules/square/catalog-item-variations/functions/upsert"
@@ -81,6 +83,25 @@ type SeededOrderRecord = {
 }
 
 type SeededChannel = (typeof SEED_CHANNELS)[number] & { id: string }
+
+type SeededTeamMember = {
+  id: string
+  name: string
+  jobTitle: string
+  jobId: string
+  hourlyWageCents: bigint
+  role: string
+}
+
+const buildLocationRoster = (location: SeededLocation): SeededTeamMember[] =>
+  SEED_TEAM_MEMBER_ROLES.map((template) => ({
+    id: `db-seed-tm-${location.squareId}-${template.role}`,
+    name: `${template.namePrefix} (${location.name})`,
+    jobTitle: template.jobTitle,
+    jobId: template.jobId,
+    hourlyWageCents: template.hourlyWageCents,
+    role: template.role,
+  }))
 
 const parseArgs = (): CliArgs => {
   const args = process.argv.slice(2)
@@ -276,7 +297,7 @@ const seedCatalog = async (
     const category = SEED_CATALOG_CATEGORIES.find((entry) => entry.name === categoryName)
     if (!category) throw new Error(`Unknown category '${categoryName}' for item ${itemName}`)
 
-    const item = await upsertCatalogItem(db, customerId, {
+    await upsertCatalogItem(db, customerId, {
       squareId: itemSquareId,
       name: itemName,
       description: null,
@@ -286,8 +307,14 @@ const seedCatalog = async (
       contentHash: computeContentHash({ itemName, categorySquareId: category.squareId }),
     })
 
-    if (!item) throw new Error(`Failed to seed catalog item ${itemSquareId}`)
-    itemSquareIdToDbId.set(itemSquareId, item.id)
+    const [savedItem] = await db
+      .select({ id: catalogItems.id })
+      .from(catalogItems)
+      .where(and(eq(catalogItems.customerId, customerId), eq(catalogItems.squareId, itemSquareId)))
+      .limit(1)
+
+    if (!savedItem) throw new Error(`Failed to seed catalog item ${itemSquareId}`)
+    itemSquareIdToDbId.set(itemSquareId, savedItem.id)
   }
 
   const variations: SeededVariation[] = []
@@ -297,7 +324,7 @@ const seedCatalog = async (
     const itemDbId = itemSquareIdToDbId.get(catalogItemSquareIdFor(menuItem.name))
     if (!itemDbId) throw new Error(`Missing item db id for ${menuItem.name}`)
 
-    const variation = await upsertCatalogItemVariation(db, customerId, {
+    await upsertCatalogItemVariation(db, customerId, {
       squareId: catalogObjectId,
       itemId: itemDbId,
       name: menuItem.variationName,
@@ -313,10 +340,21 @@ const seedCatalog = async (
       }),
     })
 
-    if (!variation) throw new Error(`Failed to seed variation ${catalogObjectId}`)
+    const [savedVariation] = await db
+      .select({ id: catalogItemVariations.id })
+      .from(catalogItemVariations)
+      .where(
+        and(
+          eq(catalogItemVariations.customerId, customerId),
+          eq(catalogItemVariations.squareId, catalogObjectId),
+        ),
+      )
+      .limit(1)
+
+    if (!savedVariation) throw new Error(`Failed to seed variation ${catalogObjectId}`)
 
     variations.push({
-      variationDbId: variation.id,
+      variationDbId: savedVariation.id,
       catalogObjectId,
       itemName: menuItem.name,
       variationName: menuItem.variationName,
@@ -728,6 +766,7 @@ const seedInventoryAdjustments = async (
   customerId: string,
   seededLocations: SeededLocation[],
   variations: SeededVariation[],
+  rostersByLocationId: Map<string, SeededTeamMember[]>,
 ): Promise<number> => {
   let count = 0
   const dates = getDateRange(SEED_ORDER_CONFIG.dateRangeFrom, SEED_ORDER_CONFIG.dateRangeTo)
@@ -735,6 +774,7 @@ const seedInventoryAdjustments = async (
 
   for (const weekStart of weekStartDates) {
     for (const location of seededLocations) {
+      const roster = rostersByLocationId.get(location.id) ?? []
       const wasteCount = randomInt(
         SEED_INVENTORY_CONFIG.wasteAdjustmentsPerWeek.min,
         SEED_INVENTORY_CONFIG.wasteAdjustmentsPerWeek.max,
@@ -761,7 +801,7 @@ const seedInventoryAdjustments = async (
           totalPriceMoney: BigInt(variation.priceCents) * BigInt(quantity),
           occurredAt,
           createdAt: occurredAt,
-          teamMemberId: pickRandom(SEED_TEAM_MEMBERS).id,
+          teamMemberId: roster.length > 0 ? pickRandom(roster).id : null,
           transactionId: null,
           refundId: null,
           purchaseOrderId: null,
@@ -798,7 +838,7 @@ const seedInventoryAdjustments = async (
           totalPriceMoney: null,
           occurredAt,
           createdAt: occurredAt,
-          teamMemberId: pickRandom(SEED_TEAM_MEMBERS).id,
+          teamMemberId: roster.length > 0 ? pickRandom(roster).id : null,
           transactionId: null,
           refundId: null,
           purchaseOrderId: `db-seed-po-${weekStart}-${index}`,
@@ -819,6 +859,7 @@ const seedInventoryTransfers = async (
   customerId: string,
   seededLocations: SeededLocation[],
   variations: SeededVariation[],
+  rostersByLocationId: Map<string, SeededTeamMember[]>,
 ): Promise<number> => {
   if (seededLocations.length < 2) return 0
 
@@ -844,6 +885,8 @@ const seedInventoryTransfers = async (
       )
       const squareId = `db-seed-transfer-${weekStart}-${fromLocation.squareId}-${toLocation.squareId}-${index.toString().padStart(2, "0")}`
 
+      const fromRoster = rostersByLocationId.get(fromLocation.id) ?? []
+
       await upsertInventoryTransfer(db, customerId, {
         squareId,
         catalogObjectId: variation.catalogObjectId,
@@ -857,7 +900,7 @@ const seedInventoryTransfers = async (
         quantity: quantity.toString(),
         occurredAt,
         createdAt: occurredAt,
-        teamMemberId: pickRandom(SEED_TEAM_MEMBERS).id,
+        teamMemberId: fromRoster.length > 0 ? pickRandom(fromRoster).id : null,
         contentHash: computeContentHash({ squareId, quantity }),
       })
       count += 1
@@ -871,6 +914,7 @@ const seedRefunds = async (
   db: ReturnType<typeof getDbClient>["db"],
   customerId: string,
   orderRecords: SeededOrderRecord[],
+  rostersByLocationId: Map<string, SeededTeamMember[]>,
 ): Promise<number> => {
   let count = 0
 
@@ -881,6 +925,8 @@ const seedRefunds = async (
     const refundAmount = order.totalMoney
     const reason = pickRandom(SEED_REFUND_CONFIG.refundReasons)
     const squareId = `db-seed-refund-${order.squareOrderId}`
+
+    const roster = rostersByLocationId.get(order.location.id) ?? []
 
     await upsertRefund(db, customerId, {
       locationId: order.location.id,
@@ -894,7 +940,7 @@ const seedRefunds = async (
       reason,
       destinationType: "CARD",
       unlinked: false,
-      teamMemberId: pickRandom(SEED_TEAM_MEMBERS).id,
+      teamMemberId: roster.length > 0 ? pickRandom(roster).id : null,
       squareCustomerId: order.squareCustomerId,
       contentHash: computeContentHash({ squareId, refundAmount: refundAmount.toString() }),
       createdAt: refundedAt,
@@ -911,6 +957,7 @@ const seedLaborShiftsAndTimecards = async (
   db: ReturnType<typeof getDbClient>["db"],
   customerId: string,
   seededLocations: SeededLocation[],
+  rostersByLocationId: Map<string, SeededTeamMember[]>,
 ): Promise<{ scheduledShifts: number; timecards: number }> => {
   let scheduledShifts = 0
   let timecards = 0
@@ -918,17 +965,25 @@ const seedLaborShiftsAndTimecards = async (
 
   for (const date of dates) {
     for (const location of seededLocations) {
+      const roster = rostersByLocationId.get(location.id) ?? []
+      if (roster.length === 0) continue
       for (
         let patternIndex = 0;
         patternIndex < SEED_LABOR_CONFIG.shiftPatterns.length;
         patternIndex++
       ) {
         const pattern = SEED_LABOR_CONFIG.shiftPatterns[patternIndex]!
-        const staffCount = randomInt(
-          SEED_LABOR_CONFIG.staffPerShiftPerLocation.min,
-          SEED_LABOR_CONFIG.staffPerShiftPerLocation.max,
+        const staffCount = Math.min(
+          roster.length,
+          randomInt(
+            SEED_LABOR_CONFIG.staffPerShiftPerLocation.min,
+            SEED_LABOR_CONFIG.staffPerShiftPerLocation.max,
+          ),
         )
-        const assignedStaff = SEED_TEAM_MEMBERS.slice(0, staffCount)
+        const rotationOffset = patternIndex % roster.length
+        const assignedStaff = Array.from({ length: staffCount }, (_, offset) => {
+          return roster[(rotationOffset + offset) % roster.length]!
+        })
 
         for (let staffIndex = 0; staffIndex < assignedStaff.length; staffIndex++) {
           const teamMember = assignedStaff[staffIndex]!
@@ -954,6 +1009,7 @@ const seedLaborShiftsAndTimecards = async (
             contentHash: computeContentHash({
               shiftSquareId,
               scheduledMinutes: scheduledMinutes.toString(),
+              teamMemberId: teamMember.id,
             }),
             squareCreatedAt: startAt,
             squareUpdatedAt: startAt,
@@ -963,13 +1019,9 @@ const seedLaborShiftsAndTimecards = async (
           const completed = Math.random() < SEED_LABOR_CONFIG.workedShiftCompletionProbability
           if (!completed) continue
 
-          const totalPaidMillis = scheduledMinutes * 60n * 1000n
-          const totalPaidHoursMilli =
-            (scheduledMinutes - BigInt(SEED_LABOR_CONFIG.unpaidBreakMinutes)) * 60n * 1000n
-          const totalLaborCostCents =
-            (teamMember.hourlyWageCents *
-              (scheduledMinutes - BigInt(SEED_LABOR_CONFIG.unpaidBreakMinutes))) /
-            60n
+          const paidMinutes = scheduledMinutes - BigInt(SEED_LABOR_CONFIG.unpaidBreakMinutes)
+          const totalPaidHoursMilli = (paidMinutes * 1000n) / 60n
+          const totalLaborCostCents = (teamMember.hourlyWageCents * paidMinutes) / 60n
           const declaredCashTipsCents =
             teamMember.jobTitle === "Manager"
               ? 0n
@@ -1016,7 +1068,8 @@ const seedLaborShiftsAndTimecards = async (
             timezone: location.timezone,
             contentHash: computeContentHash({
               timecardSquareId,
-              totalPaidMillis: totalPaidMillis.toString(),
+              totalPaidHoursMilli: totalPaidHoursMilli.toString(),
+              teamMemberId: teamMember.id,
             }),
             squareCreatedAt: startAt,
             squareUpdatedAt: endAt,
@@ -1056,6 +1109,17 @@ const seedSquareData = async () => {
     const seededLocations = await seedLocations(db, customerId)
     console.log(`  Seeded ${seededLocations.length} locations`)
 
+    const rostersByLocationId = new Map<string, SeededTeamMember[]>(
+      seededLocations.map((location) => [location.id, buildLocationRoster(location)]),
+    )
+    const totalRosterMembers = Array.from(rostersByLocationId.values()).reduce(
+      (accumulator, roster) => accumulator + roster.length,
+      0,
+    )
+    console.log(
+      `  Built ${rostersByLocationId.size} location rosters (${totalRosterMembers} team members total)`,
+    )
+
     const variations = await seedCatalog(db, customerId)
     console.log(
       `  Seeded ${SEED_CATALOG_CATEGORIES.length} catalog categories, ${new Set(variations.map((variation) => variation.itemName)).size} items, ${variations.length} variations`,
@@ -1089,16 +1153,28 @@ const seedSquareData = async () => {
       customerId,
       seededLocations,
       variations,
+      rostersByLocationId,
     )
     console.log(`  Seeded ${adjustmentRows} inventory_adjustments rows (waste + receipts)`)
 
-    const transferRows = await seedInventoryTransfers(db, customerId, seededLocations, variations)
+    const transferRows = await seedInventoryTransfers(
+      db,
+      customerId,
+      seededLocations,
+      variations,
+      rostersByLocationId,
+    )
     console.log(`  Seeded ${transferRows} inventory_transfers rows`)
 
-    const refundRows = await seedRefunds(db, customerId, orderRecords)
+    const refundRows = await seedRefunds(db, customerId, orderRecords, rostersByLocationId)
     console.log(`  Seeded ${refundRows} refunds`)
 
-    const labor = await seedLaborShiftsAndTimecards(db, customerId, seededLocations)
+    const labor = await seedLaborShiftsAndTimecards(
+      db,
+      customerId,
+      seededLocations,
+      rostersByLocationId,
+    )
     console.log(
       `  Seeded ${labor.scheduledShifts} labor_scheduled_shifts and ${labor.timecards} labor_timecards`,
     )

@@ -23,6 +23,7 @@ import {
   requiresOrderLevelQuery,
   requiresScheduledQuery,
   requiresWasteQuery,
+  resolvePayrollTaxRatePercent,
   serializeReportValue,
   type Dimension,
   type Metric,
@@ -123,7 +124,10 @@ export const buildReportQuery = async (
   )
   const offset = (page - 1) * pageSize
   const isPivotedReport = config.columns.length > 0
-  const { metricMap, dimensionMap, filterColumns } = getModeConfig(queryMode)
+  const payrollTaxRatePercent = resolvePayrollTaxRatePercent(config.payrollTaxRatePercent)
+  const { metricMap, dimensionMap, filterColumns } = getModeConfig(queryMode, {
+    payrollTaxRatePercent,
+  })
   const selectFields: Record<string, SelectExpression | SQL<bigint | number>> = {}
   const groupByFields: GroupableExpression[] = []
   const flatColumns: ReportColumn[] = []

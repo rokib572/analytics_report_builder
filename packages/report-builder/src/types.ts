@@ -95,6 +95,7 @@ export type ReportConfig = {
   comparisonDateRange?: { from: string; to: string }
   comparisonMetrics?: Metric[]
   comparisonMetricLabels?: Record<string, string>
+  payrollTaxRatePercent?: number
 }
 
 export type ReportQueryInput = ReportConfig & {
