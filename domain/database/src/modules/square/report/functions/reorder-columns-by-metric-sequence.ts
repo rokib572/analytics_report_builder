@@ -67,8 +67,9 @@ export const reorderColumnsByMetricSequence = (
         (column) =>
           column.metric === entry.metric &&
           !column.key.startsWith(INLINE_YTD_PRODUCTS_PREFIX) &&
-          !column.pivot &&
-          (column.key === entry.metric || column.breakdownGroup !== undefined),
+          (column.key === entry.metric ||
+            column.breakdownGroup !== undefined ||
+            Boolean(column.pivot)),
       )
       continue
     }
