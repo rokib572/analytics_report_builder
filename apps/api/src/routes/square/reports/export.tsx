@@ -6,7 +6,6 @@ import { buildReportQuery } from "@analytics/database"
 import {
   FIELD_LABELS,
   formatReportCell,
-  formatSummaryCell,
   type ReportColumn,
   type ReportConfig,
   type ReportQueryResult,
@@ -42,7 +41,6 @@ const collectReportRows = async (
   let page = 1
   let columns: ReportQueryResult["columns"] = []
   let generatedAt = new Date().toISOString()
-  let summaryRows: ReportQueryResult["summaryRows"]
   const rows: ReportQueryResult["rows"] = []
 
   while (true) {
@@ -55,7 +53,6 @@ const collectReportRows = async (
     if (columns.length === 0) {
       columns = pageResult.columns
       generatedAt = pageResult.generatedAt
-      summaryRows = pageResult.summaryRows
     }
 
     rows.push(...pageResult.rows)
@@ -78,7 +75,6 @@ const collectReportRows = async (
         pageSize: rows.length,
         hasMore: false,
         totalRows: rows.length,
-        ...(summaryRows && summaryRows.length > 0 ? { summaryRows } : {}),
       }
     }
 
@@ -90,12 +86,16 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
   const dimensionColumns = columns.filter(
     (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
   )
+  const attributeColumns = columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "attribute" }> => column.kind === "attribute",
+  )
   const metricColumns = columns.filter(
     (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
   )
   const pivotMetricColumns = metricColumns.filter((column) => Boolean(column.pivot))
+  const hasBreakdownGroups = metricColumns.some((column) => Boolean(column.breakdownGroup))
 
-  if (pivotMetricColumns.length === 0) {
+  if (pivotMetricColumns.length === 0 && !hasBreakdownGroups) {
     return [columns.map((column) => column.label)]
   }
 
@@ -103,12 +103,22 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
     (depth, column) => Math.max(depth, column.pivot?.values.length ?? 0),
     0,
   )
-  const headerRows = Array.from({ length: pivotDepth + 1 }, () =>
+  const headerRowCount = Math.max(1, pivotDepth) + 1
+  const headerRows = Array.from({ length: headerRowCount }, () =>
     Array.from({ length: columns.length }, () => ""),
   )
+  const leafRowIndex = headerRowCount - 1
 
-  dimensionColumns.forEach((column, index) => {
-    headerRows[0]![index] = column.label
+  dimensionColumns.forEach((column) => {
+    const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+    if (columnIndex === -1) return
+    headerRows[0]![columnIndex] = column.label
+  })
+
+  attributeColumns.forEach((column) => {
+    const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
+    if (columnIndex === -1) return
+    headerRows[leafRowIndex]![columnIndex] = column.label
   })
 
   pivotMetricColumns.forEach((column) => {
@@ -119,7 +129,7 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
       headerRows[depthIndex]![columnIndex] = formatReportCell(dimension, value)
     })
 
-    headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+    headerRows[leafRowIndex]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
   })
 
   metricColumns
@@ -127,39 +137,47 @@ const buildCsvHeaderRows = (columns: ReportQueryResult["columns"]): string[][] =
     .forEach((column) => {
       const columnIndex = columns.findIndex((candidate) => candidate.key === column.key)
       if (columnIndex === -1) return
-      headerRows[pivotDepth]![columnIndex] = FIELD_LABELS[column.metric] ?? column.label
+      headerRows[leafRowIndex]![columnIndex] =
+        column.label || (FIELD_LABELS[column.metric] ?? column.metric)
     })
+
+  // Emit breakdown-group parent headers on the top row across the span of each group.
+  if (hasBreakdownGroups) {
+    let groupStart: number | null = null
+    let currentGroup: string | null = null
+    const flushGroup = (endExclusive: number) => {
+      if (currentGroup === null || groupStart === null) return
+      headerRows[0]![groupStart] = currentGroup
+      for (let i = groupStart + 1; i < endExclusive; i += 1) {
+        headerRows[0]![i] = ""
+      }
+    }
+
+    columns.forEach((column, columnIndex) => {
+      const group = column.kind === "metric" ? (column.breakdownGroup ?? null) : null
+      if (group !== currentGroup) {
+        flushGroup(columnIndex)
+        currentGroup = group
+        groupStart = group !== null ? columnIndex : null
+      }
+    })
+    flushGroup(columns.length)
+  }
 
   return headerRows
 }
 
-const buildCsvSummaryRows = (result: ReportQueryResult): string[][] => {
-  if (!result.summaryRows || result.summaryRows.length === 0) return []
-
-  const dimensionColumns = result.columns.filter(
-    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
-  )
-  const metricColumns = result.columns.filter(
-    (column): column is Extract<ReportColumn, { kind: "metric" }> => column.kind === "metric",
-  )
-
-  return result.summaryRows.map((summaryRow) => {
-    const dimensionCells = dimensionColumns.map((_, index) => (index === 0 ? summaryRow.label : ""))
-    const metricCells = metricColumns.map((column) =>
-      formatSummaryCell(summaryRow.kind, column, summaryRow.values[column.key] ?? null),
-    )
-    return [...dimensionCells, ...metricCells]
-  })
-}
+const buildCsvDataRows = (
+  columns: ReportQueryResult["columns"],
+  rows: ReportQueryResult["rows"],
+): string[][] =>
+  rows.map((row) => columns.map((column) => formatReportCell(column, row[column.key] ?? null)))
 
 const buildCsv = (result: ReportQueryResult) => {
   const headerRows = buildCsvHeaderRows(result.columns)
-  const dataRows = result.rows.map((row) =>
-    result.columns.map((column) => formatReportCell(column, row[column.key] ?? null)),
-  )
-  const summaryCsvRows = buildCsvSummaryRows(result)
+  const dataRows = buildCsvDataRows(result.columns, result.rows)
 
-  return stringify([...headerRows, ...dataRows, ...summaryCsvRows])
+  return stringify([...headerRows, ...dataRows])
 }
 
 const router = new Hono<AuthEnv>()

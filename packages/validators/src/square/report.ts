@@ -17,6 +17,13 @@ export const MetricSchema = z.enum([
   "costPerLaborHour",
   "templateLaborHours",
   "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
+  "wasteItems",
+  "wasteCost",
+  "wasteCostPctOfSales",
+  "unitsSold",
+  "salesYoyChangePercent",
 ])
 
 export const DimensionSchema = z.enum([
@@ -34,35 +41,104 @@ export const DimensionSchema = z.enum([
   "jobTitle",
 ])
 
+export const LocationAttributeSchema = z.enum(["daysOpen", "dateOpened"])
+
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])
 
-export const ReportComparisonsSchema = z.object({
-  total: z.boolean().optional(),
-  previousPeriod: z.boolean().optional(),
-  yearOverYear: z.boolean().optional(),
-  yearToDate: z.boolean().optional(),
-  compingOnly: z.boolean().optional(),
-  includeChangePercent: z.boolean().optional(),
-  includeYearOverYearChangePercent: z.boolean().optional(),
+export const FilterDimensionSchema = z.enum([
+  "locationId",
+  "channel",
+  "customer",
+  "product",
+  "productCategory",
+])
+export const FilterMetricSchema = z.enum([
+  "netSales",
+  "reportedLaborHours",
+  "estimatedPayrollAfterTax",
+])
+
+const DimensionFilterSchema = z.object({
+  kind: z.literal("dimension"),
+  dimension: FilterDimensionSchema,
+  operator: z.literal("in"),
+  value: z.array(z.string()),
 })
+
+const MetricFilterSchema = z.object({
+  kind: z.literal("metric"),
+  metric: FilterMetricSchema,
+  operator: z.enum(["eq", "gt", "lt", "between"]),
+  value: z.union([z.string(), z.tuple([z.string(), z.string()])]),
+})
+
+export const ReportFilterSchema = z.preprocess(
+  (input) => {
+    if (input && typeof input === "object" && "kind" in input) return input
+    if (input && typeof input === "object" && "dimension" in input && !("kind" in input)) {
+      const legacy = input as {
+        dimension: unknown
+        operator?: unknown
+        value?: unknown
+      }
+      const rawValue = legacy.value
+      const valueArray = Array.isArray(rawValue)
+        ? rawValue.map((entry) => String(entry))
+        : typeof rawValue === "string" && rawValue.length > 0
+          ? [rawValue]
+          : []
+      return {
+        kind: "dimension",
+        dimension: legacy.dimension,
+        operator: "in",
+        value: valueArray,
+      }
+    }
+    return input
+  },
+  z.discriminatedUnion("kind", [DimensionFilterSchema, MetricFilterSchema]),
+)
 
 export const ReportConfigSchema = z.object({
   metrics: z.array(MetricSchema).min(1),
   rows: z.array(DimensionSchema),
   columns: z.array(DimensionSchema),
-  filters: z.array(
-    z.object({
-      dimension: DimensionSchema,
-      operator: z.enum(["eq", "in", "between"]),
-      value: z.union([z.string(), z.array(z.string())]),
-    }),
-  ),
+  filters: z.array(ReportFilterSchema),
   chartType: ChartTypeSchema,
   dateRange: z.object({
     from: z.string(),
     to: z.string(),
   }),
-  comparisons: ReportComparisonsSchema.optional(),
+  locationAttributes: z.array(LocationAttributeSchema).optional(),
+  inlineYtdMetrics: z.array(MetricSchema).optional(),
+  channelBreakdownMetrics: z.array(MetricSchema).optional(),
+  comparisonDateRange: z
+    .object({
+      from: z.string(),
+      to: z.string(),
+    })
+    .optional(),
+  comparisonMetrics: z.array(MetricSchema).optional(),
+  comparisonYtdMetrics: z.array(MetricSchema).optional(),
+  comparisonYoyMetrics: z.array(MetricSchema).optional(),
+  comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
+  extraColumnOrder: z
+    .array(
+      z.object({
+        kind: z.enum([
+          "metric",
+          "inlineYtd",
+          "comparison",
+          "comparisonYtd",
+          "comparisonYoy",
+          "inlineYtdProducts",
+        ]),
+        metric: MetricSchema,
+      }),
+    )
+    .optional(),
+  inlineYtdProducts: z.boolean().optional(),
+  payrollTaxRatePercent: z.number().min(0).max(100).optional(),
 })
 
 export const ReportQuerySchema = ReportConfigSchema.extend({
@@ -92,24 +168,15 @@ export const ReportColumnSchema = z.discriminatedUnion("kind", [
     label: z.string(),
     metric: MetricSchema,
     pivot: PivotCoordinateSchema.optional(),
+    breakdownGroup: z.string().optional(),
+  }),
+  z.object({
+    kind: z.literal("attribute"),
+    key: z.string(),
+    label: z.string(),
+    attribute: LocationAttributeSchema,
   }),
 ])
-
-export const ReportSummaryKindSchema = z.enum([
-  "total",
-  "comping",
-  "previousPeriod",
-  "yearOverYear",
-  "yearToDate",
-  "changePercent",
-  "yearOverYearChangePercent",
-])
-
-export const ReportSummaryRowSchema = z.object({
-  kind: ReportSummaryKindSchema,
-  label: z.string(),
-  values: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
-})
 
 export const ReportQueryResultSchema = z.object({
   columns: z.array(ReportColumnSchema),
@@ -119,7 +186,6 @@ export const ReportQueryResultSchema = z.object({
   pageSize: z.number().int().min(1).max(50_000),
   hasMore: z.boolean(),
   totalRows: z.number().int().min(0).optional(),
-  summaryRows: z.array(ReportSummaryRowSchema).optional(),
 })
 
 export const SavedReportSchema = z.object({
@@ -145,6 +211,7 @@ export const ReportExportSchema = z.object({
 
 export type Metric = z.infer<typeof MetricSchema>
 export type Dimension = z.infer<typeof DimensionSchema>
+export type LocationAttribute = z.infer<typeof LocationAttributeSchema>
 export type ChartType = z.infer<typeof ChartTypeSchema>
 export type ReportConfig = z.infer<typeof ReportConfigSchema>
 export type ReportQueryInput = z.infer<typeof ReportQuerySchema>
@@ -154,6 +221,3 @@ export type CreateSavedReport = z.infer<typeof CreateSavedReportSchema>
 export type UpdateSavedReport = z.infer<typeof UpdateSavedReportSchema>
 export type ReportExport = z.infer<typeof ReportExportSchema>
 export type ReportExportFormat = z.infer<typeof ReportExportFormatSchema>
-export type ReportComparisons = z.infer<typeof ReportComparisonsSchema>
-export type ReportSummaryKind = z.infer<typeof ReportSummaryKindSchema>
-export type ReportSummaryRow = z.infer<typeof ReportSummaryRowSchema>

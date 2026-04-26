@@ -3,6 +3,7 @@ import type {
   ComputedDimension,
   Dimension,
   LaborMetric,
+  LineItemsMetric,
   Metric,
   OrderLevelDimension,
   PivotCoordinate,
@@ -10,6 +11,7 @@ import type {
   ReportColumn,
   ReportConfig,
   SupportedMetric,
+  WasteMetric,
 } from "./types"
 import { formatReportColumn } from "./format"
 
@@ -28,6 +30,8 @@ const laborMetrics = new Set<LaborMetric>([
   "costPerLaborHour",
   "templateLaborHours",
   "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
 ])
 const timecardMetrics = new Set<LaborMetric>([
   "reportedLaborHours",
@@ -36,7 +40,15 @@ const timecardMetrics = new Set<LaborMetric>([
   "costPerLaborHour",
 ])
 const scheduledMetrics = new Set<LaborMetric>(["templateLaborHours"])
-const derivedLaborMetrics = new Set<LaborMetric>(["laborHourVariance"])
+const derivedLaborMetrics = new Set<LaborMetric>([
+  "laborHourVariance",
+  "laborHourVariancePercent",
+  "payrollPctOfSales",
+])
+const wasteMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost", "wasteCostPctOfSales"])
+const wasteQueryMetrics = new Set<WasteMetric>(["wasteItems", "wasteCost"])
+const derivedWasteMetrics = new Set<WasteMetric>(["wasteCostPctOfSales"])
+const lineItemMetrics = new Set<LineItemsMetric>(["unitsSold"])
 
 export const isLaborMetric = (metric: Metric): metric is LaborMetric =>
   laborMetrics.has(metric as LaborMetric)
@@ -50,11 +62,43 @@ export const isScheduledMetric = (metric: Metric): boolean =>
 export const isDerivedLaborMetric = (metric: Metric): boolean =>
   derivedLaborMetrics.has(metric as LaborMetric)
 
+export const isWasteMetric = (metric: Metric): metric is WasteMetric =>
+  wasteMetrics.has(metric as WasteMetric)
+
+export const isWasteQueryMetric = (metric: Metric): boolean =>
+  wasteQueryMetrics.has(metric as WasteMetric)
+
+export const isDerivedWasteMetric = (metric: Metric): boolean =>
+  derivedWasteMetrics.has(metric as WasteMetric)
+
+export const isLineItemMetric = (metric: Metric): metric is LineItemsMetric =>
+  lineItemMetrics.has(metric as LineItemsMetric)
+
+const channelBreakdownEligibleMetrics = new Set<Metric>(["netSales", "grossSales"])
+
+export const isChannelBreakdownEligibleMetric = (metric: Metric): boolean =>
+  channelBreakdownEligibleMetrics.has(metric)
+
+export const DEFAULT_PAYROLL_TAX_RATE_PERCENT = 14
+export const MIN_PAYROLL_TAX_RATE_PERCENT = 0
+export const MAX_PAYROLL_TAX_RATE_PERCENT = 100
+
+export const resolvePayrollTaxRatePercent = (rate: number | undefined): number => {
+  if (rate === undefined || Number.isNaN(rate)) return DEFAULT_PAYROLL_TAX_RATE_PERCENT
+  if (rate < MIN_PAYROLL_TAX_RATE_PERCENT) return MIN_PAYROLL_TAX_RATE_PERCENT
+  if (rate > MAX_PAYROLL_TAX_RATE_PERCENT) return MAX_PAYROLL_TAX_RATE_PERCENT
+  return rate
+}
+
+export const requiresLineItemsQuery = (metrics: Metric[]): boolean => metrics.some(isLineItemMetric)
+
 export const requiresLaborQuery = (metrics: Metric[], dimensions: Dimension[]): boolean =>
   metrics.some(isTimecardMetric) || dimensions.includes("jobTitle")
 
 export const requiresScheduledQuery = (metrics: Metric[]): boolean =>
   metrics.some(isScheduledMetric)
+
+export const requiresWasteQuery = (metrics: Metric[]): boolean => metrics.some(isWasteQueryMetric)
 
 export const ensureSupportedMetric = (metric: Metric) => {
   if (unsupportedMetrics.has(metric)) {
@@ -97,8 +141,10 @@ export const hasIncompatibleDimensions = (dimensions: Dimension[]): boolean =>
   dimensions.includes("paymentMethod")
 
 export const getQueryMode = (metrics: Metric[], dimensions: Dimension[]): QueryMode => {
+  if (requiresWasteQuery(metrics)) return "waste"
   if (requiresScheduledQuery(metrics)) return "scheduled"
   if (requiresLaborQuery(metrics, dimensions)) return "labor"
+  if (requiresLineItemsQuery(metrics)) return "lineItems"
   if (dimensions.includes("product") || dimensions.includes("productCategory")) return "lineItems"
   if (dimensions.includes("paymentMethod")) return "tenders"
   if (dimensions.includes("customer") || dimensions.includes("channel")) return "orders"
@@ -125,10 +171,12 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
   let hasSales = false
   let hasTimecard = false
   let hasScheduled = false
+  let hasWaste = false
+  let hasLineItems = false
   let hasDerived = false
 
   for (const metric of metrics) {
-    if (isDerivedLaborMetric(metric)) {
+    if (isDerivedLaborMetric(metric) || isDerivedWasteMetric(metric)) {
       hasDerived = true
       continue
     }
@@ -140,10 +188,23 @@ export const requiresMultiQueryDispatch = (metrics: Metric[]): boolean => {
       hasTimecard = true
       continue
     }
+    if (isWasteQueryMetric(metric)) {
+      hasWaste = true
+      continue
+    }
+    if (isLineItemMetric(metric)) {
+      hasLineItems = true
+      continue
+    }
     hasSales = true
   }
 
-  const sourceCount = (hasSales ? 1 : 0) + (hasTimecard ? 1 : 0) + (hasScheduled ? 1 : 0)
+  const sourceCount =
+    (hasSales ? 1 : 0) +
+    (hasTimecard ? 1 : 0) +
+    (hasScheduled ? 1 : 0) +
+    (hasWaste ? 1 : 0) +
+    (hasLineItems ? 1 : 0)
   return hasDerived || sourceCount > 1
 }
 
@@ -348,9 +409,6 @@ export const serializeReportValue = (value: unknown): string | number | null => 
   return typeof value === "string" || typeof value === "number" ? value : String(value)
 }
 
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
-const DAYS_IN_WEEK = 7
-
 const parseIsoDate = (isoDateString: string): Date => {
   const [year, month, day] = isoDateString.split("-").map(Number)
 
@@ -375,16 +433,6 @@ const formatIsoDate = (date: Date): string => {
 
 export type DateRange = { from: string; to: string }
 
-export const shiftRangeBack7Days = (range: DateRange): DateRange => {
-  const fromDate = parseIsoDate(range.from)
-  const toDate = parseIsoDate(range.to)
-  const weekInMilliseconds = DAYS_IN_WEEK * MILLISECONDS_PER_DAY
-  return {
-    from: formatIsoDate(new Date(fromDate.getTime() - weekInMilliseconds)),
-    to: formatIsoDate(new Date(toDate.getTime() - weekInMilliseconds)),
-  }
-}
-
 export const shiftRangeBack1Year = (range: DateRange): DateRange => {
   const fromDate = parseIsoDate(range.from)
   const toDate = parseIsoDate(range.to)
@@ -401,27 +449,4 @@ export const yearToDateRange = (range: DateRange): DateRange => {
   const toDate = parseIsoDate(range.to)
   const startOfYearDate = new Date(Date.UTC(toDate.getUTCFullYear(), 0, 1))
   return { from: formatIsoDate(startOfYearDate), to: range.to }
-}
-
-export const getCompingCutoffDate = (rangeFromDate: string): string => {
-  const rangeStartDate = parseIsoDate(rangeFromDate)
-  const cutoffDate = new Date(
-    Date.UTC(
-      rangeStartDate.getUTCFullYear() - 1,
-      rangeStartDate.getUTCMonth(),
-      rangeStartDate.getUTCDate(),
-    ),
-  )
-  return formatIsoDate(cutoffDate)
-}
-
-export const isCompingLocation = (
-  openedAt: string | Date | null | undefined,
-  rangeFromDate: string,
-): boolean => {
-  if (!openedAt) return false
-
-  const openedDate = typeof openedAt === "string" ? parseIsoDate(openedAt.slice(0, 10)) : openedAt
-  const cutoffDate = parseIsoDate(getCompingCutoffDate(rangeFromDate))
-  return openedDate.getTime() <= cutoffDate.getTime()
 }

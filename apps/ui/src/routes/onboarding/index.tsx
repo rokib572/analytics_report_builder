@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQueryClient } from "@tanstack/react-query"
 import { apiClient } from "../../lib/api-client"
 import { useAuth } from "../../lib/auth-context"
 import { Router } from "../../router"
@@ -10,6 +11,7 @@ import type { OnboardingFormValues } from "./types"
 
 export const OnboardingRoute = () => {
   const { isSystemAdmin, user } = useAuth()
+  const queryClient = useQueryClient()
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -34,7 +36,7 @@ export const OnboardingRoute = () => {
     }
 
     if (user.companyName) {
-      Router.replace("Connect")
+      Router.replace("Home")
     }
   }, [isSystemAdmin, user.companyName])
 
@@ -50,6 +52,7 @@ export const OnboardingRoute = () => {
       return
     }
 
+    await queryClient.invalidateQueries({ queryKey: ["current-user"] })
     Router.push("Connect")
   }
 

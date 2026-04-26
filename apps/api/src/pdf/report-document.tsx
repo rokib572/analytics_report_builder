@@ -51,19 +51,13 @@ const getChartOrientation = (config: ReportConfig, result: ReportQueryResult) =>
 }
 
 const getLocationFilterSummary = (config: ReportConfig) => {
-  const locationFilter = config.filters.find((filter) => filter.dimension === "locationId")
+  const locationFilter = config.filters.find(
+    (filter) => filter.kind === "dimension" && filter.dimension === "locationId",
+  )
 
-  if (!locationFilter) return "All locations"
+  if (!locationFilter || locationFilter.kind !== "dimension") return "All locations"
 
-  if (locationFilter.operator === "between") {
-    const values = Array.isArray(locationFilter.value)
-      ? locationFilter.value
-      : [locationFilter.value]
-    return `Location filter: ${values.join(" to ")}`
-  }
-
-  const values = Array.isArray(locationFilter.value) ? locationFilter.value : [locationFilter.value]
-  return `Location filter: ${values.join(", ")}`
+  return `Location filter: ${locationFilter.value.join(", ")}`
 }
 
 export const ReportDocument = ({

@@ -3,10 +3,11 @@ import { DndContext, type DragEndEvent } from "@dnd-kit/core"
 import {
   hasCrossModePivotConflict,
   hasIncompatibleDimensions,
+  type LocationAttribute,
   type ReportConfig,
 } from "@analytics/report-builder"
 import { ReportConfigSchema } from "@analytics/validators"
-import { Button, Tabs, TabsContent, TabsList, TabsTrigger } from "@analytics/ui-shared"
+import { Button, Tabs, TabsContent, TabsList, TabsTrigger, useSidebar } from "@analytics/ui-shared"
 import { apiClient } from "../../lib/api-client"
 import { Router } from "../../router"
 import {
@@ -15,20 +16,28 @@ import {
   usePagedReportQuery,
 } from "../../data/report-builder/hooks"
 import { ReportCanvas } from "./components/ReportCanvas"
-import { ComparisonsPanel } from "./components/ComparisonsPanel"
 import { FieldPanel } from "./components/FieldPanel"
+import { PresetPicker } from "./components/PresetPicker"
 import { PreviewPanel } from "./components/PreviewPanel"
 import { SaveReportModal } from "./components/SaveReportModal"
 import { SavedReportsList } from "./components/SavedReportsList"
 import { ExportMenu } from "./components/ExportMenu"
-import { getDefaultDateRange, isSupportedDimension, isSupportedMetricValue } from "./constants"
+import {
+  getDefaultDateRange,
+  isSupportedDimension,
+  isSupportedMetricValue,
+  type DatePreset,
+} from "./constants"
 
 export const ReportBuilderRoute = () => {
   const route = Router.useRoute(["ReportBuilderGet"])
   const reportId = route?.params?.reportId
+  const { setOpen: setNavSidebarOpen } = useSidebar()
   const [activeTab, setActiveTab] = useState("builder")
   const [saveModalOpen, setSaveModalOpen] = useState(false)
   const [previewPage, setPreviewPage] = useState(1)
+  const [datePreset, setDatePreset] = useState<DatePreset>("custom")
+  const [comparisonDatePreset, setComparisonDatePreset] = useState<DatePreset>("custom")
   const [config, setConfig] = useState<ReportConfig>({
     metrics: [],
     rows: [],
@@ -54,6 +63,11 @@ export const ReportBuilderRoute = () => {
   }, [config])
 
   useEffect(() => {
+    setNavSidebarOpen(false)
+    return () => setNavSidebarOpen(true)
+  }, [setNavSidebarOpen])
+
+  useEffect(() => {
     if (!reportId) return
 
     let isMounted = true
@@ -70,6 +84,8 @@ export const ReportBuilderRoute = () => {
       if (!isMounted) return
 
       setConfig(ReportConfigSchema.parse(json.data.config))
+      setDatePreset("custom")
+      setComparisonDatePreset("custom")
       setActiveTab("builder")
     }
 
@@ -98,7 +114,14 @@ export const ReportBuilderRoute = () => {
         over.id === "metrics" &&
         !current.metrics.includes(fieldName)
       ) {
-        return { ...current, metrics: [...current.metrics, fieldName] }
+        return {
+          ...current,
+          metrics: [...current.metrics, fieldName],
+          extraColumnOrder: [
+            ...(current.extraColumnOrder ?? []),
+            { kind: "metric", metric: fieldName },
+          ],
+        }
       }
 
       if (
@@ -132,13 +155,35 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
-        if (
-          hasCrossModePivotConflict(current.metrics, current.rows, [...current.columns, fieldName])
-        ) {
+        const shouldAutoInjectUnitsSold =
+          fieldName === "product" && !current.metrics.includes("unitsSold")
+        const nextMetrics = shouldAutoInjectUnitsSold
+          ? [...current.metrics, "unitsSold" as const]
+          : current.metrics
+
+        if (hasCrossModePivotConflict(nextMetrics, current.rows, [...current.columns, fieldName])) {
           return current
         }
 
-        return { ...current, columns: [...current.columns, fieldName] }
+        // For Product → Columns: re-stamp unitsSold's metric event to "now" so the
+        // pivot columns land at the chronological end. Other column dims leave
+        // extraColumnOrder untouched.
+        const nextExtraColumnOrder =
+          fieldName === "product"
+            ? [
+                ...(current.extraColumnOrder ?? []).filter(
+                  (entry) => !(entry.kind === "metric" && entry.metric === "unitsSold"),
+                ),
+                { kind: "metric" as const, metric: "unitsSold" as const },
+              ]
+            : current.extraColumnOrder
+
+        return {
+          ...current,
+          metrics: nextMetrics,
+          columns: [...current.columns, fieldName],
+          extraColumnOrder: nextExtraColumnOrder,
+        }
       }
 
       return current
@@ -147,6 +192,8 @@ export const ReportBuilderRoute = () => {
 
   const handleOpenSavedReport = (savedConfig: ReportConfig) => {
     setConfig(savedConfig)
+    setDatePreset("custom")
+    setComparisonDatePreset("custom")
     setActiveTab("builder")
   }
 
@@ -194,6 +241,7 @@ export const ReportBuilderRoute = () => {
           </TabsList>
           {activeTab === "builder" ? (
             <div className="flex items-center gap-2">
+              <PresetPicker currentConfig={config} onApply={setConfig} />
               <ExportMenu config={config} disabled={!hasUsableConfig} />
               <Button
                 type="button"
@@ -211,10 +259,23 @@ export const ReportBuilderRoute = () => {
               <FieldPanel
                 activeMetrics={config.metrics}
                 activeDimensions={[...config.rows, ...config.columns]}
+                activeLocationAttributes={config.locationAttributes ?? []}
+                onLocationAttributesChange={(next: LocationAttribute[]) =>
+                  setConfig((current) => ({
+                    ...current,
+                    locationAttributes: next.length > 0 ? next : undefined,
+                  }))
+                }
               />
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                <ReportCanvas config={config} onConfigChange={setConfig} />
-                <ComparisonsPanel config={config} onConfigChange={setConfig} />
+                <ReportCanvas
+                  config={config}
+                  onConfigChange={setConfig}
+                  datePreset={datePreset}
+                  onDatePresetChange={setDatePreset}
+                  comparisonDatePreset={comparisonDatePreset}
+                  onComparisonDatePresetChange={setComparisonDatePreset}
+                />
                 <PreviewPanel
                   result={previewResult}
                   chartType={config.chartType}

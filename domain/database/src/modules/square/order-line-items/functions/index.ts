@@ -1,4 +1,5 @@
 export * from "./create"
 export * from "./list"
+export * from "./list-distinct-products"
 export * from "./delete-by-order"
 export * from "./bulk-insert"

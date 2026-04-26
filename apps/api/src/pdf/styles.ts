@@ -73,16 +73,6 @@ export const reportStyles = StyleSheet.create({
   tableRowLast: {
     borderBottomWidth: 0,
   },
-  tableSummaryRow: {
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#cbd5e1",
-    backgroundColor: "#f1f5f9",
-  },
-  tableSummaryCellText: {
-    fontSize: 9,
-    fontWeight: 700,
-  },
   tableCell: {
     paddingVertical: 6,
     paddingHorizontal: 8,
@@ -101,6 +91,9 @@ export const reportStyles = StyleSheet.create({
   },
   alignRight: {
     textAlign: "right",
+  },
+  alignCenter: {
+    textAlign: "center",
   },
   emptyState: {
     fontSize: 10,
