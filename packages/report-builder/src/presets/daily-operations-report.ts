@@ -45,6 +45,7 @@ export const buildDailyOperationsReportConfig = ({
 
     if (allowedChannelIds.length > 0 && allowedChannelIds.length < channels.length) {
       filters.push({
+        kind: "dimension",
         dimension: "channel",
         operator: "in",
         value: allowedChannelIds,

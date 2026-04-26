@@ -26,6 +26,9 @@ import syncHistoryRouter from "./routes/square/sync/history"
 import webhookHistoryRouter from "./routes/square/sync/webhook-history"
 import reportsRouter from "./routes/square/reports/index"
 import channelsRouter from "./routes/square/channels/index"
+import productsRouter from "./routes/square/products/index"
+import productCategoriesRouter from "./routes/square/product-categories/index"
+import paymentMethodsRouter from "./routes/square/payment-methods/index"
 import permissionsRouter from "./routes/permissions"
 import { resolveCorsOrigin } from "./lib/allowed-origins"
 
@@ -66,6 +69,9 @@ const app = new Hono()
   .route("/api/sync/webhook-history", webhookHistoryRouter)
   .route("/api/reports", reportsRouter)
   .route("/api/square/channels", channelsRouter)
+  .route("/api/square/products", productsRouter)
+  .route("/api/square/product-categories", productCategoriesRouter)
+  .route("/api/square/payment-methods", paymentMethodsRouter)
 // .route("/api/orders", ordersRouter)
 // .route("/api/webhooks", webhooksRouter)
 

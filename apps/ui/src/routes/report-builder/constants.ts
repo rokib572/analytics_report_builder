@@ -1,10 +1,35 @@
 import {
   FIELD_LABELS,
   type Dimension,
+  type FilterDimension,
+  type FilterMetric,
   type Metric,
   type ReportConfig,
   type SupportedMetric,
 } from "@analytics/report-builder"
+
+export const FILTER_DIMENSIONS: FilterDimension[] = [
+  "locationId",
+  "channel",
+  "customer",
+  "product",
+  "productCategory",
+]
+
+export const FILTER_METRICS: FilterMetric[] = [
+  "netSales",
+  "reportedLaborHours",
+  "estimatedPayrollAfterTax",
+]
+
+export const FILTER_METRIC_LABELS: Record<FilterMetric, string> = {
+  netSales: "Net Sales",
+  reportedLaborHours: "Reported Labor Hours",
+  estimatedPayrollAfterTax: "Estimated Salary",
+}
+
+export const isMonetaryFilterMetric = (metric: FilterMetric): boolean =>
+  metric === "netSales" || metric === "estimatedPayrollAfterTax"
 
 export const SALES_METRICS: SupportedMetric[] = [
   "netSales",

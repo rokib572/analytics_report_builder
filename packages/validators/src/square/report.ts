@@ -45,17 +45,65 @@ export const LocationAttributeSchema = z.enum(["daysOpen", "dateOpened"])
 
 export const ChartTypeSchema = z.enum(["bar", "line", "table"])
 
+export const FilterDimensionSchema = z.enum([
+  "locationId",
+  "channel",
+  "customer",
+  "product",
+  "productCategory",
+])
+export const FilterMetricSchema = z.enum([
+  "netSales",
+  "reportedLaborHours",
+  "estimatedPayrollAfterTax",
+])
+
+const DimensionFilterSchema = z.object({
+  kind: z.literal("dimension"),
+  dimension: FilterDimensionSchema,
+  operator: z.literal("in"),
+  value: z.array(z.string()),
+})
+
+const MetricFilterSchema = z.object({
+  kind: z.literal("metric"),
+  metric: FilterMetricSchema,
+  operator: z.enum(["eq", "gt", "lt", "between"]),
+  value: z.union([z.string(), z.tuple([z.string(), z.string()])]),
+})
+
+export const ReportFilterSchema = z.preprocess(
+  (input) => {
+    if (input && typeof input === "object" && "kind" in input) return input
+    if (input && typeof input === "object" && "dimension" in input && !("kind" in input)) {
+      const legacy = input as {
+        dimension: unknown
+        operator?: unknown
+        value?: unknown
+      }
+      const rawValue = legacy.value
+      const valueArray = Array.isArray(rawValue)
+        ? rawValue.map((entry) => String(entry))
+        : typeof rawValue === "string" && rawValue.length > 0
+          ? [rawValue]
+          : []
+      return {
+        kind: "dimension",
+        dimension: legacy.dimension,
+        operator: "in",
+        value: valueArray,
+      }
+    }
+    return input
+  },
+  z.discriminatedUnion("kind", [DimensionFilterSchema, MetricFilterSchema]),
+)
+
 export const ReportConfigSchema = z.object({
   metrics: z.array(MetricSchema).min(1),
   rows: z.array(DimensionSchema),
   columns: z.array(DimensionSchema),
-  filters: z.array(
-    z.object({
-      dimension: DimensionSchema,
-      operator: z.enum(["eq", "in", "between"]),
-      value: z.union([z.string(), z.array(z.string())]),
-    }),
-  ),
+  filters: z.array(ReportFilterSchema),
   chartType: ChartTypeSchema,
   dateRange: z.object({
     from: z.string(),

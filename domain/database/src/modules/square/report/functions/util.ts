@@ -316,6 +316,12 @@ export const lineItemsDimensionMap = buildDimensionMap(
       groupBy: [catalogCategories.name, productCategoryNameExpr],
       orderBy: productCategoryNameExpr,
     },
+    channel: {
+      select: channelNameExpr,
+      groupBy: [orders.channelId, channels.displayName],
+      orderBy: channelNameExpr,
+      filterBy: orders.channelId,
+    },
   },
 )
 
@@ -418,6 +424,7 @@ export const lineItemsFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {
   saleDate: orderLineItems.saleDate,
   product: orderLineItems.name,
   productCategory: catalogCategories.name,
+  channel: orders.channelId,
 }
 
 export const tendersFilterColumns: Partial<Record<Dimension, AnyPgColumn>> = {

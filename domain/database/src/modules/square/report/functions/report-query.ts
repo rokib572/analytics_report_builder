@@ -8,6 +8,7 @@ import {
   isComputedDimension,
   isDerivedLaborMetric,
   isDerivedWasteMetric,
+  isLaborMetric,
   isLineItemMetric,
   isScheduledMetric,
   isSharedDimension,
@@ -48,6 +49,7 @@ import { orders } from "../../orders/schema"
 import { squareCustomers } from "../../customers/schema"
 import { appendChannelBreakdownColumns } from "./append-channel-breakdown-columns"
 import { appendExtraColumns } from "./append-extra-columns"
+import { buildMetricFilterCondition } from "./build-metric-filter-condition"
 import { appendLaborHourVariancePercentMetric } from "./append-labor-hour-variance-percent-metric"
 import { appendPayrollPctOfSalesMetric } from "./append-payroll-pct-of-sales-metric"
 import { buildColumnCondition } from "./build-column-condition"
@@ -72,7 +74,13 @@ export const buildReportQuery = async (
 ): Promise<ReportQueryResult> => {
   for (const metric of config.metrics) ensureSupportedMetric(metric)
   for (const dimension of [...config.rows, ...config.columns]) ensureSupportedDimension(dimension)
-  for (const filter of config.filters) ensureSupportedDimension(filter.dimension)
+  for (const filter of config.filters) {
+    if (filter.kind === "dimension") {
+      ensureSupportedDimension(filter.dimension)
+    } else {
+      ensureSupportedMetric(filter.metric)
+    }
+  }
 
   if (config.columns.length > 0 && config.metrics.length === 0) {
     throw DomainError.makeError({
@@ -83,10 +91,17 @@ export const buildReportQuery = async (
   }
 
   const dimensions = mergeReportDimensions(config.rows, config.columns)
-  const filterDimensions = [...new Set(config.filters.map((filter) => filter.dimension))]
+  const dimensionFilters = config.filters.filter(
+    (filter): filter is Extract<typeof filter, { kind: "dimension" }> =>
+      filter.kind === "dimension" && filter.value.length > 0,
+  )
+  const metricFilters = config.filters.filter(
+    (filter): filter is Extract<typeof filter, { kind: "metric" }> => filter.kind === "metric",
+  )
+  const filterDimensions = [...new Set(dimensionFilters.map((filter) => filter.dimension))]
   const queryDimensions = [...new Set([...dimensions, ...filterDimensions])]
 
-  if (hasIncompatibleDimensions(queryDimensions)) {
+  if (hasIncompatibleDimensions(dimensions)) {
     throw DomainError.makeError({
       code: "BAD_REQUEST",
       message: "Product/Product Category and Payment Method dimensions cannot be combined",
@@ -206,21 +221,17 @@ export const buildReportQuery = async (
     conditions.push(eq(inventoryAdjustments.toState, WASTE_INVENTORY_STATE))
   }
 
-  for (const filter of config.filters) {
+  for (const filter of dimensionFilters) {
+    if (filter.value.length === 0) continue
+
     const filterColumn = filterColumns[filter.dimension]
 
     if (filterColumn) {
-      conditions.push(
-        buildColumnCondition(filterColumn, filter.dimension, filter.operator, filter.value),
-      )
+      conditions.push(buildColumnCondition(filterColumn, filter.dimension, "in", filter.value))
       continue
     }
 
-    if (
-      !isComputedDimension(filter.dimension) &&
-      filter.dimension !== "customer" &&
-      filter.dimension !== "jobTitle"
-    ) {
+    if (!isComputedDimension(filter.dimension) && filter.dimension !== "customer") {
       throw DomainError.makeError({
         code: "BAD_REQUEST",
         message: `Dimension ${filter.dimension} is not supported in filters`,
@@ -232,7 +243,7 @@ export const buildReportQuery = async (
     const definition = getDimensionDefinition(dimensionMap, filter.dimension)
     const filterExpression = definition.filterBy ?? definition.select
     conditions.push(
-      buildExpressionCondition(filter.dimension, filterExpression, filter.operator, filter.value),
+      buildExpressionCondition(filter.dimension, filterExpression, "in", filter.value),
     )
   }
 
@@ -287,6 +298,7 @@ export const buildReportQuery = async (
                     ),
                   )
                   .leftJoin(orders, eq(orderLineItems.orderId, orders.id))
+                  .leftJoin(channels, eq(orders.channelId, channels.id))
                   .leftJoin(
                     squareCustomers,
                     and(
@@ -324,6 +336,17 @@ export const buildReportQuery = async (
 
   if (groupByFields.length > 0) {
     query = query.groupBy(...groupByFields)
+  }
+
+  const havingConditions: SQL[] = []
+  for (const filter of metricFilters) {
+    const definition = metricMap[filter.metric]
+    if (!definition) continue
+    const condition = buildMetricFilterCondition(definition.select, filter)
+    if (condition) havingConditions.push(condition)
+  }
+  if (havingConditions.length > 0) {
+    query = query.having(and(...havingConditions))
   }
 
   const countPromise =
@@ -662,22 +685,30 @@ const runMixedReportQuery = async (
   const lineItemsColumns = config.columns.filter(
     (dimension) => !LABOR_ONLY_DIMENSIONS.has(dimension) && !ORDERS_ONLY_DIMENSIONS.has(dimension),
   )
-  const salesFilters = config.filters.filter(
-    (filter) =>
+  const isSalesMetric = (metric: Metric) => !isLineItemMetric(metric) && !isLaborMetric(metric)
+  const salesFilters = config.filters.filter((filter) => {
+    if (filter.kind === "metric") return isSalesMetric(filter.metric)
+    return (
       !LABOR_ONLY_DIMENSIONS.has(filter.dimension) &&
-      !LINEITEMS_ONLY_DIMENSIONS.has(filter.dimension),
-  )
-  const laborFilters = config.filters.filter(
-    (filter) => !SALES_ONLY_DIMENSIONS.has(filter.dimension),
-  )
-  const wasteFilters = config.filters.filter(
-    (filter) =>
-      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !SALES_ONLY_DIMENSIONS.has(filter.dimension),
-  )
-  const lineItemsFilters = config.filters.filter(
-    (filter) =>
-      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !ORDERS_ONLY_DIMENSIONS.has(filter.dimension),
-  )
+      !LINEITEMS_ONLY_DIMENSIONS.has(filter.dimension)
+    )
+  })
+  const laborFilters = config.filters.filter((filter) => {
+    if (filter.kind === "metric") return isLaborMetric(filter.metric)
+    return !SALES_ONLY_DIMENSIONS.has(filter.dimension)
+  })
+  const wasteFilters = config.filters.filter((filter) => {
+    if (filter.kind === "metric") return false
+    return (
+      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !SALES_ONLY_DIMENSIONS.has(filter.dimension)
+    )
+  })
+  const lineItemsFilters = config.filters.filter((filter) => {
+    if (filter.kind === "metric") return isLineItemMetric(filter.metric)
+    return (
+      !LABOR_ONLY_DIMENSIONS.has(filter.dimension) && !ORDERS_ONLY_DIMENSIONS.has(filter.dimension)
+    )
+  })
 
   const subConfigBase: ReportQueryInput = {
     ...config,

@@ -73,11 +73,25 @@ export type QueryMode =
   | "scheduled"
   | "waste"
 
-export type ReportFilter = {
-  dimension: Dimension
-  operator: "eq" | "in" | "between"
-  value: string | string[]
+export type FilterDimension = "locationId" | "channel" | "customer" | "product" | "productCategory"
+
+export type FilterMetric = "netSales" | "reportedLaborHours" | "estimatedPayrollAfterTax"
+
+export type DimensionFilter = {
+  kind: "dimension"
+  dimension: FilterDimension
+  operator: "in"
+  value: string[]
 }
+
+export type MetricFilter = {
+  kind: "metric"
+  metric: FilterMetric
+  operator: "eq" | "gt" | "lt" | "between"
+  value: string | [string, string]
+}
+
+export type ReportFilter = DimensionFilter | MetricFilter
 
 export type ExtraColumnKind =
   | "metric"

@@ -1,5 +1,5 @@
 import { useDroppable } from "@dnd-kit/core"
-import { BarChart3, LineChart, Plus, Table2, X } from "lucide-react"
+import { BarChart3, LineChart, Table2, X } from "lucide-react"
 import {
   DEFAULT_PAYROLL_TAX_RATE_PERCENT,
   MAX_PAYROLL_TAX_RATE_PERCENT,
@@ -12,26 +12,9 @@ import {
   type Metric,
   type ReportConfig,
 } from "@analytics/report-builder"
-import {
-  Badge,
-  Button,
-  Checkbox,
-  cn,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@analytics/ui-shared"
-import {
-  DATE_PRESETS,
-  FIELD_LABELS,
-  SUPPORTED_DIMENSIONS,
-  getDateRangeForPreset,
-  type DatePreset,
-} from "../constants"
+import { Badge, Button, Checkbox, cn, Input, Label } from "@analytics/ui-shared"
+import { DATE_PRESETS, FIELD_LABELS, getDateRangeForPreset, type DatePreset } from "../constants"
+import { FilterSection } from "./FilterSection"
 
 type ReportCanvasProps = {
   config: ReportConfig
@@ -48,8 +31,6 @@ type DropZoneProps = {
   items: string[]
   onRemove: (item: string) => void
 }
-
-const FILTER_OPERATORS: ReportConfig["filters"][number]["operator"][] = ["eq", "in", "between"]
 
 const DropZone = ({ id, label, items, onRemove }: DropZoneProps) => {
   const { setNodeRef, isOver } = useDroppable({ id })
@@ -310,19 +291,6 @@ export const ReportCanvas = ({
   }
 
   const isCustomDateRange = datePreset === "custom"
-
-  const updateFilter = (
-    index: number,
-    field: keyof ReportConfig["filters"][number],
-    value: ReportConfig["filters"][number][keyof ReportConfig["filters"][number]],
-  ) => {
-    onConfigChange({
-      ...config,
-      filters: config.filters.map((filter, filterIndex) =>
-        filterIndex === index ? { ...filter, [field]: value } : filter,
-      ),
-    })
-  }
 
   return (
     <div className="space-y-4 rounded-lg border bg-card p-4">
@@ -689,171 +657,7 @@ export const ReportCanvas = ({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label>Filters</Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              onConfigChange({
-                ...config,
-                filters: [
-                  ...config.filters,
-                  {
-                    dimension: "locationId",
-                    operator: "eq",
-                    value: "",
-                  },
-                ],
-              })
-            }
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Filter
-          </Button>
-        </div>
-
-        {config.filters.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-            No filters added yet.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {config.filters.map((filter, index) => (
-              <div
-                key={`${filter.dimension}-${index}`}
-                className="rounded-lg border border-border bg-background p-3"
-              >
-                <div className="grid gap-3 md:grid-cols-[1.2fr_1fr_1.6fr_auto] md:items-end">
-                  <div className="space-y-2">
-                    <Label>Dimension</Label>
-                    <Select
-                      value={filter.dimension}
-                      onValueChange={(value) =>
-                        onConfigChange({
-                          ...config,
-                          filters: config.filters.map((currentFilter, filterIndex) =>
-                            filterIndex === index
-                              ? {
-                                  ...currentFilter,
-                                  dimension: value as (typeof SUPPORTED_DIMENSIONS)[number],
-                                }
-                              : currentFilter,
-                          ),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select dimension" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SUPPORTED_DIMENSIONS.map((dimension) => (
-                          <SelectItem key={dimension} value={dimension}>
-                            {FIELD_LABELS[dimension]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Operator</Label>
-                    <Select
-                      value={filter.operator}
-                      onValueChange={(value) =>
-                        onConfigChange({
-                          ...config,
-                          filters: config.filters.map((currentFilter, filterIndex) =>
-                            filterIndex === index
-                              ? {
-                                  ...currentFilter,
-                                  operator: value as ReportConfig["filters"][number]["operator"],
-                                  value: value === "between" ? ["", ""] : "",
-                                }
-                              : currentFilter,
-                          ),
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select operator" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FILTER_OPERATORS.map((operator) => (
-                          <SelectItem key={operator} value={operator}>
-                            {operator}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Value</Label>
-                    {filter.operator === "between" ? (
-                      <div className="grid gap-2 md:grid-cols-2">
-                        <Input
-                          value={Array.isArray(filter.value) ? (filter.value[0] ?? "") : ""}
-                          onChange={(event) =>
-                            updateFilter(index, "value", [
-                              event.target.value,
-                              Array.isArray(filter.value) ? (filter.value[1] ?? "") : "",
-                            ])
-                          }
-                          placeholder="From"
-                        />
-                        <Input
-                          value={Array.isArray(filter.value) ? (filter.value[1] ?? "") : ""}
-                          onChange={(event) =>
-                            updateFilter(index, "value", [
-                              Array.isArray(filter.value) ? (filter.value[0] ?? "") : "",
-                              event.target.value,
-                            ])
-                          }
-                          placeholder="To"
-                        />
-                      </div>
-                    ) : (
-                      <Input
-                        value={Array.isArray(filter.value) ? filter.value.join(",") : filter.value}
-                        onChange={(event) =>
-                          updateFilter(
-                            index,
-                            "value",
-                            filter.operator === "in"
-                              ? event.target.value
-                                  .split(",")
-                                  .map((item) => item.trim())
-                                  .filter(Boolean)
-                              : event.target.value,
-                          )
-                        }
-                        placeholder={filter.operator === "in" ? "A, B, C" : "Enter value"}
-                      />
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      onConfigChange({
-                        ...config,
-                        filters: config.filters.filter((_, filterIndex) => filterIndex !== index),
-                      })
-                    }
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <FilterSection config={config} onConfigChange={onConfigChange} />
     </div>
   )
 }
