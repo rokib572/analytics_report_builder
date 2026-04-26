@@ -150,6 +150,9 @@ export const ReportCanvas = ({
     for (const metric of comparisonYtdMetrics) {
       derived.push({ kind: "comparisonYtd", metric })
     }
+    if (config.inlineYtdProducts) {
+      derived.push({ kind: "inlineYtdProducts", metric: "unitsSold" })
+    }
     return derived
   }
 
@@ -185,6 +188,18 @@ export const ReportCanvas = ({
     onConfigChange({
       ...config,
       inlineYtdMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
+    })
+  }
+
+  const toggleInlineYtdProducts = () => {
+    const isCurrentlySelected = Boolean(config.inlineYtdProducts)
+    const nextOrder = isCurrentlySelected
+      ? removeExtraColumn(extraColumnOrder, "inlineYtdProducts", "unitsSold")
+      : addExtraColumn(extraColumnOrder, "inlineYtdProducts", "unitsSold")
+    onConfigChange({
+      ...config,
+      inlineYtdProducts: isCurrentlySelected ? undefined : true,
       extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
@@ -336,12 +351,29 @@ export const ReportCanvas = ({
           id="metrics"
           label="Metrics"
           items={config.metrics}
-          onRemove={(item) =>
+          onRemove={(item) => {
+            const removedMetric = item as Metric
+            const nextOrder = (config.extraColumnOrder ?? []).filter(
+              (entry) => entry.metric !== removedMetric,
+            )
             onConfigChange({
               ...config,
-              metrics: config.metrics.filter((metric) => metric !== item),
+              metrics: config.metrics.filter((metric) => metric !== removedMetric),
+              inlineYtdMetrics: (config.inlineYtdMetrics ?? []).filter(
+                (metric) => metric !== removedMetric,
+              ),
+              comparisonMetrics: (config.comparisonMetrics ?? []).filter(
+                (metric) => metric !== removedMetric,
+              ),
+              comparisonYtdMetrics: (config.comparisonYtdMetrics ?? []).filter(
+                (metric) => metric !== removedMetric,
+              ),
+              channelBreakdownMetrics: (config.channelBreakdownMetrics ?? []).filter(
+                (metric) => metric !== removedMetric,
+              ),
+              extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
             })
-          }
+          }}
         />
         <DropZone
           id="rows"
@@ -400,7 +432,7 @@ export const ReportCanvas = ({
         </div>
       )}
 
-      {config.metrics.length > 0 && (
+      {(config.metrics.length > 0 || config.inlineYtdProducts) && (
         <div className="space-y-2 rounded-md border border-border bg-background p-3">
           <div className="flex items-center justify-between">
             <Label>Inline YTD Columns</Label>
@@ -427,6 +459,16 @@ export const ReportCanvas = ({
                 </div>
               )
             })}
+            <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm">
+              <Checkbox
+                id="ytd-toggle-products"
+                checked={Boolean(config.inlineYtdProducts)}
+                onCheckedChange={() => toggleInlineYtdProducts()}
+              />
+              <Label htmlFor="ytd-toggle-products" className="cursor-pointer font-normal">
+                YTD Products
+              </Label>
+            </div>
           </div>
           {config.rows.length === 0 && (
             <p className="text-xs text-muted-foreground">

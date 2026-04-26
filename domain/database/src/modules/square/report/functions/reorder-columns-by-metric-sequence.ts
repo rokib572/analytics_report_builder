@@ -1,15 +1,39 @@
-import type { Metric, ReportColumn, ReportQueryResult } from "@analytics/report-builder"
+import type {
+  ExtraColumnDescriptor,
+  Metric,
+  ReportColumn,
+  ReportQueryResult,
+} from "@analytics/report-builder"
 
 type MetricColumn = Extract<ReportColumn, { kind: "metric" }>
 
-type ColumnGroup = {
-  anchor: Metric | null
-  columns: ReportColumn[]
+const INLINE_YTD_SUFFIX = "__ytd"
+const COMPARISON_SUFFIX = "__comparison"
+const COMPARISON_CHANGE_PCT_SUFFIX = "__comparison_change_pct"
+const COMPARISON_YTD_SUFFIX = "__comparison_ytd"
+const INLINE_YTD_PRODUCTS_PREFIX = "inline_ytd_products::"
+
+const buildSequence = (
+  metricSequence: Metric[],
+  extraColumnOrder: ExtraColumnDescriptor[] | undefined,
+): ExtraColumnDescriptor[] => {
+  const order = extraColumnOrder ?? []
+  const presentMetrics = new Set(
+    order.filter((entry) => entry.kind === "metric").map((entry) => entry.metric),
+  )
+  const missingMetrics = metricSequence.filter((metric) => !presentMetrics.has(metric))
+  if (missingMetrics.length === 0) return order
+  const missingMetricEntries: ExtraColumnDescriptor[] = missingMetrics.map((metric) => ({
+    kind: "metric",
+    metric,
+  }))
+  return [...missingMetricEntries, ...order]
 }
 
 export const reorderColumnsByMetricSequence = (
   result: ReportQueryResult,
   metricSequence: Metric[],
+  extraColumnOrder?: ExtraColumnDescriptor[],
 ): ReportQueryResult => {
   if (metricSequence.length === 0) return result
 
@@ -25,53 +49,60 @@ export const reorderColumnsByMetricSequence = (
 
   if (metricColumns.some((column) => Boolean(column.pivot))) return result
 
-  const sequenceSet = new Set<Metric>(metricSequence)
-  const groups: ColumnGroup[] = []
-  let currentGroup: ColumnGroup | null = null
+  const sequence = buildSequence(metricSequence, extraColumnOrder)
+  const placed = new Set<string>()
+  const orderedColumns: MetricColumn[] = []
+
+  const placeMatching = (matcher: (column: MetricColumn) => boolean) => {
+    for (const column of metricColumns) {
+      if (placed.has(column.key)) continue
+      if (!matcher(column)) continue
+      orderedColumns.push(column)
+      placed.add(column.key)
+    }
+  }
+
+  for (const entry of sequence) {
+    if (entry.kind === "metric") {
+      placeMatching(
+        (column) =>
+          column.metric === entry.metric &&
+          !column.key.startsWith(INLINE_YTD_PRODUCTS_PREFIX) &&
+          (column.key === entry.metric || column.breakdownGroup !== undefined),
+      )
+      continue
+    }
+    if (entry.kind === "inlineYtd") {
+      const expectedKey = `${entry.metric}${INLINE_YTD_SUFFIX}`
+      placeMatching((column) => column.key === expectedKey)
+      continue
+    }
+    if (entry.kind === "comparison") {
+      const comparisonKey = `${entry.metric}${COMPARISON_SUFFIX}`
+      const changePctKey = `${entry.metric}${COMPARISON_CHANGE_PCT_SUFFIX}`
+      placeMatching((column) => column.key === comparisonKey)
+      placeMatching((column) => column.key === changePctKey)
+      continue
+    }
+    if (entry.kind === "comparisonYtd") {
+      const expectedKey = `${entry.metric}${COMPARISON_YTD_SUFFIX}`
+      placeMatching((column) => column.key === expectedKey)
+      continue
+    }
+    if (entry.kind === "inlineYtdProducts") {
+      placeMatching((column) => column.key.startsWith(INLINE_YTD_PRODUCTS_PREFIX))
+      continue
+    }
+  }
 
   for (const column of metricColumns) {
-    const isAnchor = column.key === column.metric && sequenceSet.has(column.metric)
-    if (isAnchor) {
-      currentGroup = { anchor: column.metric, columns: [column] }
-      groups.push(currentGroup)
-      continue
-    }
-    if (currentGroup) {
-      currentGroup.columns.push(column)
-      continue
-    }
-    groups.push({ anchor: null, columns: [column] })
+    if (placed.has(column.key)) continue
+    orderedColumns.push(column)
+    placed.add(column.key)
   }
-
-  const orphanGroups = groups.filter((group) => group.anchor === null)
-  const anchorGroups = groups.filter((group) => group.anchor !== null)
-  const anchorByMetric = new Map(anchorGroups.map((group) => [group.anchor as Metric, group]))
-
-  const orderedAnchorGroups: ColumnGroup[] = []
-  const placedAnchors = new Set<Metric>()
-
-  for (const metric of metricSequence) {
-    const group = anchorByMetric.get(metric)
-    if (group && !placedAnchors.has(metric)) {
-      orderedAnchorGroups.push(group)
-      placedAnchors.add(metric)
-    }
-  }
-
-  for (const group of anchorGroups) {
-    if (group.anchor && !placedAnchors.has(group.anchor)) {
-      orderedAnchorGroups.push(group)
-      placedAnchors.add(group.anchor)
-    }
-  }
-
-  const reorderedMetricColumns = [
-    ...orphanGroups.flatMap((group) => group.columns),
-    ...orderedAnchorGroups.flatMap((group) => group.columns),
-  ]
 
   return {
     ...result,
-    columns: [...dimensionColumns, ...reorderedMetricColumns, ...attributeColumns],
+    columns: [...dimensionColumns, ...orderedColumns, ...attributeColumns],
   }
 }

@@ -120,6 +120,8 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
   })
 
   const pivotRoots = new Map<string, PivotColumnGroup>()
+  const distinctPivotMetrics = new Set(pivotMetricColumns.map((column) => column.metric))
+  const useDimensionValueAsLeafHeader = distinctPivotMetrics.size === 1
 
   for (const column of pivotMetricColumns) {
     let siblings = pivotRoots
@@ -144,7 +146,11 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
       siblings = nextGroup.children
     })
 
-    const metricHeader = FIELD_LABELS[column.metric] ?? column.label
+    const lastPivotValue = column.pivot?.values[column.pivot.values.length - 1]
+    const leafHeader =
+      useDimensionValueAsLeafHeader && lastPivotValue
+        ? formatReportCell(lastPivotValue.dimension, lastPivotValue.value)
+        : (FIELD_LABELS[column.metric] ?? column.label)
     const parentGroup = column.pivot?.values.length
       ? column.pivot.values.reduce<PivotColumnGroup | null>(
           (group, { dimension, value }, index) => {
@@ -156,7 +162,7 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
       : null
 
     if (parentGroup) {
-      parentGroup.leaves.push(leafColumn(column, metricHeader, column))
+      parentGroup.leaves.push(leafColumn(column, leafHeader, column))
     }
   }
 

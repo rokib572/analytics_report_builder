@@ -17,6 +17,8 @@ const COMPARISON_KEY_SUFFIX = "__comparison"
 const COMPARISON_YTD_KEY_SUFFIX = "__comparison_ytd"
 const COMPARISON_CHANGE_PCT_KEY_SUFFIX = "__comparison_change_pct"
 const SALES_YOY_CHANGE_LABEL = "YOY Sales Change (%)"
+const PRODUCT_YTD_BREAKDOWN_LABEL = "YTD Products"
+const PRODUCT_YTD_PSEUDO_METRIC: Metric = "unitsSold"
 
 const DEFAULT_COMPARISON_LABELS: Partial<Record<Metric, { priorPeriod: string; ytd: string }>> = {
   netSales: { priorPeriod: "PY Comping Sales", ytd: "Comping Sales YTD" },
@@ -83,6 +85,9 @@ const deriveDescriptorsFromLegacy = (config: ReportQueryInput): ExtraColumnDescr
   for (const metric of config.comparisonYtdMetrics ?? []) {
     descriptors.push({ kind: "comparisonYtd", metric })
   }
+  if (config.inlineYtdProducts) {
+    descriptors.push({ kind: "inlineYtdProducts", metric: PRODUCT_YTD_PSEUDO_METRIC })
+  }
   return descriptors
 }
 
@@ -95,6 +100,12 @@ const filterDescriptorsBySupport = (
   const filtered: ExtraColumnDescriptor[] = []
 
   for (const descriptor of descriptors) {
+    if (descriptor.kind === "metric") continue
+    if (descriptor.kind === "inlineYtdProducts") {
+      if (config.rows.length === 0) continue
+      filtered.push(descriptor)
+      continue
+    }
     if (!baseMetrics.has(descriptor.metric)) continue
     if (descriptor.kind === "inlineYtd") {
       if (config.rows.length === 0) continue
@@ -131,6 +142,7 @@ const buildSubConfig = (
   comparisonMetrics: undefined,
   comparisonYtdMetrics: undefined,
   extraColumnOrder: undefined,
+  inlineYtdProducts: undefined,
   locationAttributes: undefined,
   dateRange,
   page: 1,
@@ -159,9 +171,11 @@ const collectMetricsByKind = (
   descriptors: ExtraColumnDescriptor[],
 ): Record<ExtraColumnKind, Metric[]> => {
   const buckets: Record<ExtraColumnKind, Metric[]> = {
+    metric: [],
     inlineYtd: [],
     comparison: [],
     comparisonYtd: [],
+    inlineYtdProducts: [],
   }
   for (const descriptor of descriptors) {
     if (!buckets[descriptor.kind].includes(descriptor.metric)) {
@@ -169,6 +183,34 @@ const collectMetricsByKind = (
     }
   }
   return buckets
+}
+
+const fetchProductYtdRowsByKey = async (
+  db: DbClient,
+  customerId: string,
+  config: ReportQueryInput,
+): Promise<{
+  rowMap: Map<string, Record<string, string | number | null>>
+  productColumns: Array<Extract<ReportColumn, { kind: "metric" }>>
+}> => {
+  const subResult = await buildReportQuery(db, customerId, {
+    ...buildSubConfig(config, [PRODUCT_YTD_PSEUDO_METRIC], yearToDateRange(config.dateRange)),
+    columns: ["product"],
+  })
+
+  const productColumns = subResult.columns.filter(
+    (column): column is Extract<ReportColumn, { kind: "metric" }> =>
+      column.kind === "metric" &&
+      column.metric === PRODUCT_YTD_PSEUDO_METRIC &&
+      Boolean(column.pivot),
+  )
+
+  const rowMap = new Map<string, Record<string, string | number | null>>()
+  for (const row of subResult.rows) {
+    rowMap.set(buildRowKey(config.rows, row), row)
+  }
+
+  return { rowMap, productColumns }
 }
 
 export const appendExtraColumns = async (
@@ -213,16 +255,44 @@ export const appendExtraColumns = async (
         )
       : null
 
+  const productYtdData =
+    buckets.inlineYtdProducts.length > 0
+      ? await fetchProductYtdRowsByKey(db, customerId, config)
+      : null
+
   const newColumns: ReportColumn[] = []
   const writeRowEntries: Array<{
     columnKey: string
     metric: Metric
+    sourceKey?: string
     sourceMap: Map<string, Record<string, string | number | null>> | null
     derivePercent?: { fromKey: string }
   }> = []
 
   for (const descriptor of supportedDescriptors) {
     const labelOverride = config.comparisonMetricLabels?.[descriptor.metric]
+
+    if (descriptor.kind === "inlineYtdProducts") {
+      if (!productYtdData) continue
+      for (const productColumn of productYtdData.productColumns) {
+        const productLabel = String(productColumn.pivot?.values[0]?.value ?? productColumn.label)
+        const columnKey = `inline_ytd_products::${productColumn.key}`
+        newColumns.push({
+          kind: "metric",
+          metric: PRODUCT_YTD_PSEUDO_METRIC,
+          key: columnKey,
+          label: productLabel,
+          breakdownGroup: PRODUCT_YTD_BREAKDOWN_LABEL,
+        })
+        writeRowEntries.push({
+          columnKey,
+          metric: PRODUCT_YTD_PSEUDO_METRIC,
+          sourceKey: productColumn.key,
+          sourceMap: productYtdData.rowMap,
+        })
+      }
+      continue
+    }
 
     if (descriptor.kind === "inlineYtd") {
       const columnKey = `${descriptor.metric}${INLINE_YTD_KEY_SUFFIX}`
@@ -297,7 +367,8 @@ export const appendExtraColumns = async (
         continue
       }
       const sourceRow = entry.sourceMap?.get(rowKey)
-      next[entry.columnKey] = sourceRow?.[entry.metric] ?? null
+      const lookupKey = entry.sourceKey ?? entry.metric
+      next[entry.columnKey] = sourceRow?.[lookupKey] ?? null
     }
     return next
   })

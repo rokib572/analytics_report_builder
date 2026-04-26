@@ -114,7 +114,14 @@ export const ReportBuilderRoute = () => {
         over.id === "metrics" &&
         !current.metrics.includes(fieldName)
       ) {
-        return { ...current, metrics: [...current.metrics, fieldName] }
+        return {
+          ...current,
+          metrics: [...current.metrics, fieldName],
+          extraColumnOrder: [
+            ...(current.extraColumnOrder ?? []),
+            { kind: "metric", metric: fieldName },
+          ],
+        }
       }
 
       if (
@@ -148,13 +155,24 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
-        if (
-          hasCrossModePivotConflict(current.metrics, current.rows, [...current.columns, fieldName])
-        ) {
+        const shouldAutoInjectUnitsSold =
+          fieldName === "product" && !current.metrics.includes("unitsSold")
+        const nextMetrics = shouldAutoInjectUnitsSold
+          ? [...current.metrics, "unitsSold" as const]
+          : current.metrics
+
+        if (hasCrossModePivotConflict(nextMetrics, current.rows, [...current.columns, fieldName])) {
           return current
         }
 
-        return { ...current, columns: [...current.columns, fieldName] }
+        return {
+          ...current,
+          metrics: nextMetrics,
+          columns: [...current.columns, fieldName],
+          extraColumnOrder: shouldAutoInjectUnitsSold
+            ? [...(current.extraColumnOrder ?? []), { kind: "metric", metric: "unitsSold" }]
+            : current.extraColumnOrder,
+        }
       }
 
       return current

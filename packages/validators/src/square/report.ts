@@ -76,11 +76,12 @@ export const ReportConfigSchema = z.object({
   extraColumnOrder: z
     .array(
       z.object({
-        kind: z.enum(["inlineYtd", "comparison", "comparisonYtd"]),
+        kind: z.enum(["metric", "inlineYtd", "comparison", "comparisonYtd", "inlineYtdProducts"]),
         metric: MetricSchema,
       }),
     )
     .optional(),
+  inlineYtdProducts: z.boolean().optional(),
   payrollTaxRatePercent: z.number().min(0).max(100).optional(),
 })
 

@@ -378,7 +378,7 @@ export const buildReportQuery = async (
   )
   const withExtras = await appendExtraColumns(db, customerId, config, withChannelBreakdown)
   const enriched = await enrichLocationAttributes(db, customerId, config, withExtras)
-  return reorderColumnsByMetricSequence(enriched, config.metrics)
+  return reorderColumnsByMetricSequence(enriched, config.metrics, config.extraColumnOrder)
 }
 
 const stringifyKeyPart = (value: string | number | null) =>
@@ -686,6 +686,9 @@ const runMixedReportQuery = async (
     channelBreakdownMetrics: undefined,
     comparisonDateRange: undefined,
     comparisonMetrics: undefined,
+    comparisonYtdMetrics: undefined,
+    extraColumnOrder: undefined,
+    inlineYtdProducts: undefined,
     page: 1,
   }
 
@@ -780,5 +783,5 @@ const runMixedReportQuery = async (
   const withChannelBreakdown = await appendChannelBreakdownColumns(db, customerId, config, merged)
   const withExtras = await appendExtraColumns(db, customerId, config, withChannelBreakdown)
   const enriched = await enrichLocationAttributes(db, customerId, config, withExtras)
-  return reorderColumnsByMetricSequence(enriched, config.metrics)
+  return reorderColumnsByMetricSequence(enriched, config.metrics, config.extraColumnOrder)
 }
