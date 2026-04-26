@@ -77,20 +77,15 @@ const isNumericMetricColumn = (column: Extract<ReportColumn, { kind: "metric" }>
   isMonetaryReportColumn(column) || column.metric === "orderCount"
 
 const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRow>[] => {
-  const rowDimensionColumns = reportColumns.filter(
-    (column): column is Extract<ReportColumn, { kind: "dimension" }> => column.kind === "dimension",
+  const distinctPivotMetrics = new Set(
+    reportColumns
+      .filter(
+        (column): column is Extract<ReportColumn, { kind: "metric" }> =>
+          column.kind === "metric" && Boolean(column.pivot),
+      )
+      .map((column) => column.metric),
   )
-  const attributeColumns = reportColumns.filter(
-    (column): column is Extract<ReportColumn, { kind: "attribute" }> => column.kind === "attribute",
-  )
-  const pivotMetricColumns = reportColumns.filter(
-    (column): column is Extract<ReportColumn, { kind: "metric" }> =>
-      column.kind === "metric" && Boolean(column.pivot),
-  )
-  const unpivotedMetricColumns = reportColumns.filter(
-    (column): column is Extract<ReportColumn, { kind: "metric" }> =>
-      column.kind === "metric" && !column.pivot,
-  )
+  const useDimensionValueAsLeafHeader = distinctPivotMetrics.size === 1
 
   const leafColumn = (
     column: ReportColumn,
@@ -119,104 +114,130 @@ const buildPreviewColumns = (reportColumns: ReportColumn[]): ColumnDef<PreviewRo
     },
   })
 
-  const pivotRoots = new Map<string, PivotColumnGroup>()
-  const distinctPivotMetrics = new Set(pivotMetricColumns.map((column) => column.metric))
-  const useDimensionValueAsLeafHeader = distinctPivotMetrics.size === 1
+  const buildPivotGroup = (
+    pivotColumns: Extract<ReportColumn, { kind: "metric" }>[],
+  ): ColumnDef<PreviewRow>[] => {
+    const pivotRoots = new Map<string, PivotColumnGroup>()
 
-  for (const column of pivotMetricColumns) {
-    let siblings = pivotRoots
+    for (const column of pivotColumns) {
+      let siblings = pivotRoots
 
-    column.pivot?.values.forEach(({ dimension, value }, index) => {
-      const path = `${dimension}:${String(value)}:${index}`
-      const existing = siblings.get(path)
+      column.pivot?.values.forEach(({ dimension, value }, index) => {
+        const path = `${dimension}:${String(value)}:${index}`
+        const existing = siblings.get(path)
 
-      if (existing) {
-        siblings = existing.children
-        return
+        if (existing) {
+          siblings = existing.children
+          return
+        }
+
+        const nextGroup: PivotColumnGroup = {
+          id: path,
+          header: formatReportCell(dimension, value),
+          children: new Map(),
+          leaves: [],
+        }
+
+        siblings.set(path, nextGroup)
+        siblings = nextGroup.children
+      })
+
+      const lastPivotValue = column.pivot?.values[column.pivot.values.length - 1]
+      const leafHeader =
+        useDimensionValueAsLeafHeader && lastPivotValue
+          ? formatReportCell(lastPivotValue.dimension, lastPivotValue.value)
+          : (FIELD_LABELS[column.metric] ?? column.label)
+      const parentGroup = column.pivot?.values.length
+        ? column.pivot.values.reduce<PivotColumnGroup | null>(
+            (group, { dimension, value }, index) => {
+              const path = `${dimension}:${String(value)}:${index}`
+              return (group ? group.children : pivotRoots).get(path) ?? null
+            },
+            null,
+          )
+        : null
+
+      if (parentGroup) {
+        parentGroup.leaves.push(leafColumn(column, leafHeader, column))
       }
-
-      const nextGroup: PivotColumnGroup = {
-        id: path,
-        header: formatReportCell(dimension, value),
-        children: new Map(),
-        leaves: [],
-      }
-
-      siblings.set(path, nextGroup)
-      siblings = nextGroup.children
-    })
-
-    const lastPivotValue = column.pivot?.values[column.pivot.values.length - 1]
-    const leafHeader =
-      useDimensionValueAsLeafHeader && lastPivotValue
-        ? formatReportCell(lastPivotValue.dimension, lastPivotValue.value)
-        : (FIELD_LABELS[column.metric] ?? column.label)
-    const parentGroup = column.pivot?.values.length
-      ? column.pivot.values.reduce<PivotColumnGroup | null>(
-          (group, { dimension, value }, index) => {
-            const path = `${dimension}:${String(value)}:${index}`
-            return (group ? group.children : pivotRoots).get(path) ?? null
-          },
-          null,
-        )
-      : null
-
-    if (parentGroup) {
-      parentGroup.leaves.push(leafColumn(column, leafHeader, column))
     }
-  }
 
-  const materializeGroups = (groups: Map<string, PivotColumnGroup>): ColumnDef<PreviewRow>[] =>
-    [...groups.values()].map((group) => {
-      const nestedChildren = materializeGroups(group.children)
-      return {
+    const materialize = (groups: Map<string, PivotColumnGroup>): ColumnDef<PreviewRow>[] =>
+      [...groups.values()].map((group) => ({
         id: group.id,
         header: group.header,
-        columns: [...nestedChildren, ...group.leaves],
-      }
-    })
+        columns: [...materialize(group.children), ...group.leaves],
+      }))
 
-  const groupedUnpivotedColumns: ColumnDef<PreviewRow>[] = []
+    return materialize(pivotRoots)
+  }
+
+  const output: ColumnDef<PreviewRow>[] = []
   let cursor = 0
-  while (cursor < unpivotedMetricColumns.length) {
-    const current = unpivotedMetricColumns[cursor]!
-    if (!current.breakdownGroup) {
-      groupedUnpivotedColumns.push(
-        leafColumn(
-          current,
-          current.label || (FIELD_LABELS[current.metric] ?? current.metric),
-          current,
-        ),
+  while (cursor < reportColumns.length) {
+    const column = reportColumns[cursor]!
+
+    if (column.kind === "dimension") {
+      output.push(leafColumn(column, column.label))
+      cursor += 1
+      continue
+    }
+
+    if (column.kind === "attribute") {
+      output.push(
+        leafColumn(column, column.label || (FIELD_LABELS[column.attribute] ?? column.attribute)),
       )
       cursor += 1
       continue
     }
-    const groupLabel = current.breakdownGroup
-    const members: Extract<ReportColumn, { kind: "metric" }>[] = []
-    while (
-      cursor < unpivotedMetricColumns.length &&
-      unpivotedMetricColumns[cursor]!.breakdownGroup === groupLabel
-    ) {
-      members.push(unpivotedMetricColumns[cursor]!)
-      cursor += 1
+
+    if (column.pivot) {
+      const pivotMembers: Extract<ReportColumn, { kind: "metric" }>[] = []
+      while (cursor < reportColumns.length) {
+        const candidate = reportColumns[cursor]!
+        if (candidate.kind !== "metric" || !candidate.pivot) break
+        pivotMembers.push(candidate)
+        cursor += 1
+      }
+      output.push(...buildPivotGroup(pivotMembers))
+      continue
     }
-    groupedUnpivotedColumns.push({
-      id: `breakdown-group-${groupLabel}-${members[0]!.key}`,
-      header: groupLabel,
-      columns: members.map((member) =>
-        leafColumn(member, member.label || (FIELD_LABELS[member.metric] ?? member.metric), member),
-      ),
-    })
+
+    if (column.breakdownGroup) {
+      const groupLabel = column.breakdownGroup
+      const members: Extract<ReportColumn, { kind: "metric" }>[] = []
+      while (cursor < reportColumns.length) {
+        const candidate = reportColumns[cursor]!
+        if (
+          candidate.kind !== "metric" ||
+          candidate.pivot ||
+          candidate.breakdownGroup !== groupLabel
+        )
+          break
+        members.push(candidate)
+        cursor += 1
+      }
+      output.push({
+        id: `breakdown-group-${groupLabel}-${members[0]!.key}`,
+        header: groupLabel,
+        columns: members.map((member) =>
+          leafColumn(
+            member,
+            member.label || (FIELD_LABELS[member.metric] ?? member.metric),
+            member,
+          ),
+        ),
+      })
+      continue
+    }
+
+    output.push(
+      leafColumn(column, column.label || (FIELD_LABELS[column.metric] ?? column.metric), column),
+    )
+    cursor += 1
   }
 
-  return [
-    ...rowDimensionColumns.map((column) => leafColumn(column, column.label)),
-    ...attributeColumns.map((column) =>
-      leafColumn(column, column.label || (FIELD_LABELS[column.attribute] ?? column.attribute)),
-    ),
-    ...materializeGroups(pivotRoots),
-    ...groupedUnpivotedColumns,
-  ]
+  return output
 }
 
 const transformChartData = (result: ReportQueryResult): Record<string, unknown>[] =>

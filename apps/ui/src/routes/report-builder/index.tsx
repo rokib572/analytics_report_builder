@@ -165,13 +165,24 @@ export const ReportBuilderRoute = () => {
           return current
         }
 
+        // For Product → Columns: re-stamp unitsSold's metric event to "now" so the
+        // pivot columns land at the chronological end. Other column dims leave
+        // extraColumnOrder untouched.
+        const nextExtraColumnOrder =
+          fieldName === "product"
+            ? [
+                ...(current.extraColumnOrder ?? []).filter(
+                  (entry) => !(entry.kind === "metric" && entry.metric === "unitsSold"),
+                ),
+                { kind: "metric" as const, metric: "unitsSold" as const },
+              ]
+            : current.extraColumnOrder
+
         return {
           ...current,
           metrics: nextMetrics,
           columns: [...current.columns, fieldName],
-          extraColumnOrder: shouldAutoInjectUnitsSold
-            ? [...(current.extraColumnOrder ?? []), { kind: "metric", metric: "unitsSold" }]
-            : current.extraColumnOrder,
+          extraColumnOrder: nextExtraColumnOrder,
         }
       }
 
