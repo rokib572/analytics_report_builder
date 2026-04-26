@@ -11,6 +11,7 @@ const INLINE_YTD_SUFFIX = "__ytd"
 const COMPARISON_SUFFIX = "__comparison"
 const COMPARISON_CHANGE_PCT_SUFFIX = "__comparison_change_pct"
 const COMPARISON_YTD_SUFFIX = "__comparison_ytd"
+const COMPARISON_YTD_CHANGE_PCT_SUFFIX = "__comparison_ytd_change_pct"
 const INLINE_YTD_PRODUCTS_PREFIX = "inline_ytd_products::"
 
 const buildSequence = (
@@ -47,8 +48,6 @@ export const reorderColumnsByMetricSequence = (
     else metricColumns.push(column)
   }
 
-  if (metricColumns.some((column) => Boolean(column.pivot))) return result
-
   const sequence = buildSequence(metricSequence, extraColumnOrder)
   const placed = new Set<string>()
   const orderedColumns: MetricColumn[] = []
@@ -68,7 +67,9 @@ export const reorderColumnsByMetricSequence = (
         (column) =>
           column.metric === entry.metric &&
           !column.key.startsWith(INLINE_YTD_PRODUCTS_PREFIX) &&
-          (column.key === entry.metric || column.breakdownGroup !== undefined),
+          (column.key === entry.metric ||
+            column.breakdownGroup !== undefined ||
+            Boolean(column.pivot)),
       )
       continue
     }
@@ -79,7 +80,9 @@ export const reorderColumnsByMetricSequence = (
     }
     if (entry.kind === "comparison") {
       const comparisonKey = `${entry.metric}${COMPARISON_SUFFIX}`
+      const autoYoyKey = `${entry.metric}${COMPARISON_CHANGE_PCT_SUFFIX}`
       placeMatching((column) => column.key === comparisonKey)
+      placeMatching((column) => column.key === autoYoyKey)
       continue
     }
     if (entry.kind === "comparisonYtd") {
@@ -88,7 +91,7 @@ export const reorderColumnsByMetricSequence = (
       continue
     }
     if (entry.kind === "comparisonYoy") {
-      const expectedKey = `${entry.metric}${COMPARISON_CHANGE_PCT_SUFFIX}`
+      const expectedKey = `${entry.metric}${COMPARISON_YTD_CHANGE_PCT_SUFFIX}`
       placeMatching((column) => column.key === expectedKey)
       continue
     }

@@ -250,12 +250,19 @@ export const ReportCanvas = ({
     const nextMetrics = isCurrentlySelected
       ? comparisonYtdMetrics.filter((item) => item !== metric)
       : [...comparisonYtdMetrics, metric]
-    const nextOrder = isCurrentlySelected
+    const nextYoyMetrics = isCurrentlySelected
+      ? comparisonYoyMetrics.filter((item) => item !== metric)
+      : comparisonYoyMetrics
+    let nextOrder = isCurrentlySelected
       ? removeExtraColumn(extraColumnOrder, "comparisonYtd", metric)
       : addExtraColumn(extraColumnOrder, "comparisonYtd", metric)
+    if (isCurrentlySelected) {
+      nextOrder = removeExtraColumn(nextOrder, "comparisonYoy", metric)
+    }
     onConfigChange({
       ...config,
       comparisonYtdMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      comparisonYoyMetrics: nextYoyMetrics.length > 0 ? nextYoyMetrics : undefined,
       extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
@@ -627,7 +634,11 @@ export const ReportCanvas = ({
                       id={yoyCheckboxId}
                       checked={comparisonYoyMetrics.includes(metric)}
                       onCheckedChange={() => toggleComparisonYoyMetric(metric)}
-                      disabled={!hasComparisonDateRange || !isComparing}
+                      disabled={
+                        !hasComparisonDateRange ||
+                        !isComparing ||
+                        !comparisonYtdMetrics.includes(metric)
+                      }
                     />
                     <Label
                       htmlFor={yoyCheckboxId}
