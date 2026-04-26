@@ -687,6 +687,7 @@ const runMixedReportQuery = async (
     comparisonDateRange: undefined,
     comparisonMetrics: undefined,
     comparisonYtdMetrics: undefined,
+    comparisonYoyMetrics: undefined,
     extraColumnOrder: undefined,
     inlineYtdProducts: undefined,
     page: 1,

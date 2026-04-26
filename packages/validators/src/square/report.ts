@@ -72,11 +72,19 @@ export const ReportConfigSchema = z.object({
     .optional(),
   comparisonMetrics: z.array(MetricSchema).optional(),
   comparisonYtdMetrics: z.array(MetricSchema).optional(),
+  comparisonYoyMetrics: z.array(MetricSchema).optional(),
   comparisonMetricLabels: z.record(z.string(), z.string()).optional(),
   extraColumnOrder: z
     .array(
       z.object({
-        kind: z.enum(["metric", "inlineYtd", "comparison", "comparisonYtd", "inlineYtdProducts"]),
+        kind: z.enum([
+          "metric",
+          "inlineYtd",
+          "comparison",
+          "comparisonYtd",
+          "comparisonYoy",
+          "inlineYtdProducts",
+        ]),
         metric: MetricSchema,
       }),
     )

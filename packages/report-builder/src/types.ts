@@ -84,6 +84,7 @@ export type ExtraColumnKind =
   | "inlineYtd"
   | "comparison"
   | "comparisonYtd"
+  | "comparisonYoy"
   | "inlineYtdProducts"
 
 export type ExtraColumnDescriptor = {
@@ -107,6 +108,7 @@ export type ReportConfig = {
   comparisonDateRange?: { from: string; to: string }
   comparisonMetrics?: Metric[]
   comparisonYtdMetrics?: Metric[]
+  comparisonYoyMetrics?: Metric[]
   comparisonMetricLabels?: Record<string, string>
   extraColumnOrder?: ExtraColumnDescriptor[]
   inlineYtdProducts?: boolean

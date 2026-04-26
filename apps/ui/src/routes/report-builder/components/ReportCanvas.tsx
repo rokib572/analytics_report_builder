@@ -114,6 +114,7 @@ export const ReportCanvas = ({
   )
   const comparisonMetrics = config.comparisonMetrics ?? []
   const comparisonYtdMetrics = config.comparisonYtdMetrics ?? []
+  const comparisonYoyMetrics = config.comparisonYoyMetrics ?? []
   const comparisonDateFrom = config.comparisonDateRange?.from ?? ""
   const comparisonDateTo = config.comparisonDateRange?.to ?? ""
   const hasComparisonDateRange = Boolean(comparisonDateFrom && comparisonDateTo)
@@ -149,6 +150,9 @@ export const ReportCanvas = ({
     }
     for (const metric of comparisonYtdMetrics) {
       derived.push({ kind: "comparisonYtd", metric })
+    }
+    for (const metric of comparisonYoyMetrics) {
+      derived.push({ kind: "comparisonYoy", metric })
     }
     if (config.inlineYtdProducts) {
       derived.push({ kind: "inlineYtdProducts", metric: "unitsSold" })
@@ -222,16 +226,21 @@ export const ReportCanvas = ({
     const nextYtdMetrics = isCurrentlySelected
       ? comparisonYtdMetrics.filter((item) => item !== metric)
       : comparisonYtdMetrics
+    const nextYoyMetrics = isCurrentlySelected
+      ? comparisonYoyMetrics.filter((item) => item !== metric)
+      : comparisonYoyMetrics
     let nextOrder = isCurrentlySelected
       ? removeExtraColumn(extraColumnOrder, "comparison", metric)
       : addExtraColumn(extraColumnOrder, "comparison", metric)
     if (isCurrentlySelected) {
       nextOrder = removeExtraColumn(nextOrder, "comparisonYtd", metric)
+      nextOrder = removeExtraColumn(nextOrder, "comparisonYoy", metric)
     }
     onConfigChange({
       ...config,
       comparisonMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
       comparisonYtdMetrics: nextYtdMetrics.length > 0 ? nextYtdMetrics : undefined,
+      comparisonYoyMetrics: nextYoyMetrics.length > 0 ? nextYoyMetrics : undefined,
       extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
@@ -247,6 +256,21 @@ export const ReportCanvas = ({
     onConfigChange({
       ...config,
       comparisonYtdMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
+      extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
+    })
+  }
+
+  const toggleComparisonYoyMetric = (metric: Metric) => {
+    const isCurrentlySelected = comparisonYoyMetrics.includes(metric)
+    const nextMetrics = isCurrentlySelected
+      ? comparisonYoyMetrics.filter((item) => item !== metric)
+      : [...comparisonYoyMetrics, metric]
+    const nextOrder = isCurrentlySelected
+      ? removeExtraColumn(extraColumnOrder, "comparisonYoy", metric)
+      : addExtraColumn(extraColumnOrder, "comparisonYoy", metric)
+    onConfigChange({
+      ...config,
+      comparisonYoyMetrics: nextMetrics.length > 0 ? nextMetrics : undefined,
       extraColumnOrder: nextOrder.length > 0 ? nextOrder : undefined,
     })
   }
@@ -366,6 +390,9 @@ export const ReportCanvas = ({
                 (metric) => metric !== removedMetric,
               ),
               comparisonYtdMetrics: (config.comparisonYtdMetrics ?? []).filter(
+                (metric) => metric !== removedMetric,
+              ),
+              comparisonYoyMetrics: (config.comparisonYoyMetrics ?? []).filter(
                 (metric) => metric !== removedMetric,
               ),
               channelBreakdownMetrics: (config.channelBreakdownMetrics ?? []).filter(
@@ -565,6 +592,7 @@ export const ReportCanvas = ({
             {config.metrics.map((metric) => {
               const checkboxId = `comparison-toggle-${metric}`
               const ytdCheckboxId = `comparison-ytd-toggle-${metric}`
+              const yoyCheckboxId = `comparison-yoy-toggle-${metric}`
               const isComparing = comparisonMetrics.includes(metric)
               return (
                 <div
@@ -592,6 +620,20 @@ export const ReportCanvas = ({
                       className="cursor-pointer text-xs font-normal text-muted-foreground"
                     >
                       YTD
+                    </Label>
+                  </span>
+                  <span className="ml-2 flex items-center gap-1 border-l border-border pl-2">
+                    <Checkbox
+                      id={yoyCheckboxId}
+                      checked={comparisonYoyMetrics.includes(metric)}
+                      onCheckedChange={() => toggleComparisonYoyMetric(metric)}
+                      disabled={!hasComparisonDateRange || !isComparing}
+                    />
+                    <Label
+                      htmlFor={yoyCheckboxId}
+                      className="cursor-pointer text-xs font-normal text-muted-foreground"
+                    >
+                      YOY
                     </Label>
                   </span>
                 </div>

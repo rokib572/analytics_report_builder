@@ -62,6 +62,12 @@ const buildYtdComparisonLabel = (metric: Metric): string => {
 
 const buildInlineYtdLabel = (metric: Metric): string => `YTD ${FIELD_LABELS[metric] ?? metric}`
 
+const buildYoyChangeLabel = (metric: Metric): string => {
+  if (metric === "netSales") return SALES_YOY_CHANGE_LABEL
+  const metricLabel = FIELD_LABELS[metric] ?? metric
+  return `YOY ${metricLabel} Change (%)`
+}
+
 const dedupeDescriptors = (descriptors: ExtraColumnDescriptor[]): ExtraColumnDescriptor[] => {
   const seen = new Set<string>()
   const result: ExtraColumnDescriptor[] = []
@@ -84,6 +90,9 @@ const deriveDescriptorsFromLegacy = (config: ReportQueryInput): ExtraColumnDescr
   }
   for (const metric of config.comparisonYtdMetrics ?? []) {
     descriptors.push({ kind: "comparisonYtd", metric })
+  }
+  for (const metric of config.comparisonYoyMetrics ?? []) {
+    descriptors.push({ kind: "comparisonYoy", metric })
   }
   if (config.inlineYtdProducts) {
     descriptors.push({ kind: "inlineYtdProducts", metric: PRODUCT_YTD_PSEUDO_METRIC })
@@ -122,6 +131,12 @@ const filterDescriptorsBySupport = (
       if (!config.comparisonDateRange) continue
       if (!comparisonMetricsByDescriptor.has(descriptor.metric)) continue
       filtered.push(descriptor)
+      continue
+    }
+    if (descriptor.kind === "comparisonYoy") {
+      if (!config.comparisonDateRange) continue
+      if (!comparisonMetricsByDescriptor.has(descriptor.metric)) continue
+      filtered.push(descriptor)
     }
   }
 
@@ -141,6 +156,7 @@ const buildSubConfig = (
   comparisonDateRange: undefined,
   comparisonMetrics: undefined,
   comparisonYtdMetrics: undefined,
+  comparisonYoyMetrics: undefined,
   extraColumnOrder: undefined,
   inlineYtdProducts: undefined,
   locationAttributes: undefined,
@@ -175,6 +191,7 @@ const collectMetricsByKind = (
     inlineYtd: [],
     comparison: [],
     comparisonYtd: [],
+    comparisonYoy: [],
     inlineYtdProducts: [],
   }
   for (const descriptor of descriptors) {
@@ -239,9 +256,16 @@ export const appendExtraColumns = async (
         )
       : null
 
+  const comparisonMetricsToFetch = [...new Set([...buckets.comparison, ...buckets.comparisonYoy])]
   const comparisonRowsByKey =
-    buckets.comparison.length > 0 && config.comparisonDateRange
-      ? await fetchRowsByKey(db, customerId, config, buckets.comparison, config.comparisonDateRange)
+    comparisonMetricsToFetch.length > 0 && config.comparisonDateRange
+      ? await fetchRowsByKey(
+          db,
+          customerId,
+          config,
+          comparisonMetricsToFetch,
+          config.comparisonDateRange,
+        )
       : null
 
   const comparisonYtdRowsByKey =
@@ -267,6 +291,7 @@ export const appendExtraColumns = async (
     sourceKey?: string
     sourceMap: Map<string, Record<string, string | number | null>> | null
     derivePercent?: { fromKey: string }
+    derivePercentFromCurrent?: boolean
   }> = []
 
   for (const descriptor of supportedDescriptors) {
@@ -323,21 +348,23 @@ export const appendExtraColumns = async (
         metric: descriptor.metric,
         sourceMap: comparisonRowsByKey,
       })
-      if (descriptor.metric === "netSales") {
-        const changeKey = `${descriptor.metric}${COMPARISON_CHANGE_PCT_KEY_SUFFIX}`
-        newColumns.push({
-          kind: "metric",
-          metric: "salesYoyChangePercent",
-          key: changeKey,
-          label: SALES_YOY_CHANGE_LABEL,
-        })
-        writeRowEntries.push({
-          columnKey: changeKey,
-          metric: descriptor.metric,
-          sourceMap: null,
-          derivePercent: { fromKey: columnKey },
-        })
-      }
+      continue
+    }
+
+    if (descriptor.kind === "comparisonYoy") {
+      const columnKey = `${descriptor.metric}${COMPARISON_CHANGE_PCT_KEY_SUFFIX}`
+      newColumns.push({
+        kind: "metric",
+        metric: "salesYoyChangePercent",
+        key: columnKey,
+        label: buildYoyChangeLabel(descriptor.metric),
+      })
+      writeRowEntries.push({
+        columnKey,
+        metric: descriptor.metric,
+        sourceMap: comparisonRowsByKey,
+        derivePercentFromCurrent: true,
+      })
       continue
     }
 
@@ -364,6 +391,12 @@ export const appendExtraColumns = async (
           row[entry.metric],
           next[entry.derivePercent.fromKey] ?? null,
         )
+        continue
+      }
+      if (entry.derivePercentFromCurrent) {
+        const sourceRow = entry.sourceMap?.get(rowKey)
+        const priorValue = sourceRow?.[entry.metric] ?? null
+        next[entry.columnKey] = computeYoyChangePercent(row[entry.metric], priorValue)
         continue
       }
       const sourceRow = entry.sourceMap?.get(rowKey)

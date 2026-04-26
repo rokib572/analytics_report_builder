@@ -67,6 +67,7 @@ export const buildDailyOperationsReportConfig = ({
     channelBreakdownMetrics: ["netSales"],
     comparisonDateRange,
     comparisonMetrics: ["netSales"],
+    comparisonYoyMetrics: ["netSales"],
     comparisonMetricLabels: { netSales: "PY Comping Sales" },
   }
 }

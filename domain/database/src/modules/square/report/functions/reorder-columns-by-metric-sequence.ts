@@ -79,13 +79,16 @@ export const reorderColumnsByMetricSequence = (
     }
     if (entry.kind === "comparison") {
       const comparisonKey = `${entry.metric}${COMPARISON_SUFFIX}`
-      const changePctKey = `${entry.metric}${COMPARISON_CHANGE_PCT_SUFFIX}`
       placeMatching((column) => column.key === comparisonKey)
-      placeMatching((column) => column.key === changePctKey)
       continue
     }
     if (entry.kind === "comparisonYtd") {
       const expectedKey = `${entry.metric}${COMPARISON_YTD_SUFFIX}`
+      placeMatching((column) => column.key === expectedKey)
+      continue
+    }
+    if (entry.kind === "comparisonYoy") {
+      const expectedKey = `${entry.metric}${COMPARISON_CHANGE_PCT_SUFFIX}`
       placeMatching((column) => column.key === expectedKey)
       continue
     }
